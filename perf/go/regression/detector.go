@@ -13,13 +13,11 @@ import (
 	"go.skia.org/infra/go/skerr"
 	"go.skia.org/infra/go/sklog"
 	"go.skia.org/infra/go/vec32"
-	"go.skia.org/infra/perf/go/alerts"
 	"go.skia.org/infra/perf/go/clustering2"
 	"go.skia.org/infra/perf/go/config"
 	"go.skia.org/infra/perf/go/dataframe"
 	"go.skia.org/infra/perf/go/dfiter"
 	perfgit "go.skia.org/infra/perf/go/git"
-	"go.skia.org/infra/perf/go/progress"
 	"go.skia.org/infra/perf/go/shortcut"
 	"go.skia.org/infra/perf/go/types"
 	"go.skia.org/infra/perf/go/ui/frame"
@@ -61,60 +59,6 @@ type DetectorResponseProcessor func(context.Context, *RegressionDetectionRequest
 
 // ParamsetProvider is a function that's called to return the current paramset.
 type ParamsetProvider func() paramtools.ReadOnlyParamSet
-
-// RegressionDetectionRequest is all the info needed to start a clustering run,
-// an Alert and the Domain over which to run that Alert.
-type RegressionDetectionRequest struct {
-	Alert  *alerts.Alert `json:"alert"`
-	Domain types.Domain  `json:"domain"`
-
-	// query is the exact query being run. It may be more specific than the one
-	// in the Alert if the Alert has a non-empty GroupBy.
-	query string
-
-	// Step/TotalQueries is the current percent of all the queries that have been processed.
-	Step int `json:"step"`
-
-	// TotalQueries is the number of sub-queries to be processed based on the
-	// GroupBy setting in the Alert.
-	TotalQueries int `json:"total_queries"`
-
-	// Progress of the detection request.
-	Progress progress.Progress `json:"-"`
-}
-
-// Query returns the query that the RegressionDetectionRequest process is
-// running.
-//
-// Note that it may be more specific than the Alert.Query if the Alert has a
-// non-empty GroupBy value.
-func (r *RegressionDetectionRequest) Query() string {
-	if r.query != "" {
-		return r.query
-	}
-	if r.Alert != nil {
-		return r.Alert.Query
-	}
-	return ""
-}
-
-// SetQuery sets a more refined query for the RegressionDetectionRequest.
-func (r *RegressionDetectionRequest) SetQuery(q string) {
-	r.query = q
-}
-
-// NewRegressionDetectionRequest returns a new RegressionDetectionRequest.
-func NewRegressionDetectionRequest() *RegressionDetectionRequest {
-	return &RegressionDetectionRequest{
-		Progress: progress.New(),
-	}
-}
-
-// RegressionDetectionResponse is the response from running a RegressionDetectionRequest.
-type RegressionDetectionResponse struct {
-	Summary *clustering2.ClusterSummaries `json:"summary"`
-	Frame   *frame.FrameResponse          `json:"frame"`
-}
 
 // regressionDetectionProcess handles the processing of a single RegressionDetectionRequest.
 type regressionDetectionProcess struct {
