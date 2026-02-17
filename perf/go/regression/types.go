@@ -157,3 +157,21 @@ type RegressionDetectionResponse struct {
 	// such as trace filtering statistics.
 	Message string `json:"-"` // Using json:"-" prevents it from being serialized by default.
 }
+
+// ConfirmedRegression is an alias for RegressionDetectionResponse used by the RegressionRefiner
+// and ConfirmedRegressionHandler to represent regressions that have been validated and approved
+// for saving or alerting.
+type ConfirmedRegression RegressionDetectionResponse
+
+// RegressionRefiner defines an interface for modules that process a complete
+// set of regression detection results before they are sent for storage.
+type RegressionRefiner interface {
+	// Process takes a slice of RegressionDetectionResponse (the raw results of
+	// regression detection). It returns a processed slice of ConfirmedRegression,
+	// which contains the anomalies (e.g. high or low status when exceeding a threshold)
+	// that we want to save into the database, send notifications and etc.
+	// ConfirmedRegression is an alias for RegressionDetectionResponse used by the RegressionRefiner
+	// and ConfirmedRegressionHandler to represent regressions that have been validated and approved
+	// for saving or alerting.
+	Process(ctx context.Context, cfg *alerts.Alert, responses []*RegressionDetectionResponse) ([]*ConfirmedRegression, error)
+}

@@ -1,0 +1,31 @@
+load("@rules_go//go:def.bzl", "go_library")
+load("//bazel/go:go_test.bzl", "go_test")
+
+go_library(
+    name = "refiner",
+    srcs = ["default_regression_refiner.go"],
+    importpath = "go.skia.org/infra/perf/go/regression/refiner",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//perf/go/alerts",
+        "//perf/go/clustering2",
+        "//perf/go/regression",
+        "//perf/go/stepfit",
+    ],
+)
+
+go_test(
+    name = "refiner_test",
+    srcs = ["default_regression_refiner_test.go"],
+    embed = [":refiner"],
+    deps = [
+        "//perf/go/alerts",
+        "//perf/go/clustering2",
+        "//perf/go/dataframe",
+        "//perf/go/regression",
+        "//perf/go/stepfit",
+        "//perf/go/types",
+        "//perf/go/ui/frame",
+        "@com_github_stretchr_testify//assert",
+    ],
+)
