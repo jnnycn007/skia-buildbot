@@ -4,6 +4,7 @@
  *
  */
 import { html, TemplateResult } from 'lit';
+import { GetGroupReportRequest } from '../json';
 
 export const formatNumber = (num: number): string =>
   num.toLocaleString('en-US', {
@@ -38,3 +39,11 @@ export const formatBug = (bugHostUrl: string, bugId: number): TemplateResult => 
   }
   return html`<a href="${`${bugHostUrl}/${bugId}`}" target="_blank">${bugId}</a>`;
 };
+
+export const GetEmptyGroupReportRequest = (): GetGroupReportRequest => ({
+  anomalyIDs: '',
+  rev: '',
+  bugID: '',
+  anomalyGroupID: '',
+  sid: '',
+});

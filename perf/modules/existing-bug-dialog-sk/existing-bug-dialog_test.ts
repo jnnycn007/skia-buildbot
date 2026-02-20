@@ -6,6 +6,7 @@ import { eventPromise, setUpElementUnderTest } from '../../../infra-sk/modules/t
 import { Anomaly } from '../json';
 import fetchMock from 'fetch-mock';
 import sinon from 'sinon';
+import { GetEmptyGroupReportRequest } from '../common/anomaly';
 
 describe('existing-bug-dialog-sk', () => {
   const newInstance = setUpElementUnderTest<ExistingBugDialogSk>('existing-bug-dialog-sk');
@@ -214,10 +215,10 @@ describe('existing-bug-dialog-sk', () => {
 
       fetchMock.post('/_/anomalies/group_report', (_url, opts) => {
         const body = JSON.parse(opts.body as string);
-        assert.deepEqual(body, {
-          anomalyIDs: anomalies.map((a) => a.id).join(','),
-        });
-        return { status: 200, body: JSON.stringify({ anomaly_list: anomalies }) };
+        const req = GetEmptyGroupReportRequest();
+        req.anomalyIDs = anomalies.map((a) => a.id).join(',');
+        assert.deepEqual(body.anomalyIDs, req.anomalyIDs);
+        return { status: 200, body: JSON.stringify({ anomaly_list: anomalies, sid: '' }) };
       });
 
       fetchMock.post('/_/triage/list_issues', (_url, opts) => {
@@ -241,13 +242,13 @@ describe('existing-bug-dialog-sk', () => {
 
       fetchMock.post('/_/anomalies/group_report', (_url, opts) => {
         const body = JSON.parse(opts.body as string);
-        if (body.StateId) {
-          assert.equal(body.StateId, 'sid');
-          return { status: 200, body: JSON.stringify({ anomaly_list: anomalies }) };
+        if (body.sid) {
+          assert.equal(body.sid, 'sid');
+          return { status: 200, body: JSON.stringify({ anomaly_list: anomalies, sid: '' }) };
         } else {
-          assert.deepEqual(body, {
-            anomalyIDs: anomalies.map((a) => a.id).join(','),
-          });
+          const req = GetEmptyGroupReportRequest();
+          req.anomalyIDs = anomalies.map((a) => a.id).join(',');
+          assert.deepEqual(body, req);
           return { status: 200, body: JSON.stringify({ sid: 'sid' }) };
         }
       });

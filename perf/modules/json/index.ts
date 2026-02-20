@@ -316,6 +316,19 @@ export interface GetAnomaliesResponse {
 	error: string;
 }
 
+export interface GetGroupReportByKeysRequest {
+	keys: string;
+	host: string;
+}
+
+export interface GetGroupReportRequest {
+	rev: string;
+	anomalyIDs: string;
+	bugID: string;
+	anomalyGroupID: string;
+	sid: string;
+}
+
 export interface Timerange {
 	begin: number;
 	end: number;

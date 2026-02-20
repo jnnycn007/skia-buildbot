@@ -23,7 +23,7 @@ import '../../../elements-sk/modules/select-sk';
 import { html, LitElement, PropertyValues } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
 import { jsonOrThrow } from '../../../infra-sk/modules/jsonOrThrow';
-import { Anomaly, Issue } from '../json';
+import { Anomaly, GetGroupReportResponse, Issue } from '../json';
 import { ProjectId } from '../json';
 import { errorMessage } from '../../../elements-sk/modules/errorMessage';
 
@@ -31,6 +31,7 @@ import '../../../elements-sk/modules/icons/close-icon-sk';
 import '../../../elements-sk/modules/spinner-sk';
 import '../window/window';
 import { CountMetric, telemetry } from '../telemetry/telemetry';
+import { GetEmptyGroupReportRequest } from '../common/anomaly';
 
 @customElement('existing-bug-dialog-sk')
 export class ExistingBugDialogSk extends LitElement {
@@ -127,7 +128,7 @@ export class ExistingBugDialogSk extends LitElement {
               this._busy || this._fetchingSuggestions
             }></spinner-sk>
           </div>
-          <div class="bug-list">${this.associatedBugListTemplate()}<div>
+          <div class="bug-list">${this.associatedBugListTemplate()}</div>
           <div class="footer">
             ${this.bug_url ? html`<a href="${this.bug_url}" target="_blank">Bug added!</a>` : ''}
             <button id="file-button" class="submit" @click=${
@@ -234,29 +235,33 @@ export class ExistingBugDialogSk extends LitElement {
   async fetch_associated_bugs() {
     this._fetchingSuggestions = true;
 
+    const req = GetEmptyGroupReportRequest();
+    req.anomalyIDs = String(this.anomalies.map((a) => a.id));
+
     await fetch('/_/anomalies/group_report', {
       method: 'POST',
-      body: JSON.stringify({
-        anomalyIDs: String(this.anomalies.map((a) => a.id)),
-      }),
+      body: JSON.stringify(req),
       headers: {
         'Content-Type': 'application/json',
       },
     })
       .then(jsonOrThrow)
-      .then(async (json) => {
+      .then(async (json: GetGroupReportResponse) => {
         // Make the .then callback async
-        // Prefer anomaly_list over making another call to get SID.
-        if (json.anomaly_list) {
-          const anomalies: Anomaly[] = json.anomaly_list || [];
-          this.getAssociatedBugList(anomalies);
-        } else {
+        // Legacy anomalies follow the SID path if user selects
+        // multiple regressions, but SQL anomalies don't.
+        // SQL implementation is not supposed to use SID,
+        // we will monitor any SID usage to assert this claim.
+        if (json.sid && json.sid !== '') {
           const sid: string = json.sid;
           telemetry.increaseCounter(CountMetric.SIDRequiringActionTaken, {
             module: 'existing-bug-dialog-sk',
             function: 'fetch_associated_bugs',
           });
           await this.fetch_associated_bugs_withSid(sid);
+        } else {
+          const anomalies: Anomaly[] = json.anomaly_list || [];
+          this.getAssociatedBugList(anomalies);
         }
         if (this._associatedBugIds.size !== 0) {
           await this.fetch_bug_titles(); // Await the fetch_bug_titles() call
@@ -266,17 +271,17 @@ export class ExistingBugDialogSk extends LitElement {
   }
 
   private async fetch_associated_bugs_withSid(sid: string) {
+    const req = GetEmptyGroupReportRequest();
+    req.sid = sid;
     await fetch('/_/anomalies/group_report', {
       method: 'POST',
-      body: JSON.stringify({
-        StateId: sid,
-      }),
+      body: JSON.stringify(req),
       headers: {
         'Content-Type': 'application/json',
       },
     })
       .then(jsonOrThrow)
-      .then((json) => {
+      .then((json: GetGroupReportResponse) => {
         const anomalies: Anomaly[] = json.anomaly_list || [];
         this.getAssociatedBugList(anomalies);
       });

@@ -76,6 +76,8 @@ func main() {
 		frontendApi.CountHandlerRequest{},
 		frontendApi.CountHandlerResponse{},
 		frontendApi.GetAnomaliesResponse{},
+		frontendApi.GetGroupReportByKeysRequest{},
+		frontendApi.GetGroupReportRequest{},
 		frontendApi.GetGroupReportResponse{},
 		frontendApi.GetUserIssuesForTraceKeysRequest{},
 		frontendApi.GetUserIssuesForTraceKeysResponse{},
