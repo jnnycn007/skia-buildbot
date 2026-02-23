@@ -39,6 +39,7 @@ describe('point-links-sk', () => {
         keysForUsefulLinks,
         []
       );
+      await element.updateComplete;
       assert.isEmpty(element.displayUrls, 'No display urls expected.');
       assert.isEmpty(element.displayTexts, 'No display texts expected.');
     });
@@ -60,6 +61,7 @@ describe('point-links-sk', () => {
         keysForUsefulLinks,
         [commitLinks]
       );
+      await element.updateComplete;
       assert.deepEqual(expectedLinks, element.displayUrls);
     });
 
@@ -90,6 +92,7 @@ describe('point-links-sk', () => {
         keysForUsefulLinks,
         [commitLinks]
       );
+      await element.updateComplete;
       assert.deepEqual(expectedLinks, element.displayUrls);
     });
 
@@ -120,6 +123,7 @@ describe('point-links-sk', () => {
         keysForUsefulLinks,
         []
       );
+      await element.updateComplete;
       assert.deepEqual(expectedLinks, element.displayUrls);
     });
 
@@ -161,6 +165,7 @@ describe('point-links-sk', () => {
         keysForUsefulLinks,
         []
       );
+      await element.updateComplete;
       const expectedLinks = {
         key1: 'https://repoHost/repo1/+log/preLink..curLink?n=1000',
         key2: 'https://repoHost/repo2/+log/preLink..curLink?n=1000',
@@ -196,6 +201,7 @@ describe('point-links-sk', () => {
         keysForUsefulLinks,
         []
       );
+      await element.updateComplete;
       assert.deepEqual(expectedLinks, element.displayUrls);
     });
 
@@ -224,6 +230,7 @@ describe('point-links-sk', () => {
         keysForUsefulLinks,
         []
       );
+      await element.updateComplete;
       assert.deepEqual(expectedLinks, element.displayUrls);
     });
 
@@ -268,6 +275,7 @@ describe('point-links-sk', () => {
         keysForUsefulLinks,
         []
       );
+      await element.updateComplete;
       const expectedLinks = {
         key1: 'https://repoHost/repo1/+/curLink',
         key2: 'https://repoHost/repo2/+log/preLink..curLink?n=1000',
@@ -302,6 +310,7 @@ describe('point-links-sk', () => {
         keysForUsefulLinks,
         []
       );
+      await element.updateComplete;
       assert.deepEqual(expectedLinks, element.displayUrls);
     });
 
@@ -330,6 +339,7 @@ describe('point-links-sk', () => {
         keysForUsefulLinks,
         []
       );
+      await element.updateComplete;
       assert.deepEqual(expectedLinks, element.displayUrls);
     });
   });

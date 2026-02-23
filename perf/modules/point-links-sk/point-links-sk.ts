@@ -29,14 +29,15 @@
  *
  * V8 Git Hash Range: <a href='https://chromium.googlesource.com/v8/v8/+/47f420e89ec1b33dacc048d93e0317ab7fec43dd>47f420e - 47f420e</a>
  */
-import { TemplateResult, html } from 'lit/html.js';
-import { define } from '../../../elements-sk/modules/define';
-import { ElementSk } from '../../../infra-sk/modules/ElementSk';
+import { html, LitElement, TemplateResult } from 'lit';
+import { until } from 'lit/directives/until.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { CommitDetailsRequest, CommitNumber, ingest } from '../json';
 import { jsonOrThrow } from '../../../infra-sk/modules/jsonOrThrow';
 import { errorMessage } from '../errorMessage';
 
 import '@material/web/icon/icon.js';
+import '@material/web/iconbutton/icon-button.js';
 
 export interface CommitLinks {
   traceid: string;
@@ -45,84 +46,67 @@ export interface CommitLinks {
   displayTexts: { [key: string]: string } | null;
 }
 
-export class PointLinksSk extends ElementSk {
-  constructor() {
-    super(PointLinksSk.template);
-  }
-
+@customElement('point-links-sk')
+export class PointLinksSk extends LitElement {
   private abortController: AbortController = new AbortController();
 
   // The point links for the current commit.
+  @state()
   commitPosition: CommitNumber | null = null;
 
   // Contains the urls to be displayed.
-  _displayUrls: { [key: string]: string } = {};
+  @property({ attribute: false })
+  displayUrls: { [key: string]: string } = {};
 
   // Contains texts to be displayed.
-  _displayTexts: { [key: string]: string } = {};
+  @property({ attribute: false })
+  displayTexts: { [key: string]: string } = {};
 
   private buildLogText = 'Build Log';
 
   private fuchsiaBuildLogKey = 'Test stdio';
 
-  // _pointLinks stores the asynchronously rendered TemplateResult[] for the point links.
-  // This is necessary because `lit-html` cannot directly render an array of Promises.
-  private _pointLinks: TemplateResult[] = [];
-
-  private static template = (ele: PointLinksSk) =>
-    html`<div class="point-links" ?hidden=${Object.keys(ele.displayUrls || {}).length === 0}>
-      <ul class="table">
-        ${ele._pointLinks} ${ele.renderRevisionLink()}
-      </ul>
-    </div>`;
-
-  connectedCallback(): void {
-    super.connectedCallback();
-    // Initial render is handled by the `load` and `reset` functions,
-    // which now call `renderPointLinks` to manage asynchronous updates.
-    this.render();
+  createRenderRoot() {
+    return this;
   }
 
-  /**
-   * Asynchronously renders the point links and updates the `_pointLinks` property.
-   * This function is now `async` to `await` the `isRange` check and uses `Promise.all`
-   * to ensure all individual link rendering promises resolve before updating the DOM.
-   */
-  async renderPointLinks(): Promise<void> {
-    if (Object.keys(this.displayTexts).length === 0 && Object.keys(this.displayUrls).length === 0) {
-      this._pointLinks = [];
-      this.render();
-      return;
-    }
-    const keys = Object.keys(this.displayUrls);
-    const getHtml = async (key: string): Promise<TemplateResult> => {
-      const link = this.displayUrls![key];
-      // TODO(b/398878559): Strip after 'Git' string until json keys are ready.
-      const keyText: string = key.replace(/ Git.*/i, '');
-      let linkText = this.displayTexts![key] || 'Link';
-      // This is a specific change for just v8.
-      if (keyText === 'V8') {
-        const isRange = await this.isRange(link);
-        if (!isRange && linkText.includes(' - ')) {
-          linkText = linkText.split(' - ')[1];
-        }
+  render() {
+    return html`<div
+      class="point-links"
+      ?hidden=${Object.keys(this.displayUrls || {}).length === 0}>
+      <ul class="table">
+        ${Object.keys(this.displayUrls).map((key) =>
+          until(this.getHtml(key), html`<li>Loading...</li>`)
+        )}
+        ${this.renderRevisionLink()}
+      </ul>
+    </div>`;
+  }
+
+  private async getHtml(key: string): Promise<TemplateResult> {
+    const link = this.displayUrls![key];
+    // TODO(b/398878559): Strip after 'Git' string until json keys are ready.
+    const keyText: string = key.replace(/ Git.*/i, '');
+    let linkText = this.displayTexts![key] || 'Link';
+    // This is a specific change for just v8.
+    if (keyText === 'V8') {
+      const isRange = await this.isRange(link);
+      if (!isRange && linkText.includes(' - ')) {
+        linkText = linkText.split(' - ')[1];
       }
-      const htmlUrl = html`<a
-        href="${link}"
-        title="${linkText}"
-        style="cursor: pointer;"
-        target="_blank"
-        >${linkText}</a
-      >`;
-      // generate text contents
-      return html` <li>
-        <span id="tooltip-key">${keyText}</span>
-        <span id="tooltip-text"> ${link.startsWith('http') ? htmlUrl : link} </span>
-      </li>`;
-    };
-    const htmlPromises = keys.map(getHtml);
-    this._pointLinks = await Promise.all(htmlPromises);
-    this.render();
+    }
+    const htmlUrl = html`<a
+      href="${link}"
+      title="${linkText}"
+      style="cursor: pointer;"
+      target="_blank"
+      >${linkText}</a
+    >`;
+    // generate text contents
+    return html` <li>
+      <span id="tooltip-key">${keyText}</span>
+      <span id="tooltip-text"> ${link.startsWith('http') ? htmlUrl : link} </span>
+    </li>`;
   }
 
   renderRevisionLink() {
@@ -148,7 +132,12 @@ export class PointLinksSk extends ElementSk {
   }
 
   private copyToClipboard(text: string): void {
-    navigator.clipboard.writeText(text);
+    navigator.clipboard.writeText(text).then(
+      () => {},
+      (error) => {
+        console.error('Failed to copy to clipboard:', error);
+      }
+    );
   }
 
   // isRange returns true if the given link refers to a range of commits, i.e.
@@ -226,25 +215,25 @@ export class PointLinksSk extends ElementSk {
     this.commitPosition = commit_position;
     await this.reset();
     if (commit_position === null) {
-      return Promise.resolve(commitLinks);
+      return commitLinks;
     }
     if (commitLinks.length > 0) {
       // Check if the commit and traceID have already been loaded. Also verify that the existing
       // link contains urls.
       const existingLink = commitLinks.find(
-        (commitLink) =>
-          commitLink &&
-          commitLink.cid === commit_position &&
-          commitLink.traceid === trace_id &&
-          commitLink.displayUrls &&
-          Object.keys(commitLink.displayUrls).length > 0
+        (link) =>
+          link &&
+          link.cid === commit_position &&
+          link.traceid === trace_id &&
+          link.displayUrls &&
+          Object.keys(link.displayUrls).length > 0
       );
       if (existingLink) {
         // Reuse the existing links
         this.displayUrls = existingLink.displayUrls || {};
         this.displayTexts = existingLink.displayTexts || {};
-        await this.renderPointLinks();
-        return Promise.resolve(commitLinks);
+
+        return commitLinks;
       }
     }
 
@@ -256,7 +245,7 @@ export class PointLinksSk extends ElementSk {
 
       if (signal.aborted) {
         console.log(`Request aborted for ${commit_position})`);
-        return Promise.resolve(commitLinks);
+        return commitLinks;
       }
 
       if (currentLinks === null || currentLinks === undefined) {
@@ -270,7 +259,7 @@ export class PointLinksSk extends ElementSk {
         const prevLinks = await this.getLinksForPoint(prev_commit_position, trace_id);
         if (signal.aborted) {
           console.log(`Request aborted for ${commit_position})`);
-          return Promise.resolve(commitLinks);
+          return commitLinks;
         }
         keysForCommitRange.forEach((key) => {
           const currentCommitUrl = currentLinks[key];
@@ -329,18 +318,15 @@ export class PointLinksSk extends ElementSk {
 
       this.displayTexts = displayTexts;
       this.displayUrls = displayUrls;
-      await this.renderPointLinks();
 
       // Before adding a new commit link, check if it already exists in the array.
       // This should not be necessary, but it is a safeguard due to async calls.
       const existingLink = commitLinks.find(
-        (commitLink) =>
-          commitLink && commitLink.cid === commit_position && commitLink.traceid === trace_id
+        (link) => link && link.cid === commit_position && link.traceid === trace_id
       );
       if (!existingLink) {
         commitLinks.push(commitLink);
       }
-      this.render();
       return commitLinks;
     } catch (error: any) {
       if (error.name === 'AbortError') {
@@ -349,7 +335,7 @@ export class PointLinksSk extends ElementSk {
         console.error(`Error fetching ${commit_position}:`, error);
       }
     }
-    return Promise.resolve(commitLinks);
+    return commitLinks;
   }
 
   /** Clear Point Links */
@@ -357,11 +343,6 @@ export class PointLinksSk extends ElementSk {
     this.commitPosition = null;
     this.displayUrls = {};
     this.displayTexts = {};
-    await this.renderPointLinks();
-  }
-
-  render(): void {
-    this._render();
   }
 
   /**
@@ -479,22 +460,4 @@ export class PointLinksSk extends ElementSk {
     }
     return '';
   }
-
-  set displayTexts(val: { [key: string]: string }) {
-    this._displayTexts = val;
-  }
-
-  get displayTexts(): { [key: string]: string } {
-    return this._displayTexts;
-  }
-
-  set displayUrls(val: { [key: string]: string }) {
-    this._displayUrls = val;
-  }
-
-  get displayUrls(): { [key: string]: string } {
-    return this._displayUrls;
-  }
 }
-
-define('point-links-sk', PointLinksSk);

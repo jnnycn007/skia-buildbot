@@ -22,7 +22,7 @@ describe('point-links-sk', () => {
         // Made async
         el.displayUrls = displayUrls;
         el.displayTexts = displayTexts;
-        await el.renderPointLinks();
+        await el.updateComplete;
       },
       {
         V8: 'https://chromium.googlesource.com/v8/v8/+log/f052b8c4db1f08d1f8275351c047854e6ff1805f..47f420e89ec1b33dacc048d93e0317ab7fec43dd?n=1000',
