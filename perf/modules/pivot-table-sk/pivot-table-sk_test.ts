@@ -39,10 +39,11 @@ describe('pivot-table-sk', () => {
   const newInstance = setUpElementUnderTest<PivotTableSk>('pivot-table-sk');
 
   let element: PivotTableSk;
-  beforeEach(() => {
+  beforeEach(async () => {
     element = newInstance((el: PivotTableSk) => {
       el.set(df, req, query);
     });
+    await element.updateComplete;
   });
 
   describe('click sort icon on first column', () => {
@@ -56,6 +57,7 @@ describe('pivot-table-sk', () => {
       $$<HTMLElement>('sort-icon-sk', element)!.click();
 
       const encodedHistory = (await event).detail;
+      await element.updateComplete;
 
       // Confirm it changes to a drop down icon.
       assert.isNotNull($$<HTMLElement>('arrow-drop-down-icon-sk', element));
@@ -231,5 +233,47 @@ describe('keyValuesFromTraceSet', () => {
     actual.history = [];
     actual.decode(expected.encode());
     assert.deepEqual(actual, expected);
+  });
+  it('reacts to property changes', async () => {
+    const el = document.createElement('pivot-table-sk') as PivotTableSk;
+    document.body.appendChild(el);
+    await el.updateComplete;
+
+    // Initially missing data.
+    assert.isNull(el.querySelector('table'));
+
+    // Set properties directly.
+    el.df = df;
+    el.req = req;
+    el.query = query;
+    await el.updateComplete;
+
+    // Table should now be rendered.
+    // Note: paramset-sk also renders a table with headers, so we need to be specific.
+    const tables = el.querySelectorAll('table');
+    assert.lengthOf(tables, 2);
+    const mainTable = tables[1];
+    assert.isNotNull(mainTable);
+
+    // Headers: 2 group_by + 2 summary = 4 headers.
+    const headers = mainTable.querySelectorAll('th');
+    // Also rows have 'th' for keys.
+    // 4 rows * 2 keys = 8 row headers.
+    // Total th in main table = 4 + 8 = 12.
+    assert.lengthOf(headers, 12);
+
+    const headerRow = mainTable.querySelector('tr');
+    assert.isNotNull(headerRow);
+    const headerCells = headerRow!.querySelectorAll('th');
+    assert.lengthOf(headerCells, 4);
+    assert.include(headerCells[0].textContent, 'config');
+    assert.include(headerCells[1].textContent, 'arch');
+    assert.include(headerCells[2].textContent, 'Mean');
+    assert.include(headerCells[3].textContent, 'Sum');
+
+    // Check we have rows.
+    assert.lengthOf(mainTable.querySelectorAll('tr'), 5); // 1 header + 4 data rows.
+
+    document.body.removeChild(el);
   });
 });

@@ -13,10 +13,9 @@
  * @evt Emits a change event with the sort history encoded as a string when the
  *    user sorts on a column.
  */
-import { html, TemplateResult } from 'lit/html.js';
-import { define } from '../../../elements-sk/modules/define';
+import { html, TemplateResult, LitElement, PropertyValues } from 'lit';
+import { customElement, property, state } from 'lit/decorators.js';
 import { toParamSet } from '../../../infra-sk/modules/query';
-import { ElementSk } from '../../../infra-sk/modules/ElementSk';
 import { pivot, DataFrame, TraceSet } from '../json';
 import { operationDescriptions, validateAsPivotTable } from '../pivotutil';
 
@@ -217,12 +216,16 @@ export function keyValuesFromTraceSet(traceset: TraceSet, req: pivot.Request): K
   return ret;
 }
 
-export class PivotTableSk extends ElementSk {
-  private df: DataFrame | null = null;
+@customElement('pivot-table-sk')
+export class PivotTableSk extends LitElement {
+  @property({ attribute: false })
+  df: DataFrame | null = null;
 
-  private req: pivot.Request | null = null;
+  @property({ attribute: false })
+  req: pivot.Request | null = null;
 
-  private query: string = '';
+  @property({ type: String })
+  query: string = '';
 
   /** Maps each traceKey to a list of the values for each key in the traceID,
    * where the order is determined by this.req.group_by.
@@ -230,50 +233,75 @@ export class PivotTableSk extends ElementSk {
    * That is ',arch=arm,config=8888,' maps to ['8888', 'arm'] if
    * this.req.group_by is ['config', 'arch'].
    *  */
+  @state()
   private keyValues: KeyValues = {};
 
+  @state()
   private sortHistory: SortHistory | null = null;
 
   // The comparison function to use to sort the table.
+  @state()
   private compare: compareFunc | null = null;
 
-  constructor() {
-    super(PivotTableSk.template);
+  private _pendingHistory: string | null = null;
+
+  protected willUpdate(changedProperties: PropertyValues): void {
+    if (changedProperties.has('req')) {
+      if (this.req) {
+        this.sortHistory = new SortHistory(this.req.group_by!.length, this.req.summary!.length);
+        if (this._pendingHistory) {
+          this.sortHistory.decode(this._pendingHistory);
+          this._pendingHistory = null;
+        }
+      } else {
+        this.sortHistory = null;
+      }
+    }
+
+    if (changedProperties.has('df') || changedProperties.has('req')) {
+      if (this.df && this.req) {
+        this.keyValues = keyValuesFromTraceSet(this.df.traceset, this.req);
+      } else {
+        this.keyValues = {};
+      }
+    }
+
+    // Rebuild compare if any usage of sortHistory or keyValues changed, but simpler to just rebuild if we have enough data.
+    if (this.sortHistory && this.df && this.req) {
+      this.compare = this.sortHistory.buildCompare(this.df.traceset, this.keyValues);
+    } else {
+      this.compare = null;
+    }
   }
 
-  private static template = (ele: PivotTableSk) => {
-    if (ele.shouldValidate()) {
-      const invalidMessage = validateAsPivotTable(ele.req);
+  createRenderRoot() {
+    return this;
+  }
+
+  render() {
+    if (this.shouldValidate()) {
+      const invalidMessage = validateAsPivotTable(this.req);
       if (invalidMessage) {
         return html`<h2>Cannot display: ${invalidMessage}</h2>`;
       }
-      if (!ele.df) {
+      if (!this.df) {
         return html`<h2>Cannot display: Data is missing.</h2>`;
       }
-      return html` ${ele.queryDefinition()}
+      return html` ${this.queryDefinition()}
         <table>
-          ${ele.tableHeader()} ${ele.tableRows()}
+          ${this.tableHeader()} ${this.tableRows()}
         </table>`;
     }
     return html``;
-  };
-
-  connectedCallback(): void {
-    super.connectedCallback();
-    this._render();
   }
 
   set(df: DataFrame, req: pivot.Request, query: string, encodedHistory: string = ''): void {
     this.df = df;
     this.req = req;
     this.query = query;
-    this.keyValues = keyValuesFromTraceSet(this.df.traceset, this.req);
-    this.sortHistory = new SortHistory(req.group_by!.length, req.summary!.length);
     if (encodedHistory !== '') {
-      this.sortHistory.decode(encodedHistory);
+      this._pendingHistory = encodedHistory;
     }
-    this.compare = this.sortHistory.buildCompare(this.df.traceset, this.keyValues);
-    this._render();
   }
 
   private shouldValidate(): boolean {
@@ -351,7 +379,6 @@ export class PivotTableSk extends ElementSk {
         bubbles: true,
       })
     );
-    this._render();
   }
 
   private tableRows(): TemplateResult[] {
@@ -388,5 +415,3 @@ export class PivotTableSk extends ElementSk {
     return value.toPrecision(4);
   }
 }
-
-define('pivot-table-sk', PivotTableSk);

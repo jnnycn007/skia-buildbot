@@ -17,6 +17,12 @@ describe('pivot-table-sk', () => {
     await testBed.page.setViewport({ width: 600, height: 600 });
     pivotTableSk = (await testBed.page.$('pivot-table-sk'))!;
     pivotTableSkPO = new PivotTableSkPO(pivotTableSk);
+    // Wait for the table to render, which means the element has updated.
+    await testBed.page.waitForSelector('#good table');
+    // Also wait for the null-df case to update from "Pivot request is null" to "Data is missing".
+    await testBed.page.waitForFunction(
+      () => document.querySelector('#null-df')?.innerHTML.includes('Data is missing')
+    );
   });
 
   it('should render the demo page (smoke test)', async () => {
