@@ -8,6 +8,7 @@ import {
   scrollDownSlowly,
 } from '../common/puppeteer-test-util';
 import { TestPickerSkPO } from '../test-picker-sk/test-picker-sk_po';
+import { ExploreSimpleSkPO } from '../explore-simple-sk/explore-simple-sk_po';
 
 const clearSelections = async (testPickerPO: TestPickerSkPO) => {
   // Clear all existing selections first, in reverse order.
@@ -41,6 +42,29 @@ const addGraph = async (
     await explorePO.waitForGraphCount(expectedGraphCount);
   }
   await explorePO.waitForGraph(0);
+};
+
+const verifyGraphTitle = async (graphPO: ExploreSimpleSkPO, expectedOs: string) => {
+  const graphTitle = await graphPO.bySelector('#graphTitle');
+  expect(await graphTitle.isEmpty()).to.be.false;
+
+  const columns = await graphTitle.bySelectorAll('.column');
+  expect(await columns.length).to.equal(3);
+
+  const expectedData = [
+    { key: 'arch', value: 'arm' },
+    { key: 'os', value: expectedOs },
+    { key: 'test', value: 'Default' },
+  ];
+
+  for (let i = 0; i < expectedData.length; i++) {
+    const column = await columns.item(i);
+    const param = await column.bySelector('.param');
+    const value = await column.bySelector('.hover-to-show-text');
+
+    expect(await param.innerText).to.equal(expectedData[i].key);
+    expect(await value.innerText).to.equal(expectedData[i].value);
+  }
 };
 
 const LONG_TIMEOUT_MS = 30000;
@@ -236,6 +260,9 @@ describe('Manual Plot Mode', () => {
     expect(tracesTop).to.include(',arch=arm,os=Ubuntu,');
     expect(tracesTop).to.include(',arch=arm,os=Android,');
 
+    // Verify graph title content for the top graph
+    await verifyGraphTitle(graphTopPO, 'Various');
+
     // Verify Bottom Graph (Index 1)
     // Should remain a snapshot of the PAST state (Only Android)
     // This proves the old graph wasn't mutated by the new plot action
@@ -243,6 +270,9 @@ describe('Manual Plot Mode', () => {
     const tracesBottom = await graphBottomPO.getTraceKeys();
     expect(tracesBottom).to.include(',arch=arm,os=Android,');
     expect(tracesBottom).to.not.include(',arch=arm,os=Ubuntu,');
+
+    // Verify graph title content for the bottom graph
+    await verifyGraphTitle(graphBottomPO, 'Android');
 
     // Check URL state after adding the second graph
     currentUrl = new URL(await testBed.page.url());

@@ -11,7 +11,7 @@ fetchMock.get(
   {
     default_param_selections: null,
     default_url_values: { useTestPicker: 'true' },
-    include_params: ['arch', 'os'],
+    include_params: ['arch', 'os', 'test'],
   },
   { overwriteRoutes: true }
 );
