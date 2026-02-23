@@ -188,10 +188,10 @@ func buildTryJobRequestURL(req CreateLegacyTryRequest) (string, error) {
 }
 
 // CreateBisect calls pinpoint API to create bisect job.
-func (pc *Client) CreateBisect(ctx context.Context, createBisectRequest CreateBisectRequest) (*CreatePinpointResponse, error) {
+func (pc *Client) CreateBisect(ctx context.Context, req CreateBisectRequest) (*CreatePinpointResponse, error) {
 	pc.createBisectCalled.Inc(1)
 
-	requestURL := getBisectRequestURL(createBisectRequest, config.Config.FetchAnomaliesFromSql)
+	requestURL := getBisectRequestURL(req, config.Config.FetchAnomaliesFromSql)
 	sklog.Debugf("Preparing to call this Pinpoint service URL: %s", requestURL)
 
 	httpResponse, err := httputils.PostWithContext(ctx, pc.httpClient, requestURL, contentType, nil)
@@ -232,67 +232,67 @@ func getBisectRequestURL(req CreateBisectRequest, isNewAnomaly bool) string {
 	return buildChromeperfBisectRequestURL(req)
 }
 
-func buildChromeperfBisectRequestURL(createBisectRequest CreateBisectRequest) string {
-	params := buildBisectRequestParams(createBisectRequest)
+func buildChromeperfBisectRequestURL(req CreateBisectRequest) string {
+	params := buildBisectRequestParams(req)
 	// Bug ID must present otherwise chromeperf returns an error.
-	params.Set("bug_id", createBisectRequest.BugId)
-	params.Set("test_path", createBisectRequest.TestPath)
+	params.Set("bug_id", req.BugId)
+	params.Set("test_path", req.TestPath)
 
 	return fmt.Sprintf("%s?%s", chromeperfLegacyBisectURL, params.Encode())
 }
 
-func buildPinpointBisectRequestURL(createBisectRequest CreateBisectRequest) string {
-	params := buildBisectRequestParams(createBisectRequest)
+func buildPinpointBisectRequestURL(req CreateBisectRequest) string {
+	params := buildBisectRequestParams(req)
 	return fmt.Sprintf("%s?%s", pinpointLegacyURL, params.Encode())
 }
 
-func buildBisectRequestParams(createBisectRequest CreateBisectRequest) url.Values {
+func buildBisectRequestParams(req CreateBisectRequest) url.Values {
 	params := url.Values{}
-	if createBisectRequest.ComparisonMode != "" {
-		params.Set("comparison_mode", createBisectRequest.ComparisonMode)
+	if req.ComparisonMode != "" {
+		params.Set("comparison_mode", req.ComparisonMode)
 	}
-	if createBisectRequest.StartGitHash != "" {
-		params.Set("start_git_hash", createBisectRequest.StartGitHash)
+	if req.StartGitHash != "" {
+		params.Set("start_git_hash", req.StartGitHash)
 	}
-	if createBisectRequest.EndGitHash != "" {
-		params.Set("end_git_hash", createBisectRequest.EndGitHash)
+	if req.EndGitHash != "" {
+		params.Set("end_git_hash", req.EndGitHash)
 	}
-	if createBisectRequest.Configuration != "" {
-		params.Set("configuration", createBisectRequest.Configuration)
+	if req.Configuration != "" {
+		params.Set("configuration", req.Configuration)
 	}
-	if createBisectRequest.Benchmark != "" {
-		params.Set("benchmark", createBisectRequest.Benchmark)
+	if req.Benchmark != "" {
+		params.Set("benchmark", req.Benchmark)
 	}
-	if createBisectRequest.Story != "" {
+	if req.Story != "" {
 		// TODO(b/485841164): Replace with the unescaped name when it is available.
-		params.Set("story", dotify(createBisectRequest.Story))
+		params.Set("story", dotify(req.Story))
 	}
-	if createBisectRequest.Chart != "" {
-		params.Set("chart", createBisectRequest.Chart)
+	if req.Chart != "" {
+		params.Set("chart", req.Chart)
 	}
-	if createBisectRequest.Statistic != "" {
-		params.Set("statistic", createBisectRequest.Statistic)
+	if req.Statistic != "" {
+		params.Set("statistic", req.Statistic)
 	}
-	if createBisectRequest.ComparisonMagnitude != "" {
-		params.Set("comparison_magnitude", createBisectRequest.ComparisonMagnitude)
+	if req.ComparisonMagnitude != "" {
+		params.Set("comparison_magnitude", req.ComparisonMagnitude)
 	}
-	if createBisectRequest.Pin != "" {
-		params.Set("pin", createBisectRequest.Pin)
+	if req.Pin != "" {
+		params.Set("pin", req.Pin)
 	}
-	if createBisectRequest.Project != "" {
-		params.Set("project", createBisectRequest.Project)
+	if req.Project != "" {
+		params.Set("project", req.Project)
 	}
-	if createBisectRequest.User != "" {
-		params.Set("user", createBisectRequest.User)
+	if req.User != "" {
+		params.Set("user", req.User)
 	}
-	if createBisectRequest.AlertIDs != "" {
-		params.Set("alert_ids", createBisectRequest.AlertIDs)
+	if req.AlertIDs != "" {
+		params.Set("alert_ids", req.AlertIDs)
 	}
-	if createBisectRequest.BugId != "" {
-		params.Set("bug_id", createBisectRequest.BugId)
+	if req.BugId != "" {
+		params.Set("bug_id", req.BugId)
 	}
-	if createBisectRequest.TestPath != "" {
-		params.Set("test_path", createBisectRequest.TestPath)
+	if req.TestPath != "" {
+		params.Set("test_path", req.TestPath)
 	}
 	params.Set("tags", "{\"origin\":\"skia_perf\"}")
 	return params
