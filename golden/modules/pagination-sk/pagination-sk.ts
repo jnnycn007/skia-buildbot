@@ -18,9 +18,8 @@
  * e.detail.delta for how many pages changed and which direction.
  */
 
-import { html, TemplateResult } from 'lit/html.js';
-import { define } from '../../../elements-sk/modules/define';
-import { ElementSk } from '../../../infra-sk/modules/ElementSk';
+import { html, LitElement } from 'lit';
+import { customElement, property } from 'lit/decorators.js';
 
 // MANY (2^31-1, aka math.MaxInt32) is a special value meaning the
 // server doesn't know how many items there are, only that it's more
@@ -31,88 +30,55 @@ export interface PaginationSkPageChangedEventDetail {
   readonly delta: number;
 }
 
-export class PaginationSk extends ElementSk {
-  private static _template = (ele: PaginationSk): TemplateResult => {
-    if (ele.page_size >= ele.total && ele.total !== MANY) {
+@customElement('pagination-sk')
+export class PaginationSk extends LitElement {
+  @property({ type: Number, reflect: true })
+  offset: number = 0;
+
+  @property({ type: Number, attribute: 'page_size', reflect: true })
+  pageSize: number = 0;
+
+  @property({ type: Number, reflect: true })
+  total: number = 0;
+
+  createRenderRoot() {
+    return this;
+  }
+
+  render() {
+    if (this.pageSize >= this.total && this.total !== MANY) {
       // Hide buttons if only one page is needed.
       return html``;
     }
 
     return html`
       <button
-        ?disabled=${ele._currPage() <= 1}
+        ?disabled=${this._currPage() <= 1}
         title="Go to previous page of results."
-        @click=${() => ele._page(-1)}
+        @click=${() => this._page(-1)}
         class="prev">
         Prev
       </button>
-      <div class="counter">page ${ele._currPage()}</div>
+      <div class="counter">page ${this._currPage()}</div>
       <button
-        ?disabled=${!ele._canGoNext(ele.offset + ele.page_size)}
+        ?disabled=${!this._canGoNext(this.offset + this.pageSize)}
         title="Go to next page of results."
-        @click=${() => ele._page(1)}
+        @click=${() => this._page(1)}
         class="next">
         Next
       </button>
       <button
-        ?disabled=${!ele._canGoNext(ele.offset + 5 * ele.page_size)}
+        ?disabled=${!this._canGoNext(this.offset + 5 * this.pageSize)}
         title="Skip forward 5 pages of results."
-        @click=${() => ele._page(5)}
+        @click=${() => this._page(5)}
         class="skip">
         +5
       </button>
     `;
-  };
-
-  constructor() {
-    super(PaginationSk._template);
-  }
-
-  connectedCallback() {
-    super.connectedCallback();
-    this._upgradeProperty('offset');
-    this._upgradeProperty('page_size');
-    this._upgradeProperty('total');
-    this._render();
-  }
-
-  static get observedAttributes() {
-    return ['offset', 'page_size', 'total'];
-  }
-
-  /** Reflects offset attribute for convenience. */
-  get offset(): number {
-    return +this.getAttribute('offset')!;
-  }
-
-  set offset(val: number) {
-    this.setAttribute('offset', +val as unknown as string);
-  }
-
-  /** Reflects page_size attribute for convenience. */
-  get page_size(): number {
-    return +this.getAttribute('page_size')!;
-  }
-
-  set page_size(val: number) {
-    this.setAttribute('page_size', +val as unknown as string);
-  }
-
-  /** Reflects total attribute for convenience. */
-  get total(): number {
-    return +this.getAttribute('total')!;
-  }
-
-  set total(val: number) {
-    this.setAttribute('total', +val as unknown as string);
-  }
-
-  attributeChangedCallback() {
-    this._render();
   }
 
   private _currPage() {
-    return Math.round(this.offset / this.page_size) + 1;
+    return Math.round(this.offset / this.pageSize) + 1;
   }
 
   private _canGoNext(next: number) {
@@ -126,9 +92,8 @@ export class PaginationSk extends ElementSk {
           delta: n,
         },
         bubbles: true,
+        composed: true,
       })
     );
   }
 }
-
-define('pagination-sk', PaginationSk);

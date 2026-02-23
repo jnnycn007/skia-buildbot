@@ -27,7 +27,7 @@ describe('pagination-sk', () => {
   it('reflects attributes as properties', () => {
     expect(paginationSk.offset).to.equal(0);
     expect(paginationSk.total).to.equal(127);
-    expect(paginationSk.page_size).to.equal(20);
+    expect(paginationSk.pageSize).to.equal(20);
   });
 
   describe('html layout', () => {
@@ -37,16 +37,19 @@ describe('pagination-sk', () => {
       expect(await paginationSkPO.isSkipBtnDisabled()).to.be.false;
 
       paginationSk.offset = 20;
+      await paginationSk.updateComplete;
       expect(await paginationSkPO.isPrevBtnDisabled()).to.be.false;
       expect(await paginationSkPO.isNextBtnDisabled()).to.be.false;
       expect(await paginationSkPO.isSkipBtnDisabled()).to.be.false;
 
       paginationSk.offset = 40;
+      await paginationSk.updateComplete;
       expect(await paginationSkPO.isPrevBtnDisabled()).to.be.false;
       expect(await paginationSkPO.isNextBtnDisabled()).to.be.false;
       expect(await paginationSkPO.isSkipBtnDisabled()).to.be.true;
 
       paginationSk.offset = 120;
+      await paginationSk.updateComplete;
       expect(await paginationSkPO.isPrevBtnDisabled()).to.be.false;
       expect(await paginationSkPO.isNextBtnDisabled()).to.be.true;
       expect(await paginationSkPO.isSkipBtnDisabled()).to.be.true;
@@ -55,8 +58,10 @@ describe('pagination-sk', () => {
     it('displays the current page', async () => {
       expect(await paginationSkPO.getCurrentPage()).to.equal(1);
       paginationSk.offset = 20;
+      await paginationSk.updateComplete;
       expect(await paginationSkPO.getCurrentPage()).to.equal(2);
       paginationSk.offset = 40;
+      await paginationSk.updateComplete;
       expect(await paginationSkPO.getCurrentPage()).to.equal(3);
     });
   }); // end describe('html layout')
@@ -92,6 +97,7 @@ describe('pagination-sk', () => {
 
       // Move the offset by one page so as to enable the "prev" button.
       paginationSk.offset = 20;
+      await paginationSk.updateComplete;
       paginationEvent =
         eventPromise<CustomEvent<PaginationSkPageChangedEventDetail>>('page-changed');
       await paginationSkPO.clickPrevBtn();
