@@ -36,7 +36,7 @@ func TestExtractErrorMessageReturnsRawStringWhenNoError(t *testing.T) {
 }
 
 func TestBuildChromeperfBisectRequestUrlPopulatesAllFields(t *testing.T) {
-	req := CreateBisectRequest{
+	req := BisectJobCreateRequest{
 		ComparisonMode:      "performance",
 		StartGitHash:        "start_hash",
 		EndGitHash:          "end_hash",
@@ -82,7 +82,7 @@ func TestBuildChromeperfBisectRequestUrlPopulatesAllFields(t *testing.T) {
 }
 
 func TestBuildChromeperfBisectRequestUrlPopulatesRequiredFields(t *testing.T) {
-	req := CreateBisectRequest{}
+	req := BisectJobCreateRequest{}
 	builtURL := buildChromeperfBisectRequestURL(req)
 	parsedURL, err := url.Parse(builtURL)
 	assert.NoError(t, err)
@@ -96,7 +96,7 @@ func TestBuildChromeperfBisectRequestUrlPopulatesRequiredFields(t *testing.T) {
 }
 
 func TestBuildChromeperfBisectRequestUrlReplacesUnderscores(t *testing.T) {
-	req := CreateBisectRequest{Story: "qwe_asd"}
+	req := BisectJobCreateRequest{Story: "qwe_asd"}
 	builtURL := buildChromeperfBisectRequestURL(req)
 	parsedURL, err := url.Parse(builtURL)
 	assert.NoError(t, err)
@@ -104,7 +104,7 @@ func TestBuildChromeperfBisectRequestUrlReplacesUnderscores(t *testing.T) {
 }
 
 func TestBuildPinpointBisectRequestUrlPopulatesAllFields(t *testing.T) {
-	req := CreateBisectRequest{
+	req := BisectJobCreateRequest{
 		ComparisonMode:      "performance",
 		StartGitHash:        "start_hash",
 		EndGitHash:          "end_hash",
@@ -150,7 +150,7 @@ func TestBuildPinpointBisectRequestUrlPopulatesAllFields(t *testing.T) {
 }
 
 func TestBuildPinpointBisectRequestUrlPopulatesRequiredFields(t *testing.T) {
-	builtURL := buildPinpointBisectRequestURL(CreateBisectRequest{})
+	builtURL := buildPinpointBisectRequestURL(BisectJobCreateRequest{})
 	assert.Contains(t, builtURL, pinpointLegacyURL)
 
 	parsedURL, err := url.Parse(builtURL)
@@ -161,7 +161,7 @@ func TestBuildPinpointBisectRequestUrlPopulatesRequiredFields(t *testing.T) {
 }
 
 func TestBuildPinpointBisectRequestUrlReplacesUnderscores(t *testing.T) {
-	req := CreateBisectRequest{Story: "qwe_asd"}
+	req := BisectJobCreateRequest{Story: "qwe_asd"}
 	builtURL := buildPinpointBisectRequestURL(req)
 	parsedURL, err := url.Parse(builtURL)
 	assert.NoError(t, err)
@@ -169,12 +169,12 @@ func TestBuildPinpointBisectRequestUrlReplacesUnderscores(t *testing.T) {
 }
 
 func TestGetBisectRequestUrlForNewAnomalies(t *testing.T) {
-	url := getBisectRequestURL(CreateBisectRequest{}, true)
+	url := getBisectRequestURL(BisectJobCreateRequest{}, true)
 	assert.Contains(t, url, pinpointLegacyURL)
 }
 
 func TestGetBisectRequestUrlForOldAnomalies(t *testing.T) {
-	url := getBisectRequestURL(CreateBisectRequest{}, false)
+	url := getBisectRequestURL(BisectJobCreateRequest{}, false)
 	assert.Contains(t, url, chromeperfLegacyBisectURL)
 }
 

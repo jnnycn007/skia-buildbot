@@ -23,7 +23,7 @@ import '../../../elements-sk/modules/select-sk';
 import { html } from 'lit/html.js';
 import { define } from '../../../elements-sk/modules/define';
 import { jsonOrThrow } from '../../../infra-sk/modules/jsonOrThrow';
-import { CreateLegacyTryRequest, CreatePinpointResponse } from '../json';
+import { TryJobCreateRequest, CreatePinpointResponse } from '../json';
 import { ElementSk } from '../../../infra-sk/modules/ElementSk';
 import { upgradeProperty } from '../../../elements-sk/modules/upgradeProperty';
 import { errorMessage } from '../../../elements-sk/modules/errorMessage';
@@ -181,7 +181,7 @@ export class PinpointTryJobDialogSk extends ElementSk {
     const endCommit = document.getElementById('exp-commit')! as HTMLInputElement;
     const traceArgs = document.getElementById('trace-args')! as HTMLInputElement;
 
-    const req: CreateLegacyTryRequest = {
+    const req: TryJobCreateRequest = {
       name: 'Tracing Debug',
       base_git_hash: baseCommit.value,
       end_git_hash: endCommit.value,

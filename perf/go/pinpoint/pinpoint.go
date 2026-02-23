@@ -26,7 +26,7 @@ const (
 	chromeperfLegacyBisectURL = "https://chromeperf.appspot.com/pinpoint/new/bisect"
 )
 
-type CreateLegacyTryRequest struct {
+type TryJobCreateRequest struct {
 	Name        string `json:"name"`
 	BaseGitHash string `json:"base_git_hash"`
 	// although "experiment" makes more sense in this context, the legacy Pinpoint API
@@ -44,7 +44,7 @@ type CreateLegacyTryRequest struct {
 	User            string `json:"user"`
 }
 
-type CreateBisectRequest struct {
+type BisectJobCreateRequest struct {
 	ComparisonMode      string `json:"comparison_mode"`
 	StartGitHash        string `json:"start_git_hash"`
 	EndGitHash          string `json:"end_git_hash"`
@@ -93,7 +93,7 @@ func New(ctx context.Context) (*Client, error) {
 }
 
 // CreateTryJob calls the legacy pinpoint API to create a try job.
-func (pc *Client) CreateTryJob(ctx context.Context, req CreateLegacyTryRequest) (*CreatePinpointResponse, error) {
+func (pc *Client) CreateTryJob(ctx context.Context, req TryJobCreateRequest) (*CreatePinpointResponse, error) {
 	pc.createTryJobCalled.Inc(1)
 
 	requestURL, err := buildTryJobRequestURL(req)
@@ -134,7 +134,7 @@ func (pc *Client) CreateTryJob(ctx context.Context, req CreateLegacyTryRequest) 
 	return &resp, nil
 }
 
-func buildTryJobRequestURL(req CreateLegacyTryRequest) (string, error) {
+func buildTryJobRequestURL(req TryJobCreateRequest) (string, error) {
 	if req.Benchmark == "" {
 		return "", skerr.Fmt("Benchmark must be specified but is empty.")
 	}
@@ -188,7 +188,7 @@ func buildTryJobRequestURL(req CreateLegacyTryRequest) (string, error) {
 }
 
 // CreateBisect calls pinpoint API to create bisect job.
-func (pc *Client) CreateBisect(ctx context.Context, req CreateBisectRequest) (*CreatePinpointResponse, error) {
+func (pc *Client) CreateBisect(ctx context.Context, req BisectJobCreateRequest) (*CreatePinpointResponse, error) {
 	pc.createBisectCalled.Inc(1)
 
 	requestURL := getBisectRequestURL(req, config.Config.FetchAnomaliesFromSql)
@@ -225,14 +225,14 @@ func (pc *Client) CreateBisect(ctx context.Context, req CreateBisectRequest) (*C
 	return &resp, nil
 }
 
-func getBisectRequestURL(req CreateBisectRequest, isNewAnomaly bool) string {
+func getBisectRequestURL(req BisectJobCreateRequest, isNewAnomaly bool) string {
 	if isNewAnomaly {
 		return buildPinpointBisectRequestURL(req)
 	}
 	return buildChromeperfBisectRequestURL(req)
 }
 
-func buildChromeperfBisectRequestURL(req CreateBisectRequest) string {
+func buildChromeperfBisectRequestURL(req BisectJobCreateRequest) string {
 	params := buildBisectRequestParams(req)
 	// Bug ID must present otherwise chromeperf returns an error.
 	params.Set("bug_id", req.BugId)
@@ -241,12 +241,12 @@ func buildChromeperfBisectRequestURL(req CreateBisectRequest) string {
 	return fmt.Sprintf("%s?%s", chromeperfLegacyBisectURL, params.Encode())
 }
 
-func buildPinpointBisectRequestURL(req CreateBisectRequest) string {
+func buildPinpointBisectRequestURL(req BisectJobCreateRequest) string {
 	params := buildBisectRequestParams(req)
 	return fmt.Sprintf("%s?%s", pinpointLegacyURL, params.Encode())
 }
 
-func buildBisectRequestParams(req CreateBisectRequest) url.Values {
+func buildBisectRequestParams(req BisectJobCreateRequest) url.Values {
 	params := url.Values{}
 	if req.ComparisonMode != "" {
 		params.Set("comparison_mode", req.ComparisonMode)

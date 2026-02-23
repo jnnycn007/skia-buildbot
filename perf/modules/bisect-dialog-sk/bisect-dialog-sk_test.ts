@@ -4,7 +4,7 @@ import { BisectDialogSk, BisectPreloadParams } from './bisect-dialog-sk';
 import { eventPromise, setUpElementUnderTest } from '../../../infra-sk/modules/test_util';
 import fetchMock from 'fetch-mock';
 import sinon from 'sinon';
-import { CreateBisectRequest } from '../json';
+import { BisectJobCreateRequest } from '../json';
 
 describe('bisect-dialog-sk', () => {
   const newInstance = setUpElementUnderTest<BisectDialogSk>('bisect-dialog-sk');
@@ -87,9 +87,9 @@ describe('bisect-dialog-sk', () => {
       const bisectRequest = fetchMock.lastOptions('/_/bisect/create');
       const bisectBody = JSON.parse(
         bisectRequest!.body as unknown as string
-      ) as CreateBisectRequest;
+      ) as BisectJobCreateRequest;
 
-      const expected: CreateBisectRequest = {
+      const expected: BisectJobCreateRequest = {
         bug_id: '123',
         start_git_hash: 'c1',
         end_git_hash: 'c2',
@@ -128,7 +128,7 @@ describe('bisect-dialog-sk', () => {
       const bisectRequest = fetchMock.lastOptions('/_/bisect/create');
       const bisectBody = JSON.parse(
         bisectRequest!.body as unknown as string
-      ) as CreateBisectRequest;
+      ) as BisectJobCreateRequest;
 
       assert.equal(bisectBody.story, 'subtest_with_colons');
     });
@@ -152,7 +152,7 @@ describe('bisect-dialog-sk', () => {
       const bisectRequest = fetchMock.lastOptions('/_/bisect/create');
       const bisectBody = JSON.parse(
         bisectRequest!.body as unknown as string
-      ) as CreateBisectRequest;
+      ) as BisectJobCreateRequest;
 
       assert.equal(bisectBody.chart, 'test:suite:with:colons');
     });
@@ -219,7 +219,7 @@ describe('bisect-dialog-sk', () => {
     };
 
     const testCases: {
-      fieldToClear: keyof CreateBisectRequest;
+      fieldToClear: keyof BisectJobCreateRequest;
       expectedError: string;
       testName: string;
     }[] = [

@@ -660,7 +660,7 @@ export interface GraphsShortcut {
 	graphs: GraphConfig[] | null;
 }
 
-export interface CreateBisectRequest {
+export interface BisectJobCreateRequest {
 	comparison_mode: string;
 	start_git_hash: string;
 	end_git_hash: string;
@@ -678,7 +678,7 @@ export interface CreateBisectRequest {
 	test_path: string;
 }
 
-export interface CreateLegacyTryRequest {
+export interface TryJobCreateRequest {
 	name: string;
 	base_git_hash: string;
 	end_git_hash: string;

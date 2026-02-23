@@ -57,7 +57,7 @@ func (api pinpointApi) createTryJobHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	var cbr pinpoint.CreateLegacyTryRequest
+	var cbr pinpoint.TryJobCreateRequest
 	if err := json.NewDecoder(r.Body).Decode(&cbr); err != nil {
 		httputils.ReportError(w, err, "Failed to decode JSON.", http.StatusInternalServerError)
 		return
@@ -94,7 +94,7 @@ func (api pinpointApi) createBisectHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	var cbr pinpoint.CreateBisectRequest
+	var cbr pinpoint.BisectJobCreateRequest
 	if err := json.NewDecoder(r.Body).Decode(&cbr); err != nil {
 		httputils.ReportError(w, err, "Failed to decode JSON.", http.StatusInternalServerError)
 		return

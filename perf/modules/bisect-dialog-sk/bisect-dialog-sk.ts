@@ -21,7 +21,7 @@ import '../../../elements-sk/modules/select-sk';
 import { html } from 'lit/html.js';
 import { define } from '../../../elements-sk/modules/define';
 import { jsonOrThrow } from '../../../infra-sk/modules/jsonOrThrow';
-import { CreateBisectRequest } from '../json';
+import { BisectJobCreateRequest } from '../json';
 import { ElementSk } from '../../../infra-sk/modules/ElementSk';
 import { upgradeProperty } from '../../../elements-sk/modules/upgradeProperty';
 import { errorMessage } from '../../../elements-sk/modules/errorMessage';
@@ -188,7 +188,7 @@ export class BisectDialogSk extends ElementSk {
     // TODO(jiaxindong) b/431213645 follow up with the team about data backfill
     this.story = parameters.pop()!.replace(/:/g, '_');
     const patch = document.getElementById('patch')! as HTMLInputElement;
-    const req: CreateBisectRequest = {
+    const req: BisectJobCreateRequest = {
       comparison_mode: 'performance',
       start_git_hash: startCommit.value === '' ? this.startCommit : startCommit.value,
       end_git_hash: endCommit.value === '' ? this.endCommit : endCommit.value,
