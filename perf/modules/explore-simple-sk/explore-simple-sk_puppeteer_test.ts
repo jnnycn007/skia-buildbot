@@ -400,7 +400,7 @@ describe('explore-simple-sk', () => {
   });
 
   describe('Summary bar', () => {
-    it('show the summary bar and verify the initial range', async () => {
+    it('show the summary bar and verify the range', async () => {
       // https://screenshot.googleplex.com/AmWdqZgvPYuvh9i
       await testBed.page.goto(`${testBed.baseUrl}?manual_plot_mode=true&plotSummary=true`);
 
@@ -437,8 +437,27 @@ describe('explore-simple-sk', () => {
       const start = header[0].offset;
       const end = header[header.length - 1].offset;
       // Selected range must be within the summary bar's start and end points.
-      expect(initialRange!.begin).to.be.at.least(start);
-      expect(initialRange!.end).to.be.at.most(end);
+      expect(initialRange!.begin).to.be.at.least(
+        start,
+        'Summary bar start must be less than or equal to the start of commit range'
+      );
+      expect(initialRange!.end).to.be.at.most(
+        end,
+        'Summary bar end must be greater than or equal to the end of commit range'
+      );
+
+      // Changing the summary range verification
+      await plotSummaryPO.resizeSelection(testBed.page, 'right', 0.75);
+      const finalRange = await plotSummaryPO.getSelectedRange();
+      // https://screenshot.googleplex.com/3QgwyUhQcXZTSpX
+      expect(Math.round(finalRange!.begin)).to.equal(
+        initialRange!.begin,
+        'New summary start must be equal to the initial summary start'
+      );
+      expect(Math.round(finalRange!.end)).to.be.lessThan(
+        initialRange!.end,
+        'New summary end must be less than the initial summary end'
+      );
     });
   });
 });
