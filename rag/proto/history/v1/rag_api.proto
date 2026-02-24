@@ -103,6 +103,8 @@ message GetTopicDetailsRequest {
     bool include_tests = 3;
     // Repository for the topic.
     string repository = 4;
+    // Repository for the search.
+    string search_repository = 5;
 }
 
 // Response message for the GetTopicDetails api.
@@ -136,6 +138,9 @@ message GetSummaryRequest {
 
     // Repository for the topic.
     string repository = 3;
+
+    // Repository for the search.
+    string search_repository = 4;
 }
 
 // Response message for the GetSummary api.

@@ -37,6 +37,9 @@ type ApiServerConfig struct {
 
 	// The default repository name to use.
 	DefaultRepoName string `json:"default_repo_name"`
+
+	// Mapping of repository names to their relative paths from the root.
+	RepoPaths map[string]string `json:"repo_paths"`
 }
 
 // SpannerConfig defines a struct to hold the spanner database configuration.

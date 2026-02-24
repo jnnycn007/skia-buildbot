@@ -180,9 +180,12 @@ describe('rag-app-sk', () => {
     };
 
     fetchMock.get('/historyrag/v1/topics?query=test&topic_count=10', { topics: mockTopics });
-    fetchMock.get('/historyrag/v1/topic_details?topic_ids=1&include_code=true&repository=repo1', {
-      topics: mockTopicDetails.topics,
-    });
+    fetchMock.get(
+      '/historyrag/v1/topic_details?topic_ids=1&include_code=true&repository=repo1&search_repository=',
+      {
+        topics: mockTopicDetails.topics,
+      }
+    );
 
     // Perform search
     const input = element.shadowRoot!.querySelector('md-outlined-text-field.query-input') as any;
@@ -200,7 +203,7 @@ describe('rag-app-sk', () => {
     // Verify topic_details request was made with repository parameter
     assert.isTrue(
       fetchMock.called(
-        '/historyrag/v1/topic_details?topic_ids=1&include_code=true&repository=repo1'
+        '/historyrag/v1/topic_details?topic_ids=1&include_code=true&repository=repo1&search_repository='
       )
     );
   });

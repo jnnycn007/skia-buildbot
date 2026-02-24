@@ -339,6 +339,7 @@ export class RagAppSk extends LitElement {
           query: this.query,
           topic_ids: topicIds,
           repository: this.selectedRepository,
+          search_repository: this.selectedRepository,
         }),
       }).then(jsonOrThrow)) as { summary: string };
 
@@ -358,6 +359,7 @@ export class RagAppSk extends LitElement {
       if (repository) {
         url += `&repository=${encodeURIComponent(repository)}`;
       }
+      url += `&search_repository=${encodeURIComponent(this.selectedRepository)}`;
       console.log(`Fetching topic details from: ${url}`);
       const resp = (await fetch(url).then(jsonOrThrow)) as GetTopicDetailsResponse;
 

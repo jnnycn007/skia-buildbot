@@ -237,9 +237,11 @@ type GetTopicDetailsRequest struct {
 	// Whether to include tests in the response.
 	IncludeTests bool `protobuf:"varint,3,opt,name=include_tests,json=includeTests,proto3" json:"include_tests,omitempty"`
 	// Repository for the topic.
-	Repository    string `protobuf:"bytes,4,opt,name=repository,proto3" json:"repository,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Repository string `protobuf:"bytes,4,opt,name=repository,proto3" json:"repository,omitempty"`
+	// Repository for the search.
+	SearchRepository string `protobuf:"bytes,5,opt,name=search_repository,json=searchRepository,proto3" json:"search_repository,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *GetTopicDetailsRequest) Reset() {
@@ -300,6 +302,13 @@ func (x *GetTopicDetailsRequest) GetRepository() string {
 	return ""
 }
 
+func (x *GetTopicDetailsRequest) GetSearchRepository() string {
+	if x != nil {
+		return x.SearchRepository
+	}
+	return ""
+}
+
 // Response message for the GetTopicDetails api.
 type GetTopicDetailsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -354,9 +363,11 @@ type GetSummaryRequest struct {
 	// The IDs of the topics to summarize.
 	TopicIds []int64 `protobuf:"varint,2,rep,packed,name=topic_ids,json=topicIds,proto3" json:"topic_ids,omitempty"`
 	// Repository for the topic.
-	Repository    string `protobuf:"bytes,3,opt,name=repository,proto3" json:"repository,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Repository string `protobuf:"bytes,3,opt,name=repository,proto3" json:"repository,omitempty"`
+	// Repository for the search.
+	SearchRepository string `protobuf:"bytes,4,opt,name=search_repository,json=searchRepository,proto3" json:"search_repository,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *GetSummaryRequest) Reset() {
@@ -406,6 +417,13 @@ func (x *GetSummaryRequest) GetTopicIds() []int64 {
 func (x *GetSummaryRequest) GetRepository() string {
 	if x != nil {
 		return x.Repository
+	}
+	return ""
+}
+
+func (x *GetSummaryRequest) GetSearchRepository() string {
+	if x != nil {
+		return x.SearchRepository
 	}
 	return ""
 }
@@ -718,14 +736,15 @@ const file_rag_api_proto_rawDesc = "" +
 	"\bchunk_id\x18\x02 \x01(\x03R\achunkId\x12\x1e\n" +
 	"\n" +
 	"chunkIndex\x18\x03 \x01(\x05R\n" +
-	"chunkIndex\"\x9d\x01\n" +
+	"chunkIndex\"\xca\x01\n" +
 	"\x16GetTopicDetailsRequest\x12\x1b\n" +
 	"\ttopic_ids\x18\x01 \x03(\x03R\btopicIds\x12!\n" +
 	"\finclude_code\x18\x02 \x01(\bR\vincludeCode\x12#\n" +
 	"\rinclude_tests\x18\x03 \x01(\bR\fincludeTests\x12\x1e\n" +
 	"\n" +
 	"repository\x18\x04 \x01(\tR\n" +
-	"repository\"\xdd\x01\n" +
+	"repository\x12+\n" +
+	"\x11search_repository\x18\x05 \x01(\tR\x10searchRepository\"\xdd\x01\n" +
 	"\x17GetTopicDetailsResponse\x12D\n" +
 	"\x06topics\x18\x01 \x03(\v2,.historyrag.v1.GetTopicDetailsResponse.TopicR\x06topics\x1a|\n" +
 	"\x05Topic\x12\x19\n" +
@@ -734,13 +753,14 @@ const file_rag_api_proto_rawDesc = "" +
 	"topic_name\x18\x02 \x01(\tR\ttopicName\x12\x18\n" +
 	"\asummary\x18\x03 \x01(\tR\asummary\x12\x1f\n" +
 	"\vcode_chunks\x18\x04 \x03(\tR\n" +
-	"codeChunks\"f\n" +
+	"codeChunks\"\x93\x01\n" +
 	"\x11GetSummaryRequest\x12\x14\n" +
 	"\x05query\x18\x01 \x01(\tR\x05query\x12\x1b\n" +
 	"\ttopic_ids\x18\x02 \x03(\x03R\btopicIds\x12\x1e\n" +
 	"\n" +
 	"repository\x18\x03 \x01(\tR\n" +
-	"repository\".\n" +
+	"repository\x12+\n" +
+	"\x11search_repository\x18\x04 \x01(\tR\x10searchRepository\".\n" +
 	"\x12GetSummaryResponse\x12\x18\n" +
 	"\asummary\x18\x01 \x01(\tR\asummary2\x8c\x04\n" +
 	"\x14HistoryRagApiService\x12m\n" +

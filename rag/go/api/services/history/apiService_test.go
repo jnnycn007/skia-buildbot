@@ -144,8 +144,12 @@ func TestApiService_GetTopicDetails(t *testing.T) {
 
 func TestApiService_GetRepositories(t *testing.T) {
 	mockTopicStore := mocks.NewTopicStore(t)
+	repoPaths := map[string]string{
+		"repo1": "path/to/repo1",
+	}
 	service := &ApiService{
 		topicStore: mockTopicStore,
+		repoPaths:  repoPaths,
 	}
 
 	ctx := context.Background()
@@ -156,9 +160,70 @@ func TestApiService_GetRepositories(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-	assert.Equal(t, repos, resp.Repositories)
+	assert.Len(t, resp.Repositories, 2)
+	assert.Equal(t, "path/to/repo1", resp.Repositories[0])
+	assert.Equal(t, "repo2", resp.Repositories[1])
 
 	mockTopicStore.AssertExpectations(t)
+}
+
+func TestApiService_AdjustCodePaths(t *testing.T) {
+	repoPaths := map[string]string{
+		"repo1": "path/to/repo1",
+	}
+	service := &ApiService{
+		repoPaths: repoPaths,
+	}
+
+	codeContext := "file1.go\ncontent1\n\nfile2.go\ncontent2"
+	adjusted := service.adjustCodePaths(codeContext, "repo1")
+
+	expected := "path/to/repo1/file1.go\ncontent1\n\npath/to/repo1/file2.go\ncontent2"
+	assert.Equal(t, expected, adjusted)
+
+	// Test with unknown repo
+	adjusted = service.adjustCodePaths(codeContext, "unknown")
+	assert.Equal(t, codeContext, adjusted)
+}
+
+func TestApiService_GetTopicDetails_RootRepo(t *testing.T) {
+	mockTopicStore := mocks.NewTopicStore(t)
+	repoPaths := map[string]string{
+		"repo1": "path/to/repo1",
+	}
+	service := &ApiService{
+		topicStore:                   mockTopicStore,
+		getTopicDetailsCounterMetric: metrics2.GetCounter("test"),
+		repoPaths:                    repoPaths,
+	}
+
+	ctx := context.Background()
+	topicID := int64(123)
+
+	mockTopic := &topicstore.Topic{
+		ID:          topicID,
+		Repository:  "repo1",
+		Title:       "Test Topic",
+		Summary:     "Summary",
+		CodeContext: "file.go\ncontent",
+	}
+	// When requesting root, we look into the root (or specific repo if specified in ReadTopic)
+	// Actually ReadTopic in apiService.go is called with req.Repository.
+	mockTopicStore.On("ReadTopic", mock.Anything, topicID, "root").Return(mockTopic, nil)
+
+	req := &pb.GetTopicDetailsRequest{
+		TopicIds:         []int64{topicID},
+		Repository:       "root",
+		SearchRepository: "root",
+		IncludeCode:      true,
+	}
+
+	resp, err := service.GetTopicDetails(ctx, req)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Len(t, resp.Topics, 1)
+	assert.Equal(t, "path/to/repo1/file.go\ncontent", resp.Topics[0].CodeChunks[0])
 }
 
 func TestApiService_GetSummary_EmptyQuery(t *testing.T) {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"cloud.google.com/go/spanner"
@@ -54,10 +55,16 @@ type ApiService struct {
 	getTopicDetailsCounterMetric metrics2.Counter
 	// Metric to count GetSummary calls.
 	getSummaryCounterMetric metrics2.Counter
+
+	// Mapping of repository names to their relative paths from the root.
+	repoPaths map[string]string
+
+	// Mapping of repository relative paths back to their names.
+	repoNames map[string]string
 }
 
 // NewApiService returns a new instance of the ApiService struct.
-func NewApiService(ctx context.Context, dbClient *spanner.Client, queryEmbeddingModel, summaryModel string, dimensionality int32, useRepositoryTopics bool) *ApiService {
+func NewApiService(ctx context.Context, dbClient *spanner.Client, queryEmbeddingModel, summaryModel string, dimensionality int32, useRepositoryTopics bool, repoPaths map[string]string) *ApiService {
 	var genAiClient *genai.GeminiClient
 	var err error
 	// Get the api key from the env.
@@ -80,6 +87,12 @@ func NewApiService(ctx context.Context, dbClient *spanner.Client, queryEmbedding
 		sklog.Errorf("Error creating new gemini client: %v", err)
 		return nil
 	}
+
+	repoNames := make(map[string]string)
+	for name, path := range repoPaths {
+		repoNames[path] = name
+	}
+
 	var topicStore topicstore.TopicStore
 	if useRepositoryTopics {
 		topicStore = topicstore.NewRepositoryTopicStore(dbClient)
@@ -92,6 +105,8 @@ func NewApiService(ctx context.Context, dbClient *spanner.Client, queryEmbedding
 		queryEmbeddingModel: queryEmbeddingModel,
 		summaryModel:        summaryModel,
 		dimensionality:      dimensionality,
+		repoPaths:           repoPaths,
+		repoNames:           repoNames,
 
 		// Initialize the metric objects.
 		getTopicsCounterMetric:       metrics2.GetCounter("historyrag_getTopics_count"),
@@ -138,7 +153,7 @@ func (service *ApiService) GetTopics(ctx context.Context, req *pb.GetTopicsReque
 	if req.GetTopicCount() > 0 {
 		topicCount = int(req.GetTopicCount())
 	}
-	topics, err := service.topicStore.SearchTopics(ctx, queryEmbedding, topicCount, req.GetRepository())
+	topics, err := service.topicStore.SearchTopics(ctx, queryEmbedding, topicCount, service.getRepoName(req.GetRepository()))
 	if err != nil {
 		sklog.Errorf("Error searching for topics: %v", err)
 		return nil, err
@@ -178,9 +193,16 @@ func (service *ApiService) GetRepositories(ctx context.Context, req *pb.GetRepos
 		return nil, err
 	}
 
-	return &pb.GetRepositoriesResponse{
-		Repositories: repositories,
-	}, nil
+	resp := &pb.GetRepositoriesResponse{}
+	for _, repo := range repositories {
+		path := repo
+		if p, ok := service.repoPaths[repo]; ok {
+			path = p
+		}
+		resp.Repositories = append(resp.Repositories, path)
+	}
+
+	return resp, nil
 }
 
 // GetTopicDetails implements the GetTopicDetails endpoint.
@@ -199,13 +221,16 @@ func (service *ApiService) GetTopicDetails(ctx context.Context, req *pb.GetTopic
 
 	// Process all the topics one by one.
 	// TODO(ashwinpv): We can potentially do this in one db call.
+	searchRepo := service.getRepoName(req.SearchRepository)
+	repo := service.getRepoName(req.Repository)
+
 	for _, topicId := range topicIds {
 		if topicId < 0 {
 			return nil, skerr.Fmt("topicIds cannot be negative.")
 		}
 
 		// Read the topic data from the db.
-		topic, err := service.topicStore.ReadTopic(ctx, topicId, req.Repository)
+		topic, err := service.topicStore.ReadTopic(ctx, topicId, repo)
 		if err != nil {
 			sklog.Errorf("Error reading topic %d: %v", topicId, err)
 			return nil, err
@@ -231,7 +256,15 @@ func (service *ApiService) GetTopicDetails(ctx context.Context, req *pb.GetTopic
 			isTestFile := func(fileName string) bool {
 				return strings.Contains(strings.ToLower(fileName), "test")
 			}
-			allTopicCode := strings.Split(topic.CodeContext, "\n\n")
+
+			// If the search repository is "root", then we update the file paths in the code chunks
+			// to reflect the path from the root.
+			codeContext := topic.CodeContext
+			if searchRepo == "root" || searchRepo == "" {
+				codeContext = service.adjustCodePaths(topic.CodeContext, topic.Repository)
+			}
+
+			allTopicCode := strings.Split(codeContext, "\n\n")
 			for _, code := range allTopicCode {
 				// Check if this is a test file.
 				fileName := strings.TrimSpace(strings.Split(code, "\n")[0])
@@ -267,6 +300,36 @@ func (service *ApiService) GetTopicDetails(ctx context.Context, req *pb.GetTopic
 	return resp, nil
 }
 
+// adjustCodePaths prepends the repository relative path to the file paths in the code context.
+func (service *ApiService) adjustCodePaths(codeContext, repoName string) string {
+	repoPath, ok := service.repoPaths[repoName]
+	if !ok || repoPath == "" {
+		return codeContext
+	}
+
+	var sb strings.Builder
+	allTopicCode := strings.Split(codeContext, "\n\n")
+	for i, code := range allTopicCode {
+		lines := strings.Split(code, "\n")
+		if len(lines) > 0 {
+			lines[0] = filepath.Join(repoPath, strings.TrimSpace(lines[0]))
+		}
+		sb.WriteString(strings.Join(lines, "\n"))
+		if i < len(allTopicCode)-1 {
+			sb.WriteString("\n\n")
+		}
+	}
+	return sb.String()
+}
+
+// getRepoName returns the internal repository name for a given path or name.
+func (service *ApiService) getRepoName(pathOrName string) string {
+	if name, ok := service.repoNames[pathOrName]; ok {
+		return name
+	}
+	return pathOrName
+}
+
 // GetSummary implements the GetSummary endpoint.
 func (service *ApiService) GetSummary(ctx context.Context, req *pb.GetSummaryRequest) (*pb.GetSummaryResponse, error) {
 	query := req.GetQuery()
@@ -286,8 +349,11 @@ func (service *ApiService) GetSummary(ctx context.Context, req *pb.GetSummaryReq
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("Based on the following search results for the query \"%s\", please provide a concise and helpful summary.\n\n", query))
 
+	searchRepo := service.getRepoName(req.SearchRepository)
+	repo := service.getRepoName(req.Repository)
+
 	for _, topicId := range topicIds {
-		topic, err := service.topicStore.ReadTopic(ctx, topicId, req.Repository)
+		topic, err := service.topicStore.ReadTopic(ctx, topicId, repo)
 		if err != nil {
 			sklog.Errorf("Error reading topic %d: %v", topicId, err)
 			return nil, err
@@ -299,7 +365,15 @@ func (service *ApiService) GetSummary(ctx context.Context, req *pb.GetSummaryReq
 			sb.WriteString("Code Chunks:\n")
 			// We split the code context and add it to the prompt.
 			// To keep the prompt size reasonable, we can potentially truncate here as well.
-			allTopicCode := strings.Split(topic.CodeContext, "\n\n")
+
+			// If the search repository is "root", then we update the file paths in the code chunks
+			// to reflect the path from the root.
+			codeContext := topic.CodeContext
+			if searchRepo == "root" || searchRepo == "" {
+				codeContext = service.adjustCodePaths(topic.CodeContext, topic.Repository)
+			}
+
+			allTopicCode := strings.Split(codeContext, "\n\n")
 			currentLength := sb.Len()
 			for _, code := range allTopicCode {
 				if currentLength+len(code) > maxPromptLength {
