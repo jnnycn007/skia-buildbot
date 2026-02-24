@@ -10,8 +10,9 @@ describe('domain-picker-sk', () => {
   const newInstance = setUpElementUnderTest<DomainPickerSk>('domain-picker-sk');
 
   let element: DomainPickerSk;
-  beforeEach(() => {
+  beforeEach(async () => {
     element = newInstance();
+    await element.updateComplete;
   });
 
   it('renders', () => {
@@ -25,27 +26,30 @@ describe('domain-picker-sk', () => {
     assert.include(element.innerHTML, 'Begin:');
   });
 
-  it('switches to Dense', () => {
+  it('switches to Dense', async () => {
     // Dispatch change event on the radio-sk element
     const radioDense = element.querySelector<HTMLElement>('radio-sk[label="Dense"]');
     assert.isNotNull(radioDense);
-    radioDense!.dispatchEvent(new CustomEvent('change', { bubbles: true }));
+    radioDense?.dispatchEvent(new CustomEvent('change', { bubbles: true }));
+    await element.updateComplete;
     assert.equal(element.state.request_type, DENSE);
   });
 
-  it('forces request type via attribute', () => {
+  it('forces request type via attribute', async () => {
     element.setAttribute('force_request_type', 'dense');
+    await element.updateComplete;
     assert.equal(element.state.request_type, DENSE);
     assert.isNull(element.querySelector('radio-sk'));
   });
 
-  it('updates state', () => {
+  it('updates state', async () => {
     element.state = {
       begin: 100,
       end: 200,
       num_commits: 99,
       request_type: DENSE,
     };
+    await element.updateComplete;
     assert.equal(element.state.begin, 100);
     assert.equal(element.state.end, 200);
     assert.equal(element.state.num_commits, 99);
