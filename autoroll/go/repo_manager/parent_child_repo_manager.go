@@ -104,7 +104,7 @@ func newParentChildRepoManager(ctx context.Context, c *config.ParentChildRepoMan
 		repo := gitiles.NewRepo(c.GetGitilesChild().Gitiles.RepoUrl, client)
 		childRM, err = child.NewGitiles(ctx, c.GetGitilesChild(), repo)
 	} else if c.GetGitSemverChild() != nil {
-		repo := gitiles.NewRepo(c.GetGitilesChild().Gitiles.RepoUrl, client)
+		repo := gitiles.NewRepo(c.GetGitSemverChild().Gitiles.RepoUrl, client)
 		childRM, err = child.NewGitSemVerChild(ctx, c.GetGitSemverChild(), repo)
 	} else if c.GetGitCheckoutChild() != nil {
 		childRM, err = child.NewGitCheckout(ctx, c.GetGitCheckoutChild(), workdir, cr, childCheckout)
