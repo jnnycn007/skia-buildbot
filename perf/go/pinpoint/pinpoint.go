@@ -145,43 +145,19 @@ func buildTryJobRequestURL(req TryJobCreateRequest) (string, error) {
 	params := url.Values{}
 	// Pinpoint try jobs always use comparison mode try
 	params.Set("comparison_mode", tryJobComparisonMode)
-	if req.Name != "" {
-		params.Set("name", req.Name)
-	}
-	if req.BaseGitHash != "" {
-		params.Set("base_git_hash", req.BaseGitHash)
-	}
-	if req.EndGitHash != "" {
-		params.Set("end_git_hash", req.EndGitHash)
-	}
-	if req.BasePatch != "" {
-		params.Set("base_patch", req.BasePatch)
-	}
-	if req.ExperimentPatch != "" {
-		params.Set("experiment_patch", req.ExperimentPatch)
-	}
-	if req.Configuration != "" {
-		params.Set("configuration", req.Configuration)
-	}
-	if req.Benchmark != "" {
-		params.Set("benchmark", req.Benchmark)
-	}
-	if req.Story != "" {
-		// TODO(b/485841164): Replace with the unescaped name when it is available.
-		params.Set("story", dotify(req.Story))
-	}
-	if req.ExtraTestArgs != "" {
-		params.Set("extra_test_args", req.ExtraTestArgs)
-	}
-	if req.Repository != "" {
-		params.Set("repository", req.Repository)
-	}
-	if req.BugId != "" {
-		params.Set("bug_id", req.BugId)
-	}
-	if req.User != "" {
-		params.Set("user", req.User)
-	}
+	setIfNotEmpty(params, "name", req.Name)
+	setIfNotEmpty(params, "base_git_hash", req.BaseGitHash)
+	setIfNotEmpty(params, "end_git_hash", req.EndGitHash)
+	setIfNotEmpty(params, "base_patch", req.BasePatch)
+	setIfNotEmpty(params, "experiment_patch", req.ExperimentPatch)
+	setIfNotEmpty(params, "configuration", req.Configuration)
+	setIfNotEmpty(params, "benchmark", req.Benchmark)
+	// TODO(b/485841164): Replace with the unescaped name when it is available.
+	setIfNotEmpty(params, "story", dotify(req.Story))
+	setIfNotEmpty(params, "extra_test_args", req.ExtraTestArgs)
+	setIfNotEmpty(params, "repository", req.Repository)
+	setIfNotEmpty(params, "bug_id", req.BugId)
+	setIfNotEmpty(params, "user", req.User)
 	params.Set("tags", "{\"origin\":\"skia_perf\"}")
 
 	return fmt.Sprintf("%s?%s", pinpointLegacyURL, params.Encode()), nil
@@ -248,52 +224,22 @@ func buildPinpointBisectRequestURL(req BisectJobCreateRequest) string {
 
 func buildBisectRequestParams(req BisectJobCreateRequest) url.Values {
 	params := url.Values{}
-	if req.ComparisonMode != "" {
-		params.Set("comparison_mode", req.ComparisonMode)
-	}
-	if req.StartGitHash != "" {
-		params.Set("start_git_hash", req.StartGitHash)
-	}
-	if req.EndGitHash != "" {
-		params.Set("end_git_hash", req.EndGitHash)
-	}
-	if req.Configuration != "" {
-		params.Set("configuration", req.Configuration)
-	}
-	if req.Benchmark != "" {
-		params.Set("benchmark", req.Benchmark)
-	}
-	if req.Story != "" {
-		// TODO(b/485841164): Replace with the unescaped name when it is available.
-		params.Set("story", dotify(req.Story))
-	}
-	if req.Chart != "" {
-		params.Set("chart", req.Chart)
-	}
-	if req.Statistic != "" {
-		params.Set("statistic", req.Statistic)
-	}
-	if req.ComparisonMagnitude != "" {
-		params.Set("comparison_magnitude", req.ComparisonMagnitude)
-	}
-	if req.Pin != "" {
-		params.Set("pin", req.Pin)
-	}
-	if req.Project != "" {
-		params.Set("project", req.Project)
-	}
-	if req.User != "" {
-		params.Set("user", req.User)
-	}
-	if req.AlertIDs != "" {
-		params.Set("alert_ids", req.AlertIDs)
-	}
-	if req.BugId != "" {
-		params.Set("bug_id", req.BugId)
-	}
-	if req.TestPath != "" {
-		params.Set("test_path", req.TestPath)
-	}
+	setIfNotEmpty(params, "comparison_mode", req.ComparisonMode)
+	setIfNotEmpty(params, "start_git_hash", req.StartGitHash)
+	setIfNotEmpty(params, "end_git_hash", req.EndGitHash)
+	setIfNotEmpty(params, "configuration", req.Configuration)
+	setIfNotEmpty(params, "benchmark", req.Benchmark)
+	// TODO(b/485841164): Replace with the unescaped name when it is available.
+	setIfNotEmpty(params, "story", dotify(req.Story))
+	setIfNotEmpty(params, "chart", req.Chart)
+	setIfNotEmpty(params, "statistic", req.Statistic)
+	setIfNotEmpty(params, "comparison_magnitude", req.ComparisonMagnitude)
+	setIfNotEmpty(params, "pin", req.Pin)
+	setIfNotEmpty(params, "project", req.Project)
+	setIfNotEmpty(params, "user", req.User)
+	setIfNotEmpty(params, "alert_ids", req.AlertIDs)
+	setIfNotEmpty(params, "bug_id", req.BugId)
+	setIfNotEmpty(params, "test_path", req.TestPath)
 	params.Set("tags", "{\"origin\":\"skia_perf\"}")
 	return params
 }
@@ -311,4 +257,10 @@ func extractErrorMessage(responseBody []byte) string {
 
 func dotify(input string) string {
 	return strings.ReplaceAll(input, "_", ".")
+}
+
+func setIfNotEmpty(params url.Values, key, value string) {
+	if value != "" {
+		params.Set(key, value)
+	}
 }
