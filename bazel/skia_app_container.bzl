@@ -26,7 +26,8 @@ def skia_app_container(
         default_user = "skia",
         extra_tars = None,
         owners = None,
-        workdir = None):
+        workdir = None,
+        visibility = None):
     """Builds a Docker container for a Skia app, and generates a target to push it to GCR.
 
     This macro produces the following:
@@ -109,6 +110,7 @@ def skia_app_container(
         format (e.g., "2000.2000"). The macro will ensure these directories and their
         subdirectories (created via 'dirs') have the specified ownership.
       workdir: Optional. Default working directory within the image.
+      visibility: Optional. Visibility of the default rule.
     """
 
     if type(entrypoint) == "string":
@@ -212,7 +214,11 @@ def skia_app_container(
 
     # Add all of the pkg_tars created above to a new image. If we don't need
     # owners fixup layers, this is the final image.
-    image_name = (name + "_base") if owners else name
+    image_name = name
+    image_visibility = visibility
+    if owners:
+        image_name = name + "_base"
+        visibility = None
 
     oci_image(
         name = image_name,
@@ -222,6 +228,7 @@ def skia_app_container(
         user = default_user,
         env = env,
         workdir = workdir,
+        visibility = image_visibility,
     )
 
     # Add owners fixup layers if necessary.
@@ -253,6 +260,7 @@ def skia_app_container(
             user = default_user,
             env = env,
             workdir = workdir,
+            visibility = visibility,
         )
         image_name = ":" + rule_name
 

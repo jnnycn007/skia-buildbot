@@ -314,6 +314,13 @@ apt.install(
 use_repo(apt, "autoroll-be-apt-install")
 
 apt.install(
+    name = "base-cipd-apt-install",
+    lock = "//kube/base-cipd:base-cipd.lock.json",
+    manifest = "//kube/base-cipd:base-cipd.yaml",
+)
+use_repo(apt, "base-cipd-apt-install")
+
+apt.install(
     name = "task-scheduler-jc-apt-install",
     lock = "//task_scheduler:task-scheduler-jc.lock.json",
     manifest = "//task_scheduler:task-scheduler-jc.yaml",
@@ -381,6 +388,17 @@ oci.pull(
     image = "gcr.io/skia-public/basealpine",
 )
 use_repo(oci, "basealpine")
+
+# Pulls the debian:testing-slim image, needed by the skia_app_container macro.
+# Note: if using apt.install in conjunction with this or any other base image,
+# the archive version in the YAML file must be compatible with this image.
+oci.pull(
+    name = "debian-testing-slim",
+    digest = "sha256:0aff819e18d66aa7e3795a5145494f7bfbf55df4710494fa9746c2df1b51231b",
+    image = "debian:testing-slim",
+    platforms = ["linux/amd64"],
+)
+use_repo(oci, "debian-testing-slim")
 
 # Pulls the gcr.io/skia-public/base-cipd container, needed by some apps that use the
 # skia_app_container macro.

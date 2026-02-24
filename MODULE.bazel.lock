@@ -1429,7 +1429,7 @@
     "@@rules_oci+//oci:extensions.bzl%oci": {
       "general": {
         "bzlTransitiveDigest": "48mBsGmRAc9avLzUVYibjYzgMDj5MPLQjRGJUm1fvjA=",
-        "usagesDigest": "38R2noCxiJ8B2N+ZhygT2emfOmaz5J6K+0TIBSDdmcU=",
+        "usagesDigest": "Wyt49KpUrKGCLLX5KU+nM62/eLS0FiE3m6Zvkv5U1j4=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -1539,6 +1539,35 @@
               "platforms": {},
               "platform": "@@rules_oci+//oci:basealpine_single",
               "bzlmod_repository": "basealpine",
+              "reproducible": true
+            }
+          },
+          "debian-testing-slim_linux_amd64": {
+            "repoRuleId": "@@rules_oci+//oci/private:pull.bzl%oci_pull",
+            "attributes": {
+              "www_authenticate_challenges": {},
+              "scheme": "https",
+              "registry": "index.docker.io",
+              "repository": "library/debian",
+              "identifier": "sha256:0aff819e18d66aa7e3795a5145494f7bfbf55df4710494fa9746c2df1b51231b",
+              "platform": "linux/amd64",
+              "target_name": "debian-testing-slim_linux_amd64",
+              "bazel_tags": []
+            }
+          },
+          "debian-testing-slim": {
+            "repoRuleId": "@@rules_oci+//oci/private:pull.bzl%oci_alias",
+            "attributes": {
+              "target_name": "debian-testing-slim",
+              "www_authenticate_challenges": {},
+              "scheme": "https",
+              "registry": "index.docker.io",
+              "repository": "library/debian",
+              "identifier": "sha256:0aff819e18d66aa7e3795a5145494f7bfbf55df4710494fa9746c2df1b51231b",
+              "platforms": {
+                "@@platforms//cpu:x86_64": "@debian-testing-slim_linux_amd64"
+              },
+              "bzlmod_repository": "debian-testing-slim",
               "reproducible": true
             }
           },
@@ -1963,6 +1992,8 @@
             "pinned_debugger",
             "empty_container",
             "basealpine",
+            "debian-testing-slim",
+            "debian-testing-slim_linux_amd64",
             "base-cipd",
             "cd-base",
             "docsyserver-base",

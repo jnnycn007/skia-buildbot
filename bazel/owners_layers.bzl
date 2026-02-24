@@ -127,6 +127,8 @@ def get_fixup_owners_layers(dirs, owners = None):
     Returns:
         A list of layer instances.
     """
+    if not dirs and not owners:
+        return []
     tree = _build_owners_tree(dirs, owners = owners)
     subtrees = _subtrees_by_owner(tree)
     subtrees = sorted(subtrees, key = lambda node: node.depth, reverse = True)
