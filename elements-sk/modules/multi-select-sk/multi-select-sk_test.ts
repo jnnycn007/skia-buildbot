@@ -64,6 +64,7 @@ describe('multi-select-sk', () => {
         selectedItemIds: ['b'],
       });
       multiSelectSk.selection = [];
+      await multiSelectSk.updateComplete;
       assert.deepEqual([], multiSelectSk.selection);
       assert.isFalse(multiSelectSk.querySelector('#b')!.hasAttribute('selected'));
     });
@@ -73,10 +74,12 @@ describe('multi-select-sk', () => {
       const a = multiSelectSk.querySelector('#a')!;
       const b = multiSelectSk.querySelector('#b')!;
       multiSelectSk.selection = [0];
+      await multiSelectSk.updateComplete;
       assert.deepEqual([0], multiSelectSk.selection);
       assert.isTrue(a.hasAttribute('selected'));
       assert.isFalse(b.hasAttribute('selected'));
       multiSelectSk.selection = [0, 1];
+      await multiSelectSk.updateComplete;
 
       assert.deepEqual([0, 1], multiSelectSk.selection);
       assert.isTrue(a.hasAttribute('selected'));
@@ -91,7 +94,9 @@ describe('multi-select-sk', () => {
       assert.deepEqual([1], (multiSelectSk as any)._selection);
       assert.deepEqual([1], multiSelectSk.selection);
       multiSelectSk.disabled = true;
+      await multiSelectSk.updateComplete;
       multiSelectSk.selection = [0];
+      await multiSelectSk.updateComplete;
       assert.deepEqual([1], (multiSelectSk as any)._selection);
       assert.deepEqual([1], multiSelectSk.selection);
       assert.isTrue(multiSelectSk.hasAttribute('disabled'));
@@ -104,9 +109,11 @@ describe('multi-select-sk', () => {
         selectedItemIds: ['b'],
       });
       multiSelectSk.disabled = true;
+      await multiSelectSk.updateComplete;
       assert.deepEqual([], (multiSelectSk as any)._selection);
       assert.deepEqual([], multiSelectSk.selection);
       multiSelectSk.disabled = false;
+      await multiSelectSk.updateComplete;
       assert.deepEqual([1], (multiSelectSk as any)._selection);
       assert.deepEqual([1], multiSelectSk.selection);
       assert.isFalse(multiSelectSk.hasAttribute('disabled'));

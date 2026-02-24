@@ -47,32 +47,36 @@
  *   </pre>
  *
  */
-import { define } from '../define';
-import { upgradeProperty } from '../upgradeProperty';
+import { LitElement, PropertyValues } from 'lit';
+import { customElement, property } from 'lit/decorators.js';
 
-export class MultiSelectSk extends HTMLElement {
+@customElement('multi-select-sk')
+export class MultiSelectSk extends LitElement {
   private _obs: MutationObserver;
 
-  private _selection: number[];
+  private _selection: number[] = [];
 
   constructor() {
     super();
     // Keep _selection up to date by monitoring DOM changes.
     this._obs = new MutationObserver(() => this._bubbleUp());
-    this._selection = [];
   }
 
   connectedCallback(): void {
-    upgradeProperty(this, 'selection');
-    upgradeProperty(this, 'disabled');
+    super.connectedCallback();
     this.addEventListener('click', this._click);
     this.observerConnect();
     this._bubbleUp();
   }
 
   disconnectedCallback(): void {
+    super.disconnectedCallback();
     this.removeEventListener('click', this._click);
     this.observerDisconnect();
+  }
+
+  createRenderRoot(): this {
+    return this;
   }
 
   observerDisconnect() {
@@ -89,29 +93,19 @@ export class MultiSelectSk extends HTMLElement {
   }
 
   /** Whether this element should respond to input. */
-  get disabled(): boolean {
-    return this.hasAttribute('disabled');
-  }
-
-  set disabled(val: boolean) {
-    if (val) {
-      this.setAttribute('disabled', '');
-      this.selection = [];
-    } else {
-      this.removeAttribute('disabled');
-      this._bubbleUp();
-    }
-  }
+  @property({ type: Boolean, reflect: true })
+  disabled: boolean = false;
 
   /**
    * A sorted array of indices that are selected or [] if nothing is selected.
    * If selection is set to a not sorted array, it will be sorted anyway.
    */
+  @property({ type: Array, attribute: false })
   get selection(): number[] {
     return this._selection;
   }
 
-  set selection(val) {
+  set selection(val: number[]) {
     if (this.disabled) {
       return;
     }
@@ -119,8 +113,29 @@ export class MultiSelectSk extends HTMLElement {
       val = [];
     }
     val.sort();
+    const oldVal = this._selection;
     this._selection = val;
-    this._rationalize();
+    this.requestUpdate('selection', oldVal);
+  }
+
+  updated(changedProperties: PropertyValues) {
+    if (changedProperties.has('disabled')) {
+      if (this.disabled) {
+        // When disabled, we do nothing to _selection. It is frozen.
+        // We don't call _rationalize either.
+      } else {
+        // When re-enabled, we rely on the DOM attributes to restore selection.
+        this._bubbleUp();
+      }
+    }
+
+    if (changedProperties.has('selection')) {
+      // Only sync changes to DOM if enabled.
+      // If disabled, we might have cleared _selection, but we don't want to clear DOM.
+      if (!this.disabled) {
+        this._rationalize();
+      }
+    }
   }
 
   private _click(e: MouseEvent): void {
@@ -159,7 +174,7 @@ export class MultiSelectSk extends HTMLElement {
     // assume this.selection is sorted when this is called.
     let s = 0;
     for (let i = 0; i < this.children.length; i++) {
-      if (this.children[i].getAttribute('tabindex') == null) {
+      if (this.children[i].getAttribute('tabindex') === null) {
         this.children[i].setAttribute('tabindex', '0');
       }
       if (this._selection[s] === i) {
@@ -175,20 +190,20 @@ export class MultiSelectSk extends HTMLElement {
   // Loop over all immediate child elements and find all with the selected
   // attribute.
   private _bubbleUp(): void {
-    this._selection = [];
     if (this.disabled) {
       return;
     }
+    this._selection = [];
     for (let i = 0; i < this.children.length; i++) {
       if (this.children[i].hasAttribute('selected')) {
         this._selection.push(i);
       }
     }
-    this._rationalize();
+    // Since _bubbleUp changes _selection, we should notify Lit if we want strict reactivity,
+    // though _rationalize already synced the DOM.
+    this.requestUpdate('selection');
   }
 }
-
-define('multi-select-sk', MultiSelectSk);
 
 export interface MultiSelectSkSelectionChangedEventDetail {
   readonly selection: number[];
