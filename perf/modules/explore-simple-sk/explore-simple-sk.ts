@@ -16,7 +16,8 @@ import { TabsSk } from '../../../elements-sk/modules/tabs-sk/tabs-sk';
 import { ToastSk } from '../../../elements-sk/modules/toast-sk/toast-sk';
 import { ParamSet as CommonSkParamSet } from '../../../infra-sk/modules/query';
 import { SpinnerSk } from '../../../elements-sk/modules/spinner-sk/spinner-sk';
-import { errorMessage } from '../errorMessage';
+import { errorMessage, errorMessageWithTelemetry } from '../errorMessage';
+import { StatusCodes } from 'http-status-codes';
 import { ElementSk } from '../../../infra-sk/modules/ElementSk';
 import { CheckOrRadio } from '../../../elements-sk/modules/checkbox-sk/checkbox-sk';
 
@@ -132,9 +133,11 @@ import { CommitLinks } from '../point-links-sk/point-links-sk';
 import { handleKeyboardShortcut, KeyboardShortcutHandler } from '../common/keyboard-shortcuts';
 import { GraphConfig, updateShortcut } from '../common/graph-config';
 import { DataService, DataServiceError } from '../data-service';
+import { CountMetric } from '../telemetry/telemetry';
 
 const DOMAIN_DATE = 'date';
 const DOMAIN_COMMIT = 'commit';
+const EXPLORE_SIMPLE_PAGE_SOURCE = 'explore-simple-sk';
 
 /** The type of trace we are adding to a plot. */
 type addPlotType = 'query' | 'formula' | 'pivot' | 'json';
@@ -2955,7 +2958,11 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
       frameResponse.dataframe?.traceset &&
       Object.keys(frameResponse.dataframe.traceset).length === 0
     ) {
-      errorMessage('No data found for the given query.');
+      errorMessageWithTelemetry('No data found for the given query.', 0, {
+        countMetricSource: CountMetric.FrontendErrorReported,
+        source: EXPLORE_SIMPLE_PAGE_SOURCE,
+        errorCode: StatusCodes.BAD_REQUEST.toString(),
+      });
       return;
     }
     const dfRepo = this.dfRepo.value;
@@ -2963,6 +2970,7 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
       console.error('DataFrameRepository is not available.');
       return;
     }
+
     await this.dfRepo.value?.resetWithDataframeAndRequest(
       frameResponse.dataframe!,
       frameResponse.anomalymap,

@@ -7,6 +7,7 @@
  *  JSON doesn't support NaN or +/- Inf, so we need a valid float32 to signal
  *  missing data that also has a compact JSON representation.
  */
+
 export const MISSING_DATA_SENTINEL = 1e32;
 
 export const MISSING_VALUE_SENTINEL = '__missing__';

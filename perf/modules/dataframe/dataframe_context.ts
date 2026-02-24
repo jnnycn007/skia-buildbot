@@ -366,7 +366,12 @@ export class DataFrameRepository extends LitElement {
     await DataFrameRepository.loadPromise;
 
     // We could possibly merge with new data w/o recreating the entire table.
-    this.data = google.visualization.arrayToDataTable(convertFromDataframe(df, 'both')!);
+    const data = convertFromDataframe(df, 'both');
+    if (data) {
+      this.data = google.visualization.arrayToDataTable(data);
+    } else {
+      this.data = null;
+    }
   }
 
   /**

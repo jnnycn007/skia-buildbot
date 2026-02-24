@@ -66,6 +66,8 @@ sk_element(
         "//perf/modules/common:graph-config_ts_lib",
         "//perf/modules/common:keyboard-shortcuts_ts_lib",
         "//perf/modules/data-service:index_ts_lib",
+        "//perf/modules/telemetry:telemetry_ts_lib",
+        "//:node_modules/http-status-codes",
     ],
     ts_srcs = [
         "explore-simple-sk.ts",

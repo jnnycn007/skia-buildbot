@@ -1,5 +1,5 @@
+import { errorMessage, errorMessageWithTelemetry } from './index';
 import { assert } from 'chai';
-import { errorMessage } from './index';
 
 describe('errorMessage', () => {
   it('dispatches error-sk event with default duration 0', (done) => {
@@ -27,5 +27,20 @@ describe('errorMessage', () => {
     };
     document.addEventListener('error-sk', onErrorMessage);
     errorMessage(message, duration);
+  });
+});
+
+describe('errorMessageWithTelemetry', () => {
+  it('dispatches error-sk event with default duration 0', (done) => {
+    const message = 'telemetry message';
+    const onErrorMessage = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      assert.equal(detail.message, message);
+      assert.equal(detail.duration, 0);
+      document.removeEventListener('error-sk', onErrorMessage);
+      done();
+    };
+    document.addEventListener('error-sk', onErrorMessage);
+    errorMessageWithTelemetry(message);
   });
 });
