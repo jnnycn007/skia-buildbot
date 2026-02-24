@@ -158,9 +158,6 @@ export class BisectDialogSk extends ElementSk {
   }
 
   postBisect(): void {
-    if (!this.opened) {
-      return;
-    }
     this.spinner!.active = true;
     this.bisectButton!.disabled = true;
     if (this.testPath === '') {

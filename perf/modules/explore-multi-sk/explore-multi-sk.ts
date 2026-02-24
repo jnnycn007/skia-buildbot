@@ -66,16 +66,6 @@ import { DataService, DataServiceError } from '../data-service';
 
 const CACHE_KEY_EVEN_X_AXIS_SPACING = 'even_xaxis_spacing';
 
-function arraysEqual(a: string[] | null, b: string[] | null): boolean {
-  if (a === b) return true;
-  if (a === null || b === null) return false;
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; ++i) {
-    if (a[i] !== b[i]) return false;
-  }
-  return true;
-}
-
 export class State {
   begin: number = -1;
 
@@ -133,12 +123,6 @@ export class State {
 }
 
 export class ExploreMultiSk extends ElementSk {
-  private lastParams: string[] | null = null;
-
-  private lastManualMode: boolean | null = null;
-
-  private testPickerInitialized: boolean = false;
-
   private allGraphConfigs: GraphConfig[] = [];
 
   private allFrameResponses: FrameResponse[] = [];
@@ -384,20 +368,14 @@ export class ExploreMultiSk extends ElementSk {
   // Event listener for when the Test Picker plot button is clicked.
   // This will create a new empty Graph at the top and plot it with the
   // selected test values.
-  private _onPlotButtonClicked = (_e: Event) => {
-    this._addToGraphPromise = this._addToGraphPromise.then(() => this._processPlotButtonClick(_e));
-  };
-
-  private _processPlotButtonClick = async (_e: Event) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private _onPlotButtonClicked = async (e: Event) => {
     this._dataLoading = true;
     this.testPicker?.setReadOnly(true);
     this.setProgress('Loading graphs...');
     try {
       this.initialLoadStartTime = performance.now();
       this.loadTrigger = 'plot_button_clicked';
-      if (!this.state.manual_plot_mode) {
-        this.clearGraphs();
-      }
       if (this.state.splitByKeys.length === 0) {
         // Just load single graph.
         // We add the graph to the config, but we don't use the returned element
@@ -409,11 +387,7 @@ export class ExploreMultiSk extends ElementSk {
         if (this.exploreElements.length > 0 && this._dataLoading) {
           await new Promise<void>((resolve) => {
             const check = () => {
-              if (
-                this.exploreElements.length > 0 &&
-                this.exploreElements[0] &&
-                !this.exploreElements[0].spinning
-              ) {
+              if (!this.exploreElements[0].spinning) {
                 resolve();
               } else {
                 setTimeout(check, 100); // Poll every 100ms.
@@ -522,102 +496,56 @@ export class ExploreMultiSk extends ElementSk {
     }
   };
 
-  private _addToGraphInProgress = false;
-
-  private _addToGraphPromise: Promise<void> = Promise.resolve();
-
   // Event listener for when the Test Picker plot button is clicked.
   // This will create a new empty Graph at the top and plot it with the
   // selected test values.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  private _onAddToGraph = (e: Event) => {
-    // Chain the event processing to ensure sequential execution.
-    // This prevents race conditions ("Pending query") while ensuring we don't drop events
-    // (like rapid selection updates in tests).
-    this._addToGraphPromise = this._addToGraphPromise.then(() => this._processAddToGraph(e));
-  };
-
-  private _processAddToGraph = async (e: Event) => {
-    try {
-      this.initialLoadStartTime = performance.now();
-      this.loadTrigger = 'picker_add_trace';
-      const query = (e as CustomEvent).detail.query;
-      if (!query) {
-        this.clearGraphs();
-        this.stateHasChanged!();
-        return;
-      }
-      // Query is the same as the first graph, so do nothing.
-      if (this.allGraphConfigs.length > 0 && query === this.allGraphConfigs[0].queries[0]) {
-        return;
-      }
-      let explore: ExploreSimpleSk;
-      this._dataLoading = true;
-      this.testPicker?.setReadOnly(true);
-      if (this.currentPageExploreElements.length === 0 || this.allGraphConfigs.length === 0) {
-        this.addEmptyGraph(true);
-        // We don't use the returned element, but rely on renderCurrentPage to create
-        // the element and put it in currentPageExploreElements.
-        if (this.allGraphConfigs.length > 0) {
-          if (this.exploreElements.length > 0 && this.exploreElements[0] && this._dataLoading) {
-            await this.exploreElements[0].requestComplete;
-          }
-          this.renderCurrentPage(true);
-          // The newly added graph is at index 0.
-          explore = this.currentPageExploreElements[0];
-        } else {
-          return;
-        }
-      } else {
-        // Sync the current graph's range to the global state before re-rendering.
-        // This prevents the range from resetting to defaults (e.g. "Now - 48h") if the user
-        // or previous test had set a custom range (e.g. "2025") that actually contains data.
-        if (this.exploreElements.length > 0) {
-          const currentRange = this.getGraphRangeAsTimestamp(this.exploreElements[0]);
-          if (currentRange) {
-            this.state.begin = currentRange.begin;
-            this.state.end = currentRange.end;
-          }
-        }
-
-        // Reset pagination and re-render to ensure we are targeting the main graph (index 0).
-        // This collapses any existing split view back to a single master graph.
-        this.state.pageOffset = 0;
-
-        this.exploreElements.splice(1);
-        this.allGraphConfigs.splice(1);
-        this.allFrameRequests = [];
-        this.allFrameResponses = [];
-        this.state.totalGraphs = this.exploreElements.length;
-
-        // Ensure the main graph is in the DOM so it can process data.
-        // We pass true for doNotQueryData to prevent the graph from fetching data implicitly
-        // on render, as we are about to call addFromQueryOrFormula to fetch explicitly.
-        await this.renderCurrentPage(true);
-
-        // Fix: Handle race condition where graph is removed during render (e.g. via remove-trace event).
-        // If the graph element is missing, we try to recover by re-adding an empty graph if needed
-        // and re-rendering.
-        if (!this.currentPageExploreElements[0]) {
-          if (this.allGraphConfigs.length === 0) {
-            this.addEmptyGraph(true);
-          }
-          await this.renderCurrentPage(true);
-        }
-
-        explore = this.currentPageExploreElements[0];
-        if (!explore) {
-          return;
-        }
-        explore.state.doNotQueryData = false;
-      }
-      await explore.addFromQueryOrFormula(true, 'query', query, '', '', false);
-      await this.splitGraphs();
-    } catch (error) {
-      console.error(error);
-    } finally {
-      // No need to set _addToGraphInProgress = false, the promise chain handles it.
+  private _onAddToGraph = async (e: Event) => {
+    this.initialLoadStartTime = performance.now();
+    this.loadTrigger = 'picker_add_trace';
+    const query = (e as CustomEvent).detail.query;
+    // Query is the same as the first graph, so do nothing.
+    if (this.allGraphConfigs.length > 0 && query === this.allGraphConfigs[0].queries[0]) {
+      return;
     }
+    let explore: ExploreSimpleSk;
+    this._dataLoading = true;
+    this.testPicker?.setReadOnly(true);
+    if (this.currentPageExploreElements.length === 0) {
+      this.addEmptyGraph(true);
+      // We don't use the returned element, but rely on renderCurrentPage to create
+      // the element and put it in currentPageExploreElements.
+      if (this.allGraphConfigs.length > 0) {
+        if (this.exploreElements.length > 0 && this._dataLoading) {
+          await this.exploreElements[0].requestComplete;
+        }
+        this.renderCurrentPage(true);
+        // The newly added graph is at index 0.
+        explore = this.currentPageExploreElements[0];
+      } else {
+        return;
+      }
+    } else {
+      // Reset pagination and re-render to ensure we are targeting the main graph (index 0).
+      // This collapses any existing split view back to a single master graph.
+      this.state.pageOffset = 0;
+
+      this.exploreElements.splice(1);
+      this.allGraphConfigs.splice(1);
+      this.allFrameRequests.splice(1);
+      this.allFrameResponses.splice(1);
+      this.state.totalGraphs = this.exploreElements.length;
+
+      // Ensure the main graph is in the DOM so it can process data.
+      await this.renderCurrentPage(false);
+      explore = this.currentPageExploreElements[0];
+      if (!explore) {
+        return;
+      }
+      explore.state.doNotQueryData = false;
+    }
+    await explore.addFromQueryOrFormula(true, 'query', query, '', '', false);
+    await this.splitGraphs();
   };
 
   private _onRemoveTrace = async (e: Event) => {
@@ -670,7 +598,7 @@ export class ExploreMultiSk extends ElementSk {
       });
 
       if (Object.keys(traceSet).length === 0) {
-        this.resetGraphs();
+        this.emptyCurrentPage();
         await this.checkDataLoaded(); // Ensure readonly is reset
         return;
       }
@@ -752,7 +680,7 @@ export class ExploreMultiSk extends ElementSk {
 
           if (
             !shouldRemoveGraph &&
-            (keysWereRemoved || (traceset && tracesToRemove.some((key) => traceset[key])))
+            (keysWereRemoved || tracesToRemove.some((key) => traceset[key]))
           ) {
             elem.removeKeys(tracesToRemove, true);
             const newTraceset = elem.getTraceset();
@@ -810,6 +738,7 @@ export class ExploreMultiSk extends ElementSk {
           // removal logic didn't match), we should update the queries to reflect the
           // remaining data. This prevents future fetches from bringing back the
           // removed trace and ensures consistency.
+          // We only do this if we are not clearing the graph.
           if (Object.keys(updatedTraceset).length > 0) {
             // We construct a new query from the remaining params.
             // However, we should respect the include_params defaults if possible, to
@@ -817,8 +746,6 @@ export class ExploreMultiSk extends ElementSk {
             // Let's use the params derived from the traceset.
             const newQuery = fromParamSet(params);
             elem.state.queries = [newQuery];
-          } else {
-            elem.state.queries = [];
           }
 
           // Check if any remaining trace is missing the parameter or has an empty value.
@@ -831,8 +758,8 @@ export class ExploreMultiSk extends ElementSk {
           // Update the graph with the new traceSet and params.
           const updatedRequest: FrameRequest = {
             queries: elem.state.queries,
-            request_type: this.getEffectiveRequestType(),
-            begin: this.getEffectiveBegin(),
+            request_type: this.state.request_type,
+            begin: this.state.begin,
             end: this.state.end,
             tz: '',
             disable_filter_parent_traces:
@@ -1122,23 +1049,7 @@ export class ExploreMultiSk extends ElementSk {
       traceset.push(...ts);
     });
 
-    const groupedTraces = this.groupTracesByParamKey(traceset, splitKeys);
-
-    // If we have a test picker, ensure we have a group for every selected item
-    // in the split field, even if there are no traces for it.
-    // We only do this if there are already traces loaded (i.e. we are not in the pre-plot state).
-    if (this.testPicker && splitKeys.length > 0 && traceset.length > 0) {
-      const splitKey = splitKeys[0];
-      const paramSet = this.testPicker.createParamSetFromFieldData();
-      const selectedValues = paramSet[splitKey] || [];
-      selectedValues.forEach((val) => {
-        if (!groupedTraces.has(val)) {
-          groupedTraces.set(val, []);
-        }
-      });
-    }
-
-    return groupedTraces;
+    return this.groupTracesByParamKey(traceset, splitKeys);
   }
 
   /**
@@ -1167,37 +1078,6 @@ export class ExploreMultiSk extends ElementSk {
     return groupedTraces;
   }
 
-  private getEffectiveRequestType(): RequestType {
-    // We rely on the user's selected request type (or default).
-    // Previously we forced request_type=1 for "Now" queries, but this can fail
-    // if the data is older than 'num_commits' allows.
-    // Instead, we ensure the time range is sufficient in getEffectiveBegin.
-    return this.state.request_type;
-  }
-
-  private getEffectiveBegin(): number {
-    let begin = this.state.begin;
-    const end = this.state.end;
-    const now = Math.floor(Date.now() / 1000);
-
-    // Sanity check: If begin looks like a commit offset (too small), treat as invalid.
-    // Year 2000 is ~946M.
-    if (begin > 0 && begin < 900000000) {
-      begin = -1;
-    }
-
-    if (begin === -1 || end === -1) {
-      begin = now - DEFAULT_RANGE_S;
-    } else if (Math.abs(end - now) < 86400) {
-      const MIN_RANGE_S = DEFAULT_RANGE_S; // 48 hours
-      const range = end - begin;
-      if (range < MIN_RANGE_S) {
-        begin = end - MIN_RANGE_S;
-      }
-    }
-    return begin;
-  }
-
   /**
    * Creates a FrameRequest object.
    *
@@ -1220,20 +1100,18 @@ export class ExploreMultiSk extends ElementSk {
       }
     }
 
+    let begin = this.state.begin;
     let end = this.state.end;
-    // Sanity check: If end looks like a commit offset (too small), treat as invalid.
-    if (end > 0 && end < 900000000) {
-      end = -1;
-    }
-
-    if (end === -1) {
-      end = Math.floor(Date.now() / 1000);
+    if (begin === -1 || end === -1) {
+      const now = Math.floor(Date.now() / 1000);
+      begin = now - DEFAULT_RANGE_S;
+      end = now;
     }
 
     const request: FrameRequest = {
       queries: queries,
-      request_type: this.getEffectiveRequestType(),
-      begin: this.getEffectiveBegin(),
+      request_type: this.state.request_type,
+      begin: begin,
       end: end,
       tz: '',
     };
@@ -1342,15 +1220,6 @@ export class ExploreMultiSk extends ElementSk {
 
     this.mainGraphSelectedRange = this.exploreElements[0].getSelectedRange();
 
-    // Sync the current graph's time range to the global state to ensure the split graphs
-    // inherit the correct window (e.g. if the user zoomed in or if we are viewing old data).
-    // This prevents reverting to default "Now" ranges which might be empty.
-    const rangeAsTimestamp = this.getGraphRangeAsTimestamp(this.exploreElements[0]);
-    if (rangeAsTimestamp) {
-      this.state.begin = rangeAsTimestamp.begin;
-      this.state.end = rangeAsTimestamp.end;
-    }
-
     // Create the main graph config containing all trace data.
     const mainRequest: FrameRequest = this.createFrameRequest();
     const mainResponse: FrameResponse = this.createFrameResponse();
@@ -1360,29 +1229,11 @@ export class ExploreMultiSk extends ElementSk {
     const splitData =
       this.state.splitByKeys.length === 0
         ? []
-        : Array.from(groupedTraces.entries()).map(([splitValue, traces]) => {
-            if (traces.length > 0) {
-              return {
-                traces,
-                request: this.createFrameRequest(traces),
-                response: this.createFrameResponse(traces),
-              };
-            }
-            const newQueries = (mainRequest.queries || []).map((q) => {
-              const params = toParamSet(q);
-              params[this.state.splitByKeys[0]] = [splitValue];
-              return fromParamSet(params);
-            });
-            const request: FrameRequest = {
-              ...mainRequest,
-              queries: newQueries,
-            };
-            return {
-              traces,
-              request,
-              response: this.createFrameResponse([]),
-            };
-          });
+        : Array.from(groupedTraces.values()).map((traces) => ({
+            traces,
+            request: this.createFrameRequest(traces),
+            response: this.createFrameResponse(traces),
+          }));
 
     this.allFrameRequests = [mainRequest];
     this.allFrameResponses = [mainResponse];
@@ -1425,6 +1276,26 @@ export class ExploreMultiSk extends ElementSk {
    */
   private async initializeTestPicker() {
     const testPickerParams = this.defaults?.include_params ?? null;
+    if (testPickerParams !== null) {
+      this.useTestPicker = true;
+      this.testPicker!.classList.remove('hidden');
+      let defaultParams = this.defaults?.default_param_selections ?? {};
+      if (window.perf.remove_default_stat_value) {
+        defaultParams = {};
+      }
+
+      const readOnly = this.state.manual_plot_mode ? false : this.exploreElements.length > 0;
+
+      // Pass the manual_plot_mode flag to force manual plotting if true.
+      this.testPicker!.initializeTestPicker(
+        testPickerParams!,
+        defaultParams,
+        readOnly,
+        this.state.manual_plot_mode
+      );
+      this._render();
+    }
+
     this.removeEventListener('remove-explore', this._onRemoveExplore);
     this.addEventListener('remove-explore', this._onRemoveExplore);
 
@@ -1442,43 +1313,6 @@ export class ExploreMultiSk extends ElementSk {
 
     this.removeEventListener('populate-query', this._onPopulateQuery);
     this.addEventListener('populate-query', this._onPopulateQuery);
-
-    if (testPickerParams !== null) {
-      this.useTestPicker = true;
-      this.testPicker!.classList.remove('hidden');
-
-      // Reset split keys on initialization to avoid carrying over state.
-      this.state.splitByKeys = [];
-
-      let defaultParams = this.defaults?.default_param_selections ?? {};
-      if (window.perf.remove_default_stat_value) {
-        defaultParams = {};
-      }
-
-      const readOnly = this.state.manual_plot_mode ? false : this.exploreElements.length > 0;
-
-      if (
-        this.testPickerInitialized &&
-        this.lastManualMode === this.state.manual_plot_mode &&
-        arraysEqual(this.lastParams, testPickerParams)
-      ) {
-        this.testPicker!.setReadOnly(readOnly);
-        return;
-      }
-
-      this.lastParams = testPickerParams;
-      this.lastManualMode = this.state.manual_plot_mode;
-      this.testPickerInitialized = true;
-
-      // Pass the manual_plot_mode flag to force manual plotting if true.
-      this.testPicker!.initializeTestPicker(
-        testPickerParams!,
-        defaultParams,
-        readOnly,
-        this.state.manual_plot_mode
-      );
-      this._render();
-    }
   }
 
   private async populateTestPicker(paramSet: { [key: string]: string[] }) {
@@ -1613,11 +1447,7 @@ export class ExploreMultiSk extends ElementSk {
   private async renderCurrentPage(doNotQueryData: boolean = true): Promise<void> {
     // Logic: In Standard Mode (not manual), if we have multiple graphs,
     // the first one (Index 0) is the "Summary" and is hidden from pagination.
-    // If we are splitting, we also treat the first graph as summary (accumulator) and hide it,
-    // BUT only if we actually have split graphs to show (length > 1).
-    const isSummaryView =
-      this.allGraphConfigs.length > 1 &&
-      (this.state.splitByKeys.length > 0 || !this.state.manual_plot_mode);
+    const isSummaryView = !this.state.manual_plot_mode && this.allGraphConfigs.length > 1;
 
     if (isSummaryView) {
       this.state.totalGraphs = this.allGraphConfigs.length - 1;
@@ -1670,12 +1500,7 @@ export class ExploreMultiSk extends ElementSk {
         explore = this.createExploreSimpleSk();
         this.exploreElements[i] = explore;
       }
-      // Hide the accumulator (Index 0) if we are in Split Mode.
-      if (i === 0 && this.state.splitByKeys.length > 0) {
-        explore.style.display = 'none';
-      } else {
-        explore.style.display = '';
-      }
+      explore.style.display = '';
 
       // If we already have a response for this graph, we don't need to query data.
       const hasResponse =
@@ -1748,10 +1573,9 @@ export class ExploreMultiSk extends ElementSk {
               continue;
             }
             const isDefaultResponse = !this.allFrameResponses[i];
-            // If we don't have a cached response, skip this update to avoid triggering
-            // "No data found" errors or overwriting the graph with empty data while it's
-            // trying to fetch its own.
-            if (isDefaultResponse) {
+            // If we don't have a cached response and the graph is already fetching
+            // its own data, skip this update to avoid triggering "No data found" errors.
+            if (isDefaultResponse && !explore.state.doNotQueryData) {
               continue;
             }
             const frameResponse = this.allFrameResponses[i] || this.createFrameResponse();
@@ -1820,36 +1644,6 @@ export class ExploreMultiSk extends ElementSk {
       }
     });
     await Promise.allSettled(promises);
-  }
-
-  private getGraphRangeAsTimestamp(graph: ExploreSimpleSk): { begin: number; end: number } | null {
-    let range = graph.getSelectedRange();
-    if (!range) {
-      // Fallback to the graph's current state (view) if no selection (zoom) is active.
-      // This ensures we preserve the current time window even if not zoomed.
-      range = { begin: graph.state.begin, end: graph.state.end };
-    }
-    if (!range) {
-      return null;
-    }
-    let { begin, end } = range;
-
-    // If domain is 'commit', the values are commit offsets. We must convert them to timestamps
-    // before storing in the global state, as the backend expects timestamps for frame requests.
-    if (this.state.domain === 'commit') {
-      const header = graph.getHeader();
-      if (header) {
-        const findTs = (val: number) => {
-          const target = Math.round(val);
-          // Header items are {offset, timestamp, ...}
-          const item = header.find((h) => h && h.offset === target);
-          return item ? item.timestamp : val;
-        };
-        begin = findTs(begin);
-        end = findTs(end);
-      }
-    }
-    return { begin, end };
   }
 
   private async syncChartSelection(e: CustomEvent<PlotSelectionEventDetails>): Promise<void> {
@@ -1947,13 +1741,13 @@ export class ExploreMultiSk extends ElementSk {
       formulas: graphConfig.formulas || [],
       queries: graphConfig.queries || [],
       keys: graphConfig.keys || '',
-      begin: this.getEffectiveBegin(),
+      begin: this.state.begin,
       end: this.state.end,
       showZero: this.state.showZero,
       numCommits: this.state.numCommits,
       summary: this.state.summary,
       xbaroffset: explore.state.xbaroffset,
-      requestType: this.getEffectiveRequestType(),
+      requestType: this.state.request_type,
       pivotRequest: explore.state.pivotRequest,
       sort: explore.state.sort,
       selected: explore.state.selected,
@@ -2299,11 +2093,17 @@ export class ExploreMultiSk extends ElementSk {
   }
 
   private async loadAllCharts() {
-    const pageSize = this.exploreElements.length > 0 ? this.exploreElements.length - 1 : 1;
-    this.state.pageSize = pageSize;
-    this.state.pageOffset = 0;
-    this.stateHasChanged!();
-    await this.splitGraphs();
+    if (
+      window.confirm(
+        'Loading all charts at once may cause performance issues or page crashes. Proceed?'
+      )
+    ) {
+      const pageSize = this.exploreElements.length > 0 ? this.exploreElements.length - 1 : 1;
+      this.state.pageSize = pageSize;
+      this.state.pageOffset = 0;
+      this.stateHasChanged!();
+      await this.splitGraphs();
+    }
   }
 }
 

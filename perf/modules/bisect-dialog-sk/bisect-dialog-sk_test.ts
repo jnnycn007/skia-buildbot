@@ -78,7 +78,6 @@ describe('bisect-dialog-sk', () => {
       };
       await element.setBisectInputParams(params);
       element.user = 'test@example.com';
-      element.open();
 
       fetchMock.post('/_/bisect/create', { jobId: 'job1', jobUrl: '/job/1' });
 
@@ -119,7 +118,6 @@ describe('bisect-dialog-sk', () => {
       };
       await element.setBisectInputParams(params);
       element.user = 'test@example.com';
-      element.open();
 
       fetchMock.post('/_/bisect/create', { jobId: 'job1', jobUrl: '/job/1' });
 
@@ -143,7 +141,6 @@ describe('bisect-dialog-sk', () => {
       };
       await element.setBisectInputParams(params);
       element.user = 'test@example.com';
-      element.open();
 
       fetchMock.post('/_/bisect/create', { jobId: 'job1', jobUrl: '/job/1' });
 
@@ -168,7 +165,6 @@ describe('bisect-dialog-sk', () => {
       };
       element.setBisectInputParams(params);
       element.user = 'test@example.com';
-      element.open();
 
       fetchMock.post('/_/bisect/create', 500);
       const event = eventPromise('error-sk');
@@ -193,7 +189,6 @@ describe('bisect-dialog-sk', () => {
       };
       await element.setBisectInputParams(params);
       element.user = 'test@example.com';
-      element.open();
 
       const jobUrl = 'https://pinpoint-dot-chromeperf.appspot.com/job/12345';
       fetchMock.post('/_/bisect/create', { jobId: '12345', jobUrl: jobUrl });
@@ -267,7 +262,6 @@ describe('bisect-dialog-sk', () => {
         };
 
         await element.setBisectInputParams(params);
-        element.open();
         const event = eventPromise('error-sk');
         await element.postBisect();
 
