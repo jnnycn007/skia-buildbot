@@ -125,14 +125,18 @@ func (s *repositoryTopicStoreImpl) WriteTopic(ctx context.Context, topic *Topic)
 }
 
 // ReadTopic returns the topic data for the topic id provided.
-func (s *repositoryTopicStoreImpl) ReadTopic(ctx context.Context, topicID int64) (*Topic, error) {
+func (s *repositoryTopicStoreImpl) ReadTopic(ctx context.Context, topicID int64, repository string) (*Topic, error) {
 	s.readMetrics.Start()
 	defer s.readMetrics.Stop()
 
 	ctx, span := trace.StartSpan(ctx, "historyrag.topicstore.RepositoryReadTopic")
 	defer span.End()
 
-	span.AddAttributes(trace.Int64Attribute("topic_id", topicID))
+	if repository == "" {
+		repository = "root"
+	}
+
+	span.AddAttributes(trace.Int64Attribute("topic_id", topicID), trace.StringAttribute("repository", repository))
 
 	ret := &Topic{
 		ID: topicID,
@@ -146,10 +150,11 @@ func (s *repositoryTopicStoreImpl) ReadTopic(ctx context.Context, topicID int64)
 			t1.code_context_lines,
 			t1.commit_count
 		FROM RepositoryTopics AS t1
-		WHERE t1.topic_id = @topicID
+		WHERE t1.topic_id = @topicID AND t1.repository = @repository
 		LIMIT 1
 	`)
 	stmt.Params["topicID"] = topicID
+	stmt.Params["repository"] = repository
 	var topicPopulated bool
 	err := s.spannerClient.Single().Query(ctx, stmt).Do(func(r *spanner.Row) error {
 		if !topicPopulated {
@@ -189,14 +194,14 @@ func (s *repositoryTopicStoreImpl) ReadTopic(ctx context.Context, topicID int64)
 }
 
 // SearchTopics searches for the most relevant topics for the given query embedding.
-func (s *repositoryTopicStoreImpl) SearchTopics(ctx context.Context, queryEmbedding []float32, topicCount int) ([]*FoundTopic, error) {
+func (s *repositoryTopicStoreImpl) SearchTopics(ctx context.Context, queryEmbedding []float32, topicCount int, repository string) ([]*FoundTopic, error) {
 	s.searchMetrics.Start()
 	defer s.searchMetrics.Stop()
 
 	ctx, span := trace.StartSpan(ctx, "historyrag.topicstore.RepositorySearchTopics")
 	defer span.End()
 
-	stmt := spanner.NewStatement(`
+	query := `
 		SELECT
 			t.repository,
 			t.topic_id,
@@ -210,12 +215,22 @@ func (s *repositoryTopicStoreImpl) SearchTopics(ctx context.Context, queryEmbedd
 			RepositoryTopicChunks AS c
 		JOIN
 			RepositoryTopics AS t ON c.topic_id = t.topic_id AND c.repository = t.repository
+	`
+	if repository != "" {
+		query += " WHERE t.repository = @repository "
+	}
+	query += `
 		ORDER BY
 			distance
 		LIMIT @topicCount
-	`)
+	`
+
+	stmt := spanner.NewStatement(query)
 	stmt.Params["queryEmbedding"] = queryEmbedding
 	stmt.Params["topicCount"] = topicCount
+	if repository != "" {
+		stmt.Params["repository"] = repository
+	}
 	var ret []*FoundTopic
 	topicMap := make(map[string]*FoundTopic) // Key is repository + topicID
 	err := s.spannerClient.Single().Query(ctx, stmt).Do(func(r *spanner.Row) error {
@@ -270,6 +285,27 @@ func (s *repositoryTopicStoreImpl) SearchTopics(ctx context.Context, queryEmbedd
 			Chunk:     chunk,
 			Embedding: embedding,
 		})
+		return nil
+	})
+	if err != nil {
+		return nil, skerr.Wrap(err)
+	}
+	return ret, nil
+}
+
+// GetRepositories returns a list of all repositories in the RepositoryTopics table.
+func (s *repositoryTopicStoreImpl) GetRepositories(ctx context.Context) ([]string, error) {
+	ctx, span := trace.StartSpan(ctx, "historyrag.topicstore.GetRepositories")
+	defer span.End()
+
+	var ret []string
+	stmt := spanner.NewStatement("SELECT DISTINCT repository FROM RepositoryTopics ORDER BY repository")
+	err := s.spannerClient.Single().Query(ctx, stmt).Do(func(r *spanner.Row) error {
+		var repo string
+		if err := r.ColumnByName("repository", &repo); err != nil {
+			return skerr.Wrap(err)
+		}
+		ret = append(ret, repo)
 		return nil
 	})
 	if err != nil {

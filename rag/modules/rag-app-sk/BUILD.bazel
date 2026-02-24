@@ -19,9 +19,8 @@ sk_element(
 sk_page(
     name = "rag-app-sk-demo",
     html_file = "rag-app-sk-demo.html",
-    ts_deps = [
-        "//:node_modules/fetch-mock",
-    ],
+    sk_element_deps = [":rag-app-sk"],
+    ts_deps = ["//:node_modules/fetch-mock"],
     ts_entry_point = "rag-app-sk-demo.ts",
 )
 

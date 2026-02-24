@@ -10,11 +10,6 @@ import "google/api/annotations.proto";
 
 // Service definition for the HistoryRag service.
 service HistoryRagApiService {
-    rpc GetBlames(GetBlamesRequest) returns (GetBlamesResponse) {
-        option (google.api.http) = {
-			get: "/historyrag/v1/blames"
-		};
-    }
     rpc GetTopics(GetTopicsRequest) returns (GetTopicsResponse) {
         option (google.api.http) = {
 			get: "/historyrag/v1/topics"
@@ -31,38 +26,11 @@ service HistoryRagApiService {
             body: "*"
 		};
     }
-}
-
-// Request message for the GetBlames api.
-message GetBlamesRequest {
-    // Path to the file to retrieve blames for.
-    string filePath = 1;
-}
-
-// Response message for the GetBlames api.
-message GetBlamesResponse {
-    // File path.
-    string filePath = 1;
-
-    // Hash of the file.
-    string fileHash = 2;
-
-    // Version of the blame.
-    string version = 3;
-
-    // Commit hash for the blame.
-	string commitHash = 4;
-
-    // Message defining the line blame data.
-    message LineBlame {
-        // Line number in the file.
-        int64 lineNumber = 1;
-        // Commit hash for the line.
-        string commitHash = 2;
+    rpc GetRepositories(GetRepositoriesRequest) returns (GetRepositoriesResponse) {
+        option (google.api.http) = {
+            get: "/historyrag/v1/repositories"
+        };
     }
-
-    // Line blames for the file.
-	repeated LineBlame lineBlames = 5;
 }
 
 // Request message for the GetTopics api.
@@ -75,6 +43,18 @@ message GetTopicsRequest {
 
     // No of chunks to return.
     int64 chunk_count = 3;
+
+    // Repository for the topic.
+    string repository = 4;
+}
+
+// Request message for the GetRepositories api.
+message GetRepositoriesRequest {}
+
+// Response message for the GetRepositories api.
+message GetRepositoriesResponse {
+    // List of repositories.
+    repeated string repositories = 1;
 }
 
 // Response message for the GetTopics api.
@@ -104,6 +84,9 @@ message GetTopicsResponse {
 
         // Topic summary.
         string summary = 5;
+
+        // Repository for the topic.
+        string repository = 6;
     }
 
     // Topics retrieved for the query.
@@ -118,6 +101,8 @@ message GetTopicDetailsRequest {
     bool include_code = 2;
     // Whether to include tests in the response.
     bool include_tests = 3;
+    // Repository for the topic.
+    string repository = 4;
 }
 
 // Response message for the GetTopicDetails api.
@@ -148,6 +133,9 @@ message GetSummaryRequest {
 
     // The IDs of the topics to summarize.
     repeated int64 topic_ids = 2;
+
+    // Repository for the topic.
+    string repository = 3;
 }
 
 // Response message for the GetSummary api.

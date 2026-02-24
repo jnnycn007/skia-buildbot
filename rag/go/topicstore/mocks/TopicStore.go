@@ -14,29 +14,29 @@ type TopicStore struct {
 	mock.Mock
 }
 
-// ReadTopic provides a mock function with given fields: ctx, topicID
-func (_m *TopicStore) ReadTopic(ctx context.Context, topicID int64) (*topicstore.Topic, error) {
-	ret := _m.Called(ctx, topicID)
+// GetRepositories provides a mock function with given fields: ctx
+func (_m *TopicStore) GetRepositories(ctx context.Context) ([]string, error) {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
-		panic("no return value specified for ReadTopic")
+		panic("no return value specified for GetRepositories")
 	}
 
-	var r0 *topicstore.Topic
+	var r0 []string
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64) (*topicstore.Topic, error)); ok {
-		return rf(ctx, topicID)
+	if rf, ok := ret.Get(0).(func(context.Context) ([]string, error)); ok {
+		return rf(ctx)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, int64) *topicstore.Topic); ok {
-		r0 = rf(ctx, topicID)
+	if rf, ok := ret.Get(0).(func(context.Context) []string); ok {
+		r0 = rf(ctx)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*topicstore.Topic)
+			r0 = ret.Get(0).([]string)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, int64) error); ok {
-		r1 = rf(ctx, topicID)
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -44,9 +44,39 @@ func (_m *TopicStore) ReadTopic(ctx context.Context, topicID int64) (*topicstore
 	return r0, r1
 }
 
-// SearchTopics provides a mock function with given fields: ctx, queryEmbedding, topicCount
-func (_m *TopicStore) SearchTopics(ctx context.Context, queryEmbedding []float32, topicCount int) ([]*topicstore.FoundTopic, error) {
-	ret := _m.Called(ctx, queryEmbedding, topicCount)
+// ReadTopic provides a mock function with given fields: ctx, topicID, repository
+func (_m *TopicStore) ReadTopic(ctx context.Context, topicID int64, repository string) (*topicstore.Topic, error) {
+	ret := _m.Called(ctx, topicID, repository)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ReadTopic")
+	}
+
+	var r0 *topicstore.Topic
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64, string) (*topicstore.Topic, error)); ok {
+		return rf(ctx, topicID, repository)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, int64, string) *topicstore.Topic); ok {
+		r0 = rf(ctx, topicID, repository)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*topicstore.Topic)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, int64, string) error); ok {
+		r1 = rf(ctx, topicID, repository)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// SearchTopics provides a mock function with given fields: ctx, queryEmbedding, topicCount, repository
+func (_m *TopicStore) SearchTopics(ctx context.Context, queryEmbedding []float32, topicCount int, repository string) ([]*topicstore.FoundTopic, error) {
+	ret := _m.Called(ctx, queryEmbedding, topicCount, repository)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SearchTopics")
@@ -54,19 +84,19 @@ func (_m *TopicStore) SearchTopics(ctx context.Context, queryEmbedding []float32
 
 	var r0 []*topicstore.FoundTopic
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, []float32, int) ([]*topicstore.FoundTopic, error)); ok {
-		return rf(ctx, queryEmbedding, topicCount)
+	if rf, ok := ret.Get(0).(func(context.Context, []float32, int, string) ([]*topicstore.FoundTopic, error)); ok {
+		return rf(ctx, queryEmbedding, topicCount, repository)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, []float32, int) []*topicstore.FoundTopic); ok {
-		r0 = rf(ctx, queryEmbedding, topicCount)
+	if rf, ok := ret.Get(0).(func(context.Context, []float32, int, string) []*topicstore.FoundTopic); ok {
+		r0 = rf(ctx, queryEmbedding, topicCount, repository)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]*topicstore.FoundTopic)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, []float32, int) error); ok {
-		r1 = rf(ctx, queryEmbedding, topicCount)
+	if rf, ok := ret.Get(1).(func(context.Context, []float32, int, string) error); ok {
+		r1 = rf(ctx, queryEmbedding, topicCount, repository)
 	} else {
 		r1 = ret.Error(1)
 	}

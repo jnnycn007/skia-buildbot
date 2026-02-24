@@ -28,20 +28,20 @@ func TestInMemoryTopicStore(t *testing.T) {
 	err := store.WriteTopic(ctx, topic)
 	require.NoError(t, err)
 
-	readTopic, err := store.ReadTopic(ctx, 1)
+	readTopic, err := store.ReadTopic(ctx, 1, "")
 	require.NoError(t, err)
 	assert.Equal(t, topic.Title, readTopic.Title)
 
 	// Test Search
 	// Query embedding exactly matches the chunk
-	foundTopics, err := store.SearchTopics(ctx, []float32{1.0, 0.0, 0.0}, 1)
+	foundTopics, err := store.SearchTopics(ctx, []float32{1.0, 0.0, 0.0}, 1, "")
 	require.NoError(t, err)
 	assert.Len(t, foundTopics, 1)
 	assert.Equal(t, int64(1), foundTopics[0].ID)
 	assert.InDelta(t, 0.0, foundTopics[0].Distance, 1e-6)
 
 	// Query embedding orthogonal to the chunk
-	foundTopics, err = store.SearchTopics(ctx, []float32{0.0, 1.0, 0.0}, 1)
+	foundTopics, err = store.SearchTopics(ctx, []float32{0.0, 1.0, 0.0}, 1, "")
 	require.NoError(t, err)
 	assert.Len(t, foundTopics, 1)
 	assert.InDelta(t, 1.0, foundTopics[0].Distance, 1e-6)
@@ -70,7 +70,7 @@ func TestInMemoryTopicStore_SearchMultiple(t *testing.T) {
 	require.NoError(t, err)
 
 	// Search for something closer to Topic 1
-	found, err := store.SearchTopics(ctx, []float32{0.8, 0.2}, 2)
+	found, err := store.SearchTopics(ctx, []float32{0.8, 0.2}, 2, "")
 	require.NoError(t, err)
 	assert.Len(t, found, 2)
 	assert.Equal(t, int64(1), found[0].ID)
@@ -91,7 +91,7 @@ func TestInMemoryTopicStore_Repository(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	found, err := store.SearchTopics(ctx, []float32{1.0}, 1)
+	found, err := store.SearchTopics(ctx, []float32{1.0}, 1, "")
 	require.NoError(t, err)
 	assert.Len(t, found, 1)
 	assert.Equal(t, "repo-x", found[0].Repository)

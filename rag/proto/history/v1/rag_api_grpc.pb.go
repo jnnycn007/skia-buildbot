@@ -22,10 +22,10 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	HistoryRagApiService_GetBlames_FullMethodName       = "/historyrag.v1.HistoryRagApiService/GetBlames"
 	HistoryRagApiService_GetTopics_FullMethodName       = "/historyrag.v1.HistoryRagApiService/GetTopics"
 	HistoryRagApiService_GetTopicDetails_FullMethodName = "/historyrag.v1.HistoryRagApiService/GetTopicDetails"
 	HistoryRagApiService_GetSummary_FullMethodName      = "/historyrag.v1.HistoryRagApiService/GetSummary"
+	HistoryRagApiService_GetRepositories_FullMethodName = "/historyrag.v1.HistoryRagApiService/GetRepositories"
 )
 
 // HistoryRagApiServiceClient is the client API for HistoryRagApiService service.
@@ -34,10 +34,10 @@ const (
 //
 // Service definition for the HistoryRag service.
 type HistoryRagApiServiceClient interface {
-	GetBlames(ctx context.Context, in *GetBlamesRequest, opts ...grpc.CallOption) (*GetBlamesResponse, error)
 	GetTopics(ctx context.Context, in *GetTopicsRequest, opts ...grpc.CallOption) (*GetTopicsResponse, error)
 	GetTopicDetails(ctx context.Context, in *GetTopicDetailsRequest, opts ...grpc.CallOption) (*GetTopicDetailsResponse, error)
 	GetSummary(ctx context.Context, in *GetSummaryRequest, opts ...grpc.CallOption) (*GetSummaryResponse, error)
+	GetRepositories(ctx context.Context, in *GetRepositoriesRequest, opts ...grpc.CallOption) (*GetRepositoriesResponse, error)
 }
 
 type historyRagApiServiceClient struct {
@@ -46,16 +46,6 @@ type historyRagApiServiceClient struct {
 
 func NewHistoryRagApiServiceClient(cc grpc.ClientConnInterface) HistoryRagApiServiceClient {
 	return &historyRagApiServiceClient{cc}
-}
-
-func (c *historyRagApiServiceClient) GetBlames(ctx context.Context, in *GetBlamesRequest, opts ...grpc.CallOption) (*GetBlamesResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetBlamesResponse)
-	err := c.cc.Invoke(ctx, HistoryRagApiService_GetBlames_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *historyRagApiServiceClient) GetTopics(ctx context.Context, in *GetTopicsRequest, opts ...grpc.CallOption) (*GetTopicsResponse, error) {
@@ -88,16 +78,26 @@ func (c *historyRagApiServiceClient) GetSummary(ctx context.Context, in *GetSumm
 	return out, nil
 }
 
+func (c *historyRagApiServiceClient) GetRepositories(ctx context.Context, in *GetRepositoriesRequest, opts ...grpc.CallOption) (*GetRepositoriesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetRepositoriesResponse)
+	err := c.cc.Invoke(ctx, HistoryRagApiService_GetRepositories_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // HistoryRagApiServiceServer is the server API for HistoryRagApiService service.
 // All implementations must embed UnimplementedHistoryRagApiServiceServer
 // for forward compatibility.
 //
 // Service definition for the HistoryRag service.
 type HistoryRagApiServiceServer interface {
-	GetBlames(context.Context, *GetBlamesRequest) (*GetBlamesResponse, error)
 	GetTopics(context.Context, *GetTopicsRequest) (*GetTopicsResponse, error)
 	GetTopicDetails(context.Context, *GetTopicDetailsRequest) (*GetTopicDetailsResponse, error)
 	GetSummary(context.Context, *GetSummaryRequest) (*GetSummaryResponse, error)
+	GetRepositories(context.Context, *GetRepositoriesRequest) (*GetRepositoriesResponse, error)
 	mustEmbedUnimplementedHistoryRagApiServiceServer()
 }
 
@@ -108,9 +108,6 @@ type HistoryRagApiServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedHistoryRagApiServiceServer struct{}
 
-func (UnimplementedHistoryRagApiServiceServer) GetBlames(context.Context, *GetBlamesRequest) (*GetBlamesResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method GetBlames not implemented")
-}
 func (UnimplementedHistoryRagApiServiceServer) GetTopics(context.Context, *GetTopicsRequest) (*GetTopicsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetTopics not implemented")
 }
@@ -119,6 +116,9 @@ func (UnimplementedHistoryRagApiServiceServer) GetTopicDetails(context.Context, 
 }
 func (UnimplementedHistoryRagApiServiceServer) GetSummary(context.Context, *GetSummaryRequest) (*GetSummaryResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetSummary not implemented")
+}
+func (UnimplementedHistoryRagApiServiceServer) GetRepositories(context.Context, *GetRepositoriesRequest) (*GetRepositoriesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetRepositories not implemented")
 }
 func (UnimplementedHistoryRagApiServiceServer) mustEmbedUnimplementedHistoryRagApiServiceServer() {}
 func (UnimplementedHistoryRagApiServiceServer) testEmbeddedByValue()                              {}
@@ -139,24 +139,6 @@ func RegisterHistoryRagApiServiceServer(s grpc.ServiceRegistrar, srv HistoryRagA
 		t.testEmbeddedByValue()
 	}
 	s.RegisterService(&HistoryRagApiService_ServiceDesc, srv)
-}
-
-func _HistoryRagApiService_GetBlames_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetBlamesRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(HistoryRagApiServiceServer).GetBlames(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: HistoryRagApiService_GetBlames_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(HistoryRagApiServiceServer).GetBlames(ctx, req.(*GetBlamesRequest))
-	}
-	return interceptor(ctx, in, info, handler)
 }
 
 func _HistoryRagApiService_GetTopics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -213,6 +195,24 @@ func _HistoryRagApiService_GetSummary_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _HistoryRagApiService_GetRepositories_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetRepositoriesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HistoryRagApiServiceServer).GetRepositories(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HistoryRagApiService_GetRepositories_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HistoryRagApiServiceServer).GetRepositories(ctx, req.(*GetRepositoriesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // HistoryRagApiService_ServiceDesc is the grpc.ServiceDesc for HistoryRagApiService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -220,10 +220,6 @@ var HistoryRagApiService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "historyrag.v1.HistoryRagApiService",
 	HandlerType: (*HistoryRagApiServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "GetBlames",
-			Handler:    _HistoryRagApiService_GetBlames_Handler,
-		},
 		{
 			MethodName: "GetTopics",
 			Handler:    _HistoryRagApiService_GetTopics_Handler,
@@ -235,6 +231,10 @@ var HistoryRagApiService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetSummary",
 			Handler:    _HistoryRagApiService_GetSummary_Handler,
+		},
+		{
+			MethodName: "GetRepositories",
+			Handler:    _HistoryRagApiService_GetRepositories_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

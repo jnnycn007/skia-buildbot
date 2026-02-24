@@ -53,17 +53,17 @@ func TestRepositoryTopicStore(t *testing.T) {
 	err = store.WriteTopic(ctx, topic2)
 	require.NoError(t, err)
 
-	// Test ReadTopic (ambiguous by ID, returns one)
-	readTopic, err := store.ReadTopic(ctx, 1)
+	// Test ReadTopic
+	readTopic, err := store.ReadTopic(ctx, 1, "repo-a")
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), readTopic.ID)
-	assert.Contains(t, []string{"repo-a", "repo-b"}, readTopic.Repository)
+	assert.Equal(t, "repo-a", readTopic.Repository)
 
 	// Test SearchTopics
 	// Searching with embedding closer to topic1
 	searchEmb := make([]float32, 768)
 	searchEmb[0] = 1.0
-	found, err := store.SearchTopics(ctx, searchEmb, 10)
+	found, err := store.SearchTopics(ctx, searchEmb, 10, "")
 	require.NoError(t, err)
 	assert.Len(t, found, 2)
 	assert.Equal(t, "Topic 1", found[0].Title)

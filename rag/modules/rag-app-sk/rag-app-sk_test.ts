@@ -13,6 +13,9 @@ describe('rag-app-sk', () => {
       instance_name: 'Test Instance',
       header_icon_url: 'test-logo.svg',
     });
+    fetchMock.get('/historyrag/v1/repositories', {
+      repositories: ['repo1', 'repo2'],
+    });
     element = newInstance();
     await waitForRender(element);
     console.log('Element:', element);
@@ -127,5 +130,78 @@ describe('rag-app-sk', () => {
     const summarySection = element.shadowRoot!.querySelector('.ai-summary-content');
     assert.isNotNull(summarySection);
     assert.include(summarySection!.textContent!, 'This is a mock AI summary.');
+  });
+
+  it('performs search with a specific repository', async () => {
+    await waitForRender(element);
+
+    const mockTopics: Topic[] = [
+      { topicId: 1, topicName: 'Topic 1', summary: 'Summary 1', repository: 'repo1' },
+    ];
+
+    fetchMock.get('/historyrag/v1/topics?query=test&topic_count=10&repository=repo1', {
+      topics: mockTopics,
+    });
+
+    // Set query
+    const input = element.shadowRoot!.querySelector('md-outlined-text-field.query-input') as any;
+    input.value = 'test';
+    input.dispatchEvent(new Event('input'));
+
+    // Select repository
+    const repoSelect = element.shadowRoot!.querySelector('md-outlined-select.repo-select') as any;
+    repoSelect.value = 'repo1';
+    repoSelect.dispatchEvent(new Event('change'));
+
+    const searchButton = element.shadowRoot!.querySelector('md-filled-button') as HTMLElement;
+    searchButton.click();
+
+    await waitForRender(element);
+
+    // Verify search request was made with repository parameter
+    assert.isTrue(
+      fetchMock.called('/historyrag/v1/topics?query=test&topic_count=10&repository=repo1')
+    );
+
+    // Verify repository name is displayed in the result
+    const repoLabel = element.shadowRoot!.querySelector('.topic-repository');
+    assert.isNotNull(repoLabel);
+    assert.equal(repoLabel!.textContent, 'Repo: repo1');
+  });
+
+  it('passes repository when selecting a topic', async () => {
+    await waitForRender(element);
+
+    const mockTopics: Topic[] = [
+      { topicId: 1, topicName: 'Topic 1', summary: 'Summary 1', repository: 'repo1' },
+    ];
+    const mockTopicDetails = {
+      topics: [{ topicId: 1, topicName: 'Topic 1', summary: 'Full Summary', codeChunks: [] }],
+    };
+
+    fetchMock.get('/historyrag/v1/topics?query=test&topic_count=10', { topics: mockTopics });
+    fetchMock.get('/historyrag/v1/topic_details?topic_ids=1&include_code=true&repository=repo1', {
+      topics: mockTopicDetails.topics,
+    });
+
+    // Perform search
+    const input = element.shadowRoot!.querySelector('md-outlined-text-field.query-input') as any;
+    input.value = 'test';
+    input.dispatchEvent(new Event('input'));
+    const searchButton = element.shadowRoot!.querySelector('md-filled-button') as HTMLElement;
+    searchButton.click();
+    await waitForRender(element);
+
+    // Click on the topic
+    const topicItem = element.shadowRoot!.querySelector('.topic-item') as HTMLElement;
+    topicItem.click();
+    await waitForRender(element);
+
+    // Verify topic_details request was made with repository parameter
+    assert.isTrue(
+      fetchMock.called(
+        '/historyrag/v1/topic_details?topic_ids=1&include_code=true&repository=repo1'
+      )
+    );
   });
 });

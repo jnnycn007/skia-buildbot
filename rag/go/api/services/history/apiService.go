@@ -138,7 +138,7 @@ func (service *ApiService) GetTopics(ctx context.Context, req *pb.GetTopicsReque
 	if req.GetTopicCount() > 0 {
 		topicCount = int(req.GetTopicCount())
 	}
-	topics, err := service.topicStore.SearchTopics(ctx, queryEmbedding, topicCount)
+	topics, err := service.topicStore.SearchTopics(ctx, queryEmbedding, topicCount, req.GetRepository())
 	if err != nil {
 		sklog.Errorf("Error searching for topics: %v", err)
 		return nil, err
@@ -152,6 +152,7 @@ func (service *ApiService) GetTopics(ctx context.Context, req *pb.GetTopicsReque
 			TopicName:      topic.Title,
 			CosineDistance: float32(topic.Distance),
 			Summary:        topic.Summary,
+			Repository:     topic.Repository,
 		}
 		for _, chunk := range topic.Chunks {
 			respTopic.MatchingChunks = append(respTopic.MatchingChunks, &pb.GetTopicsResponse_Topic_Chunk{
@@ -164,6 +165,22 @@ func (service *ApiService) GetTopics(ctx context.Context, req *pb.GetTopicsReque
 	}
 	sklog.Infof("Returning %d topics", len(resp.Topics))
 	return resp, nil
+}
+
+// GetRepositories implements the GetRepositories endpoint.
+func (service *ApiService) GetRepositories(ctx context.Context, req *pb.GetRepositoriesRequest) (*pb.GetRepositoriesResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "historyrag.service.GetRepositories")
+	defer span.End()
+
+	repositories, err := service.topicStore.GetRepositories(ctx)
+	if err != nil {
+		sklog.Errorf("Error getting repositories: %v", err)
+		return nil, err
+	}
+
+	return &pb.GetRepositoriesResponse{
+		Repositories: repositories,
+	}, nil
 }
 
 // GetTopicDetails implements the GetTopicDetails endpoint.
@@ -188,7 +205,7 @@ func (service *ApiService) GetTopicDetails(ctx context.Context, req *pb.GetTopic
 		}
 
 		// Read the topic data from the db.
-		topic, err := service.topicStore.ReadTopic(ctx, topicId)
+		topic, err := service.topicStore.ReadTopic(ctx, topicId, req.Repository)
 		if err != nil {
 			sklog.Errorf("Error reading topic %d: %v", topicId, err)
 			return nil, err
@@ -270,7 +287,7 @@ func (service *ApiService) GetSummary(ctx context.Context, req *pb.GetSummaryReq
 	sb.WriteString(fmt.Sprintf("Based on the following search results for the query \"%s\", please provide a concise and helpful summary.\n\n", query))
 
 	for _, topicId := range topicIds {
-		topic, err := service.topicStore.ReadTopic(ctx, topicId)
+		topic, err := service.topicStore.ReadTopic(ctx, topicId, req.Repository)
 		if err != nil {
 			sklog.Errorf("Error reading topic %d: %v", topicId, err)
 			return nil, err

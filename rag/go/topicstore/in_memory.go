@@ -31,7 +31,7 @@ func (s *InMemoryTopicStore) WriteTopic(ctx context.Context, topic *Topic) error
 }
 
 // ReadTopic reads the topic information for the given topic id.
-func (s *InMemoryTopicStore) ReadTopic(ctx context.Context, topicID int64) (*Topic, error) {
+func (s *InMemoryTopicStore) ReadTopic(ctx context.Context, topicID int64, repository string) (*Topic, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	topic, ok := s.topics[topicID]
@@ -42,7 +42,7 @@ func (s *InMemoryTopicStore) ReadTopic(ctx context.Context, topicID int64) (*Top
 }
 
 // SearchTopics searches for the most relevant topics for the given query embedding.
-func (s *InMemoryTopicStore) SearchTopics(ctx context.Context, queryEmbedding []float32, topicCount int) ([]*FoundTopic, error) {
+func (s *InMemoryTopicStore) SearchTopics(ctx context.Context, queryEmbedding []float32, topicCount int, repository string) ([]*FoundTopic, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -54,6 +54,9 @@ func (s *InMemoryTopicStore) SearchTopics(ctx context.Context, queryEmbedding []
 
 	var allChunks []chunkWithDistance
 	for _, topic := range s.topics {
+		if repository != "" && topic.Repository != repository {
+			continue
+		}
 		for _, chunk := range topic.Chunks {
 			dist := cosineDistance(queryEmbedding, chunk.Embedding)
 			allChunks = append(allChunks, chunkWithDistance{
@@ -95,6 +98,23 @@ func (s *InMemoryTopicStore) SearchTopics(ctx context.Context, queryEmbedding []
 	}
 
 	return ret, nil
+}
+
+func (s *InMemoryTopicStore) GetRepositories(ctx context.Context) ([]string, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	repoMap := make(map[string]bool)
+	for _, topic := range s.topics {
+		if topic.Repository != "" {
+			repoMap[topic.Repository] = true
+		}
+	}
+	var repos []string
+	for repo := range repoMap {
+		repos = append(repos, repo)
+	}
+	sort.Strings(repos)
+	return repos, nil
 }
 
 // cosineDistance calculates the cosine distance between two vectors.

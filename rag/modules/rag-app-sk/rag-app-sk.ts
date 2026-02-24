@@ -8,14 +8,18 @@ import '@material/web/checkbox/checkbox.js';
 import '@material/web/icon/icon.js';
 import '@material/web/iconbutton/outlined-icon-button.js';
 import '@material/web/progress/circular-progress.js';
+import '@material/web/select/outlined-select.js';
+import '@material/web/select/select-option.js';
 import { jsonOrThrow } from '../../../infra-sk/modules/jsonOrThrow';
 import { MdCheckbox } from '@material/web/checkbox/checkbox.js';
+import { MdOutlinedSelect } from '@material/web/select/outlined-select.js';
 
 // Interface definitions based on the proto
 export interface Topic {
   topicId: number;
   topicName: string;
   summary: string;
+  repository?: string;
 }
 
 interface TopicDetails {
@@ -54,6 +58,10 @@ export class RagAppSk extends LitElement {
   @state() private instanceName = '';
 
   @state() private headerIconUrl = '';
+
+  @state() private repositories: string[] = [];
+
+  @state() private selectedRepository = '';
 
   static styles = css`
     :host {
@@ -101,6 +109,10 @@ export class RagAppSk extends LitElement {
     md-outlined-text-field.query-input {
       flex: 1;
       min-width: 200px;
+    }
+
+    md-outlined-select.repo-select {
+      min-width: 150px;
     }
 
     .counter-wrapper {
@@ -246,6 +258,13 @@ export class RagAppSk extends LitElement {
       overflow: hidden;
     }
 
+    .topic-repository {
+      font-size: 0.8em;
+      color: #999;
+      font-style: italic;
+      margin-top: 4px;
+    }
+
     pre {
       background-color: #f4f4f4;
       padding: 12px;
@@ -284,11 +303,13 @@ export class RagAppSk extends LitElement {
     this.aiSummary = '';
 
     try {
-      const resp = (await fetch(
-        `/historyrag/v1/topics?query=${encodeURIComponent(this.query)}&topic_count=${
-          this.topicCount
-        }`
-      ).then(jsonOrThrow)) as GetTopicsResponse;
+      let url = `/historyrag/v1/topics?query=${encodeURIComponent(this.query)}&topic_count=${
+        this.topicCount
+      }`;
+      if (this.selectedRepository) {
+        url += `&repository=${encodeURIComponent(this.selectedRepository)}`;
+      }
+      const resp = (await fetch(url).then(jsonOrThrow)) as GetTopicsResponse;
       this.topics = resp.topics || [];
 
       if (this.autoSummary && this.topics.length > 0) {
@@ -317,6 +338,7 @@ export class RagAppSk extends LitElement {
         body: JSON.stringify({
           query: this.query,
           topic_ids: topicIds,
+          repository: this.selectedRepository,
         }),
       }).then(jsonOrThrow)) as { summary: string };
 
@@ -328,12 +350,16 @@ export class RagAppSk extends LitElement {
     }
   }
 
-  private async selectTopic(topicId: number) {
+  private async selectTopic(topicId: number, repository?: string) {
+    console.log(`selectTopic called for id: ${topicId}, repo: ${repository}`);
     this.isLoading = true;
     try {
-      const resp = (await fetch(
-        `/historyrag/v1/topic_details?topic_ids=${topicId}&include_code=true`
-      ).then(jsonOrThrow)) as GetTopicDetailsResponse;
+      let url = `/historyrag/v1/topic_details?topic_ids=${topicId}&include_code=true`;
+      if (repository) {
+        url += `&repository=${encodeURIComponent(repository)}`;
+      }
+      console.log(`Fetching topic details from: ${url}`);
+      const resp = (await fetch(url).then(jsonOrThrow)) as GetTopicDetailsResponse;
 
       if (resp.topics && resp.topics.length > 0) {
         this.selectedTopic = resp.topics[0];
@@ -347,19 +373,23 @@ export class RagAppSk extends LitElement {
 
   async connectedCallback() {
     super.connectedCallback();
-    try {
-      const config = (await fetch('/config').then(jsonOrThrow)) as {
-        instance_name: string;
-        header_icon_url: string;
-      };
-      this.instanceName = config.instance_name;
-      this.headerIconUrl = config.header_icon_url;
-      if (this.instanceName) {
-        document.title = this.instanceName;
-      }
-    } catch (error) {
-      console.error('Failed to fetch config', error);
-    }
+    fetch('/config')
+      .then(jsonOrThrow)
+      .then((config: any) => {
+        this.instanceName = config.instance_name;
+        this.headerIconUrl = config.header_icon_url;
+        if (this.instanceName) {
+          document.title = this.instanceName;
+        }
+      })
+      .catch((error) => console.error('Failed to fetch config', error));
+
+    fetch('/historyrag/v1/repositories')
+      .then(jsonOrThrow)
+      .then((repoResp: any) => {
+        this.repositories = repoResp.repositories || [];
+      })
+      .catch((error) => console.error('Failed to fetch repositories', error));
   }
 
   render() {
@@ -384,6 +414,25 @@ export class RagAppSk extends LitElement {
           @input=${(e: InputEvent) => (this.query = (e.target as HTMLInputElement).value)}
           @keydown=${(e: KeyboardEvent) =>
             e.key === 'Enter' && this.search()}></md-outlined-text-field>
+
+        <md-outlined-select
+          class="repo-select"
+          label="Repository"
+          .value=${this.selectedRepository}
+          @change=${(e: Event) => {
+            this.selectedRepository = (e.target as MdOutlinedSelect).value;
+          }}>
+          <md-select-option value="" ?selected=${this.selectedRepository === ''}>
+            All Repositories
+          </md-select-option>
+          ${this.repositories.map(
+            (repo) => html`
+              <md-select-option .value=${repo} ?selected=${this.selectedRepository === repo}>
+                ${repo}
+              </md-select-option>
+            `
+          )}
+        </md-outlined-select>
 
         <div class="counter-wrapper">
           <span>Topic Count:</span>
@@ -439,9 +488,13 @@ export class RagAppSk extends LitElement {
                 class="topic-item ${this.selectedTopic?.topicId === topic.topicId
                   ? 'selected'
                   : ''}"
-                @click=${() => this.selectTopic(topic.topicId)}>
+                @click=${() =>
+                  this.selectTopic(topic.topicId, topic.repository || this.selectedRepository)}>
                 <div class="topic-name">${topic.topicName}</div>
                 <div class="topic-summary">${unsafeHTML(marked.parse(topic.summary))}</div>
+                ${topic.repository
+                  ? html`<div class="topic-repository">Repo: ${topic.repository}</div>`
+                  : ''}
               </div>
             `
           )}

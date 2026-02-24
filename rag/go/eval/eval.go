@@ -96,7 +96,7 @@ func (e *Evaluator) evaluateTestCase(ctx context.Context, tc TestCase) (*EvalRes
 
 	// 2. Search for top topics.
 	// We search for top 5 to calculate Recall@5.
-	found, err := e.topicStore.SearchTopics(ctx, embedding, 5)
+	found, err := e.topicStore.SearchTopics(ctx, embedding, 5, "")
 	if err != nil {
 		return nil, skerr.Wrap(err)
 	}

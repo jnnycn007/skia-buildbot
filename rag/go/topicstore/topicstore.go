@@ -44,10 +44,13 @@ type TopicStore interface {
 	WriteTopic(ctx context.Context, topic *Topic) error
 
 	// ReadTopic reads the topic information for the given topic id.
-	ReadTopic(ctx context.Context, topicID int64) (*Topic, error)
+	ReadTopic(ctx context.Context, topicID int64, repository string) (*Topic, error)
 
 	// SearchTopics searches for the most relevant topics for the given query embedding.
-	SearchTopics(ctx context.Context, queryEmbedding []float32, topicCount int) ([]*FoundTopic, error)
+	SearchTopics(ctx context.Context, queryEmbedding []float32, topicCount int, repository string) ([]*FoundTopic, error)
+
+	// GetRepositories returns a list of all repositories in the database.
+	GetRepositories(ctx context.Context) ([]string, error)
 }
 
 // FoundTopic is a struct that contains the topic information that was found in a search.
@@ -169,7 +172,7 @@ func (s *topicStoreImpl) WriteTopic(ctx context.Context, topic *Topic) error {
 }
 
 // ReadTopic returns the topic data for the topic id provided.
-func (s *topicStoreImpl) ReadTopic(ctx context.Context, topicID int64) (*Topic, error) {
+func (s *topicStoreImpl) ReadTopic(ctx context.Context, topicID int64, repository string) (*Topic, error) {
 	s.readMetrics.Start()
 	defer s.readMetrics.Stop()
 
@@ -228,7 +231,7 @@ func (s *topicStoreImpl) ReadTopic(ctx context.Context, topicID int64) (*Topic, 
 }
 
 // SearchTopics searches for the most relevant topics for the given query embedding.
-func (s *topicStoreImpl) SearchTopics(ctx context.Context, queryEmbedding []float32, topicCount int) ([]*FoundTopic, error) {
+func (s *topicStoreImpl) SearchTopics(ctx context.Context, queryEmbedding []float32, topicCount int, repository string) ([]*FoundTopic, error) {
 	s.searchMetrics.Start()
 	defer s.searchMetrics.Stop()
 
@@ -309,4 +312,9 @@ func (s *topicStoreImpl) SearchTopics(ctx context.Context, queryEmbedding []floa
 		return nil, skerr.Wrap(err)
 	}
 	return ret, nil
+}
+
+// GetRepositories implements the GetRepositories method for topicStoreImpl.
+func (s *topicStoreImpl) GetRepositories(ctx context.Context) ([]string, error) {
+	return nil, nil
 }
