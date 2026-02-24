@@ -1,6 +1,6 @@
 import './index';
 import '../../../elements-sk/modules/error-toast-sk';
-import { setUpExploreDemoEnv } from '../common/test-util';
+import { setUpExploreDemoEnv, MOCK_TRACE_KEY_1 } from '../common/test-util';
 import { $$ } from '../../../infra-sk/modules/dom';
 import { ExploreSimpleSk } from './explore-simple-sk';
 
@@ -57,5 +57,14 @@ $$('#demo-show-query-dialog')?.addEventListener('click', () => {
     ele.navOpen = true;
     $$<HTMLButtonElement>('#open_query_dialog')!.click();
     $$<HTMLDetailsElement>('#time-range-summary')!.open = true;
+  });
+});
+
+$$('#demo-show-graph')?.addEventListener('click', () => {
+  const query = MOCK_TRACE_KEY_1.split(',')
+    .filter((p) => !!p)
+    .join('&');
+  document.querySelectorAll<ExploreSimpleSk>('explore-simple-sk').forEach((ele) => {
+    ele.addFromQueryOrFormula(false, 'query', query, '');
   });
 });

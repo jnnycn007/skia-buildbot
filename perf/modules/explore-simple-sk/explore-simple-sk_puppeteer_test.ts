@@ -241,11 +241,8 @@ describe('explore-simple-sk', () => {
 
   describe('Graph interactions', () => {
     it('plots a graph and verifies traces', async () => {
-      await testBed.page.click('#demo-show-query-dialog');
-      const querySkPO = simplePageSkPO.querySk;
-      await querySkPO.setCurrentQuery(paramSet1);
-
-      await simplePageSkPO.clickPlotButton();
+      // Show a graph.
+      await testBed.page.click('#demo-show-graph');
 
       // Poll for the traces to appear.
       let traceKeys: string[] = [];
@@ -273,13 +270,8 @@ describe('explore-simple-sk', () => {
     });
 
     it('switches x-axis to "date" mode', async () => {
-      await testBed.page.click('#demo-show-query-dialog');
-      const querySkPO = simplePageSkPO.querySk;
-      await querySkPO.setCurrentQuery(paramSet);
-
-      const tabPanel = await testBed.page.waitForSelector('tabs-panel-sk');
-      const btn = await tabPanel!.waitForSelector('button.action');
-      await btn!.click();
+      // Show a graph.
+      await testBed.page.click('#demo-show-graph');
 
       const plotPO = await simplePageSkPO.plotGoogleChartSk;
       await plotPO.waitForChartVisible({ timeout: CLIPBOARD_READ_TIMEOUT_MS });
@@ -290,13 +282,8 @@ describe('explore-simple-sk', () => {
     });
 
     it('switches zoom direction to horizontal', async () => {
-      await testBed.page.click('#demo-show-query-dialog');
-      const querySkPO = simplePageSkPO.querySk;
-      await querySkPO.setCurrentQuery(paramSet);
-
-      const tabPanel = await testBed.page.waitForSelector('tabs-panel-sk');
-      const btn = await tabPanel!.waitForSelector('button.action');
-      await btn!.click();
+      // Show a graph.
+      await testBed.page.click('#demo-show-graph');
 
       const plotPO = await simplePageSkPO.plotGoogleChartSk;
       await plotPO.waitForChartVisible({ timeout: CLIPBOARD_READ_TIMEOUT_MS });
@@ -307,13 +294,8 @@ describe('explore-simple-sk', () => {
     });
 
     it('switches to even x-axis spacing', async () => {
-      await testBed.page.click('#demo-show-query-dialog');
-      const querySkPO = simplePageSkPO.querySk;
-      await querySkPO.setCurrentQuery(paramSet);
-
-      const tabPanel = await testBed.page.waitForSelector('tabs-panel-sk');
-      const btn = await tabPanel!.waitForSelector('button.action');
-      await btn!.click();
+      // Show a graph.
+      await testBed.page.click('#demo-show-graph');
 
       const plotPO = await simplePageSkPO.plotGoogleChartSk;
       await plotPO.waitForChartVisible({ timeout: CLIPBOARD_READ_TIMEOUT_MS });
@@ -324,11 +306,8 @@ describe('explore-simple-sk', () => {
     });
 
     it('displays a tooltip when clicking on a data point', async () => {
-      // Set a query and plot the graph.
-      await testBed.page.click('#demo-show-query-dialog');
-      const querySkPO = simplePageSkPO.querySk;
-      await querySkPO.setCurrentQuery(paramSet1);
-      await simplePageSkPO.clickPlotButton();
+      // Show a graph.
+      await testBed.page.click('#demo-show-graph');
 
       // Wait for the chart to be visible.
       const plotPO = simplePageSkPO.plotGoogleChartSk;
@@ -412,11 +391,8 @@ describe('explore-simple-sk', () => {
         el.state = { ...el.state, plotSummary: true };
       }, element);
 
-      await testBed.page.click('#demo-show-query-dialog');
-      const querySkPO = simplePageSkPO.querySk;
-      await querySkPO.setCurrentQuery(paramSet1);
-
-      await simplePageSkPO.clickPlotButton();
+      // Show a graph.
+      await testBed.page.click('#demo-show-graph');
 
       // Wait for the chart to be visible.
       const plotPO = simplePageSkPO.plotGoogleChartSk;
