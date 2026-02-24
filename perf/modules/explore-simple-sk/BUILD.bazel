@@ -68,6 +68,7 @@ sk_element(
         "//perf/modules/data-service:index_ts_lib",
         "//perf/modules/telemetry:telemetry_ts_lib",
         "//:node_modules/http-status-codes",
+        ":nudge-util_ts_lib",
     ],
     ts_srcs = [
         "explore-simple-sk.ts",
@@ -94,6 +95,19 @@ karma_test(
         "//perf/modules/dataframe:test_utils_ts_lib",
         "//perf/modules/json:index_ts_lib",
         "//perf/modules/plot-summary-sk",
+    ],
+)
+
+karma_test(
+    name = "nudge-util_test",
+    src = "nudge-util_test.ts",
+    deps = [
+        ":nudge-util_ts_lib",
+        "//:node_modules/@types/chai",
+        "//:node_modules/chai",
+        "//perf/modules/common:anomaly-data_ts_lib",
+        "//perf/modules/const:const_ts_lib",
+        "//perf/modules/json:index_ts_lib",
     ],
 )
 
@@ -154,5 +168,17 @@ sk_element_puppeteer_test(
         "//perf/modules/common:puppeteer-test-util_ts_lib",
         "//perf/modules/common:test-util_ts_lib",
         "//puppeteer-tests:util_ts_lib",
+    ],
+)
+
+ts_library(
+    name = "nudge-util_ts_lib",
+    srcs = ["nudge-util.ts"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//perf/modules/common:anomaly-data_ts_lib",
+        "//perf/modules/const:const_ts_lib",
+        "//perf/modules/json:index_ts_lib",
+        "//perf/modules/triage-menu-sk",
     ],
 )

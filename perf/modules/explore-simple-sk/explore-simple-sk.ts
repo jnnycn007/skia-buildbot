@@ -11,6 +11,7 @@ import { MdDialog } from '@material/web/dialog/dialog.js';
 import { MdSwitch } from '@material/web/switch/switch.js';
 import { define } from '../../../elements-sk/modules/define';
 import { AnomalyData } from '../common/anomaly-data';
+import { calculateNudgeList } from './nudge-util';
 import { toParamSet, fromParamSet } from '../../../infra-sk/modules/query';
 import { TabsSk } from '../../../elements-sk/modules/tabs-sk/tabs-sk';
 import { ToastSk } from '../../../elements-sk/modules/toast-sk/toast-sk';
@@ -2367,7 +2368,7 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
     // Ideally, dataframe_context should nudge anomaly data.
     // Map an anomaly ID to a list of Nudge Entries.
     // TODO(b/375678060): Reflect anomaly coordinate changes unto summary bar.
-    const nudgeList: NudgeEntry[] = [];
+    let nudgeList: NudgeEntry[] = [];
     if (anomaly) {
       // This is only to be backward compatible with anomaly data in simple-plot.
       const anomalyData: AnomalyData = {
@@ -2377,24 +2378,10 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
         highlight: false,
       };
 
-      const headerLength = this.dfRepo.value!.dataframe.header!.length;
-      for (let i = -NUDGE_RANGE; i <= NUDGE_RANGE; i++) {
-        if (x + i <= 0 || x + i >= headerLength) {
-          continue;
-        }
-        const start_revision = this.dfRepo.value!.dataframe.header![x + i - 1]!.offset + 1;
-        const end_revision = this.dfRepo.value!.dataframe.header![x + i]!.offset;
-        const y = this.dfRepo.value!.dataframe.traceset![traceName][x + i];
-        nudgeList.push({
-          display_index: i,
-          anomaly_data: anomalyData,
-          selected: i === 0,
-          start_revision: start_revision,
-          end_revision: end_revision,
-          x: pointDetails.x + i,
-          y: y,
-        });
-      }
+      const dfHeader = this.dfRepo.value!.dataframe.header!;
+      const dfTrace = this.dfRepo.value!.dataframe.traceset![traceName];
+      const xOffset = this.selectedRange?.begin || 0;
+      nudgeList = calculateNudgeList(dfTrace, dfHeader, x, anomalyData, NUDGE_RANGE, xOffset);
     }
     const closeBtnAction = fixTooltip
       ? () => {
