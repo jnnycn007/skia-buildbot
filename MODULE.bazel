@@ -516,6 +516,9 @@ cipd.download_http(
     cipd_package = "infra/3pp/tools/git/${platform}",
     platform_to_sha256 = {
         "linux-amd64": "e05a68d6b6293e2288253bf0353291e2cdaa98b978af40cf725124daaa6b30f6",
+        "linux-arm64": "730f1713bd067e34af3c6d83d952ba744e98137ff1d3806d07cec1dff9a1dcd6",
+        "mac-amd64": "9dfca236b5a00e190e6fcbecee321f08b536fcab2883288223d0788763072994",
+        "mac-arm64": "cf4e32417e6494838abc83dcb8a69887d4d7682f0b29e3b76cf7960fe6c06e4f",
         "windows-amd64": "669c31c14d97e8a4be6f7c4dcd2de3d54b791782ec32586f25645497d20a66ca",
     },
     postinstall_cmds_posix = [
@@ -537,6 +540,10 @@ cipd.download_http(
     cipd_package = "infra/tools/git/${platform}",
     platform_to_sha256 = {
         "linux-amd64": "32322eb1cf3b6bf94fde906eaf8807458ed4a84303bc9259e8376f678bf6280b",
+        "linux-arm64": "312e73c513741cbb6dff1ec266d470e090ebc7340452006514e16ca992b37382",
+        "mac-amd64": "c66b7463e2f3a18b91edc7b4b79e342e1f16afc2d8c6e252b28a8be484249c7c",
+        "mac-arm64": "d16d0d464c5c53a5a373759aead290a161b4f6e3bb4ea59b8adf09beadafee89",
+        "windows-amd64": "cf2cd3bea8a65611eb7ba9922979a70fe26fe744d4bd543d3bc92ead857f73c1",
     },
     tag = "git_revision:b2fad5ab18774b86d84aa867287bfb4f2394893b",
 )
@@ -547,6 +554,10 @@ cipd.download_http(
     cipd_package = "infra/tools/luci-auth/${platform}",
     platform_to_sha256 = {
         "linux-amd64": "3235e857562d21e74c108477ecca8da9efc17d388559256d0a879233fe5c4293",
+        "linux-arm64": "5efddafae84d56e1e0c660cc1b88c306a849d1f596d65c965731e779321065cb",
+        "mac-amd64": "a1a3e052b34bb5b4595abf3eb7c7d560c327b8dbb9cbe92125a6443fb88021bc",
+        "mac-arm64": "bf811a34f37d57b2fc7ec11bea0187ea94b08d27c6a9e2214b6219050578bc94",
+        "windows-amd64": "a073bf20b971d636d25668996ae221e13ef2a262f0834e4c4193418b86ee4b99",
     },
     tag = "git_revision:b2fad5ab18774b86d84aa867287bfb4f2394893b",
 )
@@ -557,6 +568,10 @@ cipd.download_http(
     cipd_package = "infra/tools/luci/docker-credential-luci/${platform}",
     platform_to_sha256 = {
         "linux-amd64": "1ad5ccdfb711e7f468706aa2687da901723fcf2dc3faadead1546968475cf292",
+        "linux-arm64": "07ccf65ca476e74d309bf39d23d2a13e9b94a9d357c30eb12146cb191c5eca40",
+        "mac-amd64": "a68e51ccb5a3d5a5648b12c2cf944edf9522fe9c1bbf4b25c20a3a7b279dc811",
+        "mac-arm64": "640022927e4c653c64bf7844e40c67fb6c566dd5a4f0a7df67384dfe98a25686",
+        "windows-amd64": "3fe7b463e8c09c6b805c24296ef840cf0ff6a039c1915d87811d5c8ade6dc076",
     },
     tag = "git_revision:b2fad5ab18774b86d84aa867287bfb4f2394893b",
 )
@@ -567,6 +582,10 @@ cipd.download_http(
     cipd_package = "infra/tools/luci/git-credential-luci/${platform}",
     platform_to_sha256 = {
         "linux-amd64": "a3e3232c25af9309fd64c78808548d8cebb7e6d1809ae6081a6d0c8e1ef4c6dc",
+        "linux-arm64": "5a3e690887d7d8792a4d8fbba07f7e1e019293f08b5865b0f641a6024dc7c0e4",
+        "mac-amd64": "fbae67cbafe27a0548e2ec23021d070b87911e5f8940dea9a9e89b646f40a3e7",
+        "mac-arm64": "5fcc0839d90cd61a804d7091f600a2049e2934f6c558612ec689f1a4d68b707d",
+        "windows-amd64": "36489649e0a36ab82709aacc830217df618f8300307bc863ba4867ac9ee478f4",
     },
     tag = "git_revision:b2fad5ab18774b86d84aa867287bfb4f2394893b",
 )
@@ -577,6 +596,10 @@ cipd.download_http(
     cipd_package = "infra/tools/luci/isolate/${platform}",
     platform_to_sha256 = {
         "linux-amd64": "2b80e444d8b43d59187914988bec06c44ba3a56fae69f77b24a062927d673646",
+        "linux-arm64": "79e7debc6bb6adaf273e6d6460f6337f8cc849978ce577a67cd5df9a72bbb57c",
+        "mac-amd64": "68a4fd06af52317d1fe6f443ec474412d720aeb875cd0d1e717cc1cf7d4446c5",
+        "mac-arm64": "cd2e2e7e04dcd5ba8bcffc0c901dc9ed753c8d9b7a5c2e9f177083c63da74424",
+        "windows-amd64": "0b2e1ab829dbecf86920043d1bdbb718dcbecb3075d5238e63291756b8f29e66",
     },
     tag = "git_revision:b2fad5ab18774b86d84aa867287bfb4f2394893b",
 )
@@ -587,6 +610,10 @@ cipd.download_http(
     cipd_package = "infra/tools/luci/lucicfg/${platform}",
     platform_to_sha256 = {
         "linux-amd64": "4726c92d69c0ff839b38f9d11556b3bed39e52aaf34f1e154b6993411e32a3da",
+        "linux-arm64": "61b6ccab0c92562417a2b4be938c441f3dd8e1c6d366c599d837bf70ab3a4048",
+        "mac-amd64": "89c5dd9fbba082c66d1b6b9f09900192d5f3ac7c179d2fed437f3dd164460f4a",
+        "mac-arm64": "499dd4248ba56bb7949628b45b694f1b54b09afdcbf6ec4f301420f8b8869a53",
+        "windows-amd64": "38b11f46bc74ce06bb5f7a401e826e1f65c42e27aa9da0c9b669cfbdf448451c",
     },
     tag = "git_revision:b2fad5ab18774b86d84aa867287bfb4f2394893b",
 )
@@ -597,6 +624,10 @@ cipd.download_http(
     cipd_package = "infra/tools/luci/swarming/${platform}",
     platform_to_sha256 = {
         "linux-amd64": "ccba6e61710ebfe51df235299d6605e3f9dbf421e35d9e4bef13b411c99e572a",
+        "linux-arm64": "27f45272e7ab65d4b41acdfdb1be4a34bd94cc7965374e0fd771fb3104dfe37e",
+        "mac-amd64": "dc6a7a2f24c92df77e45e9277d06897804c601c1cfe3b1b6ab27166c22737721",
+        "mac-arm64": "9d83c794a3b16e6d8c6b8dec5d5894817fbf6af49d547b9c92c7a2aff92aa93a",
+        "windows-amd64": "b85d19b07fe818e1aa57a6338a7ea14abfc2ab4f535657c692a6eca160bb72d3",
     },
     tag = "git_revision:b2fad5ab18774b86d84aa867287bfb4f2394893b",
 )
@@ -607,6 +638,10 @@ cipd.download_http(
     cipd_package = "infra/tools/luci/vpython3/${platform}",
     platform_to_sha256 = {
         "linux-amd64": "77a6ae4f9cdf9aefbc5b3756f3747822c9893ca534d15348dd231608c1639218",
+        "linux-arm64": "0404caf09afbc84bdd6c05be90c278146f4dd4979f166cf1b582402ec44098b4",
+        "mac-amd64": "c3b90cfddb15a6d4832b57690662f921145478988b51e312bb646afbdea6777b",
+        "mac-arm64": "cbeace913e7577417fcf76f75291562a70a8b1013d18f899d079168c3ea7efd3",
+        "windows-amd64": "adb16f143ce92aa3fb4341921a867dbf72ed13e78b32889a2d31eba8b148998a",
     },
     tag = "git_revision:b2fad5ab18774b86d84aa867287bfb4f2394893b",
 )
@@ -633,6 +668,10 @@ cipd.download_http(
     cipd_package = "skia/tools/goldctl/${platform}",
     platform_to_sha256 = {
         "linux-amd64": "3e67aa936184f043da1472265c1e37b1b75d86cedba09dc547063d3107bcc58c",
+        "linux-arm64": "13c403e5e63a3db8255c405ddb501f9449139657cd55a545c5536ecbdf82e8d2",
+        "mac-amd64": "a5f57beb4a36e1f760407ade0945bdd05b71b7679c40a53970aa8fe4dbc9e965",
+        "mac-arm64": "c0f347efa8e1ce3f71fe83477f84672b50a3c072533b3d3003302e25be26ec29",
+        "windows-amd64": "eb4f0e72dbaf9b297aa594705499d9d68c302b87a9ba9839e70df378bed1762b",
     },
     tag = "git_revision:b2fad5ab18774b86d84aa867287bfb4f2394893b",
 )
@@ -643,6 +682,10 @@ cipd.download_http(
     cipd_package = "infra/3pp/tools/cpython3/${platform}",
     platform_to_sha256 = {
         "linux-amd64": "a06bad297267859aad818d2d6c9cc2865f4b0087c71dbf020f6b8e0cb92746c2",
+        "linux-arm64": "958a70d8a0f2395a01b728e88c939e504785b7666b361f3ff06842e1d5eb3b9d",
+        "mac-amd64": "787e1e98b6220b4bf887ae04a8a80fb4939ad3c24ca6e2e7753541048c97224a",
+        "mac-arm64": "6c7fb45e6ac6363c00b9820b259132554190a197d65437a0912025fa9c27e161",
+        "windows-amd64": "cdc51dd7d25bc6a249b076e117cdfe29456a93cddd48d4193ca3742a20ea7699",
     },
     tag = "version:3@3.11.9.chromium.36",
 )
@@ -653,6 +696,10 @@ cipd.download_http(
     cipd_package = "skia/tools/bazel_build_all/${platform}",
     platform_to_sha256 = {
         "linux-amd64": "bfa756c89e4be63756207edb12525d05fec76c777fdf431f4b1d455075ae77ca",
+        "linux-arm64": "75baca01167e65446445193350a6f6fb4c8c615ae487b99f858720043de6dabb",
+        "mac-amd64": "62a9be318e90e4ac0e8ccc7cb3a30e8ea125b11b6eb5177c88d180f27dd350aa",
+        "mac-arm64": "4c0224f78a1a750ffc11589ee790f49565725da8eda9a4048e41b7585a8c18b6",
+        "windows-amd64": "90c31ff4c70466cfb98724a85c9920a8274fb07e1dba000d5591240cff06eb27",
     },
     tag = "git_revision:1f820824dd5da21aac21c7d721441ec4ebab36f8",
 )
@@ -663,6 +710,10 @@ cipd.download_http(
     cipd_package = "skia/tools/bazel_test_all/${platform}",
     platform_to_sha256 = {
         "linux-amd64": "554c6459cb4924b3fd34d2604e4f1da3116881abe701dfd0a80fc7615c8c393d",
+        "linux-arm64": "e960b210c55573a58982c24d4b17f65d8433bd1d062659059b83735ea796c082",
+        "mac-amd64": "1041fb16f1f8438a333545d3069394abf4b4048a77e87e7ff7eef3b64be557b0",
+        "mac-arm64": "8a0b02b81b6b50cc547d2e253812a2d40b4f9a42d35a4e223499fd043ef1d6fa",
+        "windows-amd64": "0ede7f2aaad90624ee9d2d3a44f231c5fa6c71a2b6ce07c55f448f76ccbc91e4",
     },
     tag = "git_revision:1f820824dd5da21aac21c7d721441ec4ebab36f8",
 )
@@ -673,6 +724,10 @@ cipd.download_http(
     cipd_package = "skia/tools/command_wrapper/${platform}",
     platform_to_sha256 = {
         "linux-amd64": "022b745812fb6e7e2763795d7edf5360f5ac86b6314f8f22937301abcd895cd6",
+        "linux-arm64": "04004cce94b516e7faea0dd8cb91f02122d82c490a950b4c088947fdc3f0787e",
+        "mac-amd64": "8dd5f9bad2d9d98ebadf30c1d1de14abf3abaf0baa1816e8aed0091bcdbcb020",
+        "mac-arm64": "3e57199ab04b23e150cf29fc8cc83efb6f12921b5655ae57646b88e61ba0a8b6",
+        "windows-amd64": "cbc18cf16c28cdfe2b619b28a6125b83f531ae8d9c1054fcdf4fa354b898bb2f",
     },
     tag = "git_revision:1f820824dd5da21aac21c7d721441ec4ebab36f8",
 )
@@ -683,6 +738,10 @@ cipd.download_http(
     cipd_package = "skia/tools/presubmit/${platform}",
     platform_to_sha256 = {
         "linux-amd64": "ae748d0d016e6543b472bc73fd97da7bb55654884bce618470b748bd66afd5ec",
+        "linux-arm64": "2d373639916f0349bf4662f68514b7ddefebeb39600055800ff4a4ed9f972299",
+        "mac-amd64": "1efa54b882d5e47fd56afca705f85a6894a73f09c84a1f28727a2b902e6dfa73",
+        "mac-arm64": "431a4411bc0d2513fc2c7ac04c9c5d5ad3848b671684793fc8639e480d85b049",
+        "windows-amd64": "57cf822fb1545a37028328e7d85e1725efadcef29559650cd2463f3dbd28cfc9",
     },
     tag = "git_revision:1f820824dd5da21aac21c7d721441ec4ebab36f8",
 )
@@ -693,6 +752,10 @@ cipd.download_http(
     cipd_package = "infra/tools/cipd/${platform}",
     platform_to_sha256 = {
         "linux-amd64": "73499b0cf6c75f9d51e0f09a3d4acba86b0b9ac6e552db9c1d7797ad23fed922",
+        "linux-arm64": "11a5717a58c26de42540ba593b0282b92e73d8f635934f2adb1d86ac1ec37949",
+        "mac-amd64": "211aa059da36021250c1b95aee9d7f155fbcbef253e73dfe0abe84c60c96a0fc",
+        "mac-arm64": "c9a4674dab0221cd9b863d5954b370b318bf3614d6ccb56e28855720b045732c",
+        "windows-amd64": "0169d7c4e02721cc192103cb6a7e41d956ab8e2c98fde24927afc8a483b627ff",
     },
     tag = "git_revision:b2fad5ab18774b86d84aa867287bfb4f2394893b",
 )
@@ -703,6 +766,10 @@ cipd.download_http(
     cipd_package = "infra/tools/luci/kitchen/${platform}",
     platform_to_sha256 = {
         "linux-amd64": "3484b06700583f5a89e209b868c197580c48f5133681976cabad960a237b8c0b",
+        "linux-arm64": "4d7a7bfd07c81280bf52940a2acf04d4bad58d4c12d6e63becee7b0dbe429140",
+        "mac-amd64": "fc1a847cd20f15000425b4f12bf269088227ecb6f03cea9e3623f5dbda8ee94d",
+        "mac-arm64": "ddfdb47d396c092599c7406f109a6263a13678f55bf40df2f3af4cb222b5e79b",
+        "windows-amd64": "b295cd774fa257e57515f53efe67dc25c2f166c03d6094d14f0a5abd2bc25fd9",
     },
     tag = "git_revision:b2fad5ab18774b86d84aa867287bfb4f2394893b",
 )
