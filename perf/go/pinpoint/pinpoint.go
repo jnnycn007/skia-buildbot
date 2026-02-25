@@ -108,6 +108,7 @@ func (pc *Client) CreateTryJob(ctx context.Context, req TryJobCreateRequest) (*C
 		pc.createTryJobFailed.Inc(1)
 		return nil, skerr.Wrapf(err, "Failed to get pinpoint response.")
 	}
+	defer httpResponse.Body.Close()
 	sklog.Debugf("Got response from Pinpoint service: %+v", *httpResponse)
 
 	respBody, err := io.ReadAll(httpResponse.Body)
@@ -175,6 +176,7 @@ func (pc *Client) CreateBisect(ctx context.Context, req BisectJobCreateRequest) 
 		pc.createBisectFailed.Inc(1)
 		return nil, skerr.Wrapf(err, "Failed to get pinpoint response.")
 	}
+	defer httpResponse.Body.Close()
 	sklog.Debugf("Got response from Pinpoint service: %+v", *httpResponse)
 
 	respBody, err := io.ReadAll(httpResponse.Body)
