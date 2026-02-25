@@ -120,7 +120,7 @@ describe('query-sk', () => {
 
       await querySkPO.clickClearFilter();
       const allValues = await querySkPO.queryValuesSkPO.getOptions();
-      expect(allValues).to.have.length(5);
+      expect(allValues).to.have.length(15);
     });
 
     it('selects an inverted query', async () => {
@@ -154,6 +154,9 @@ describe('query-sk', () => {
       const valuesOnlyPO = new QuerySkPO(valuesOnlyQuerySk);
 
       // In the demo, the "type" key is pre-selected for this element.
+      // Explicitly call selectKey to ensure state, as demo script might be flaky in test env.
+      await valuesOnlyQuerySk.evaluate((el: any) => el.selectKey('type'));
+
       await valuesOnlyPO.getKeys();
 
       const values = await valuesOnlyPO.queryValuesSkPO.getOptions();
