@@ -43,7 +43,6 @@ describe('select-sk', () => {
   describe('selection property', () => {
     it('has a default value', () => {
       const selectSk = newInstance();
-      assert.equal(-1, (selectSk as any)._selection);
       assert.equal(-1, selectSk.selection);
     });
 
@@ -52,7 +51,6 @@ describe('select-sk', () => {
         itemIds: ['a', 'b'],
         selectedItemId: 'b',
       });
-      assert.equal(1, (selectSk as any)._selection);
       assert.equal(1, selectSk.selection);
     });
 
@@ -69,7 +67,7 @@ describe('select-sk', () => {
     it('parses strings', async () => {
       const selectSk = await newInstanceWithOpts({ itemIds: ['a', 'b'] });
       selectSk.selection = '1';
-      assert.equal(1, +selectSk.selection);
+      assert.equal(1, +selectSk.selection!);
       assert.isTrue(selectSk.querySelector('#b')!.hasAttribute('selected'));
     });
 
@@ -115,12 +113,10 @@ describe('select-sk', () => {
         itemIds: ['a', 'b'],
         selectedItemId: 'b',
       });
-      assert.equal(1, (selectSk as any)._selection);
       assert.equal(1, selectSk.selection);
       assert.equal('0', selectSk.getAttribute('tabindex'));
       selectSk.disabled = true;
       selectSk.selection = 0;
-      assert.equal(1, (selectSk as any)._selection);
       assert.equal(1, selectSk.selection);
       assert.equal(false, selectSk.hasAttribute('tabindex'));
     });
@@ -131,10 +127,8 @@ describe('select-sk', () => {
         itemIds: ['a', 'b'],
         selectedItemId: 'b',
       });
-      assert.equal(-1, (selectSk as any)._selection);
       assert.equal(-1, selectSk.selection);
       selectSk.disabled = false;
-      assert.equal(1, (selectSk as any)._selection);
       assert.equal(1, selectSk.selection);
       assert.isFalse(selectSk.hasAttribute('disabled'));
     });

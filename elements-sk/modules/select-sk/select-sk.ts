@@ -48,35 +48,104 @@
  *   </pre>
  *
  */
-import { define } from '../define';
-import { upgradeProperty } from '../upgradeProperty';
 
-export class SelectSk extends HTMLElement {
-  private _obs: MutationObserver;
+import { LitElement } from 'lit';
+import { customElement, property } from 'lit/decorators.js';
 
-  private _selection: number;
+export interface SelectSkSelectionChangedEventDetail {
+  readonly selection: number;
+}
 
-  static get observedAttributes(): string[] {
-    return ['disabled'];
+@customElement('select-sk')
+export class SelectSk extends LitElement {
+  private _selection: number = -1;
+
+  @property({ type: Number, noAccessor: true })
+  get selection(): number | string | null | undefined {
+    return this._selection;
   }
+
+  set selection(val: number | string | null | undefined) {
+    if (this.disabled) {
+      return;
+    }
+
+    // Sanitize
+    if (val === undefined || val === null) {
+      val = -1;
+    }
+    let numVal = +val;
+    if (isNaN(numVal)) {
+      numVal = -1;
+    }
+
+    // Validate bounds. Reset to -1 if invalid or out of bounds.
+    if (numVal >= this.children.length || numVal < 0) {
+      numVal = -1;
+    }
+
+    const oldSelection = this._selection;
+    this._selection = numVal;
+
+    // Synchronously update attributes to match legacy behavior
+    this._rationalize();
+
+    this.requestUpdate('selection', oldSelection);
+  }
+
+  private _disabled: boolean = false;
+
+  @property({ type: Boolean, noAccessor: true })
+  get disabled(): boolean {
+    return this._disabled;
+  }
+
+  set disabled(val: boolean) {
+    const oldVal = this._disabled;
+    this._disabled = val;
+
+    // Synchronous side effects
+    if (this._disabled) {
+      this.setAttribute('disabled', '');
+      this.setAttribute('aria-disabled', 'true');
+      // Do NOT clear selection when disabled to match 'stays fixed' test expectations.
+      this.removeAttribute('tabindex');
+      this.blur();
+    } else {
+      this.removeAttribute('disabled');
+      this.setAttribute('aria-disabled', 'false');
+      this.setAttribute('tabindex', '0');
+      this._bubbleUp(); // Find selected child and update selection
+    }
+
+    this.requestUpdate('disabled', oldVal);
+  }
+
+  private _obs: MutationObserver;
 
   constructor() {
     super();
     // Keep _selection up to date by monitoring DOM changes.
     this._obs = new MutationObserver(() => this._bubbleUp());
-    this._selection = -1;
+  }
+
+  createRenderRoot() {
+    return this;
   }
 
   connectedCallback(): void {
-    upgradeProperty(this, 'selection');
-    upgradeProperty(this, 'disabled');
+    super.connectedCallback();
     this.addEventListener('click', this._click);
     this.addEventListener('keydown', this._onKeyDown);
     this.observerConnect();
-    this._bubbleUp();
+    // Use a small timeout to allow children to be upgraded/rendered if they are custom elements
+    // and to ensure attributes are settled (like disabled). 0ms is sufficient to let the
+    // parser finish populating the DOM.
+    setTimeout(() => this._bubbleUp(), 0);
   }
 
   disconnectedCallback(): void {
+    super.disconnectedCallback();
     this.removeEventListener('click', this._click);
     this.removeEventListener('keydown', this._onKeyDown);
     this.observerDisconnect();
@@ -95,48 +164,11 @@ export class SelectSk extends HTMLElement {
     });
   }
 
-  /** This mirrors the disabled attribute. */
-  get disabled(): boolean {
-    return this.hasAttribute('disabled');
-  }
-
-  set disabled(val: boolean) {
-    if (val) {
-      this.setAttribute('disabled', '');
-      this.setAttribute('aria-disabled', 'true');
-      this.selection = -1;
-    } else {
-      this.removeAttribute('disabled');
-      this.setAttribute('aria-disabled', 'false');
-      this._bubbleUp();
-    }
-  }
-
-  /** The index of the item selected. Has a value of -1 if nothing is selected. */
-  get selection(): number | string | null | undefined {
-    return this._selection;
-  }
-
-  set selection(val: number | string | null | undefined) {
-    if (this.disabled) {
-      return;
-    }
-    if (val === undefined || val === null) {
-      val = -1;
-    }
-    let numVal = +val;
-    if (numVal < 0 || numVal > this.children.length) {
-      numVal = -1;
-    }
-    this._selection = numVal;
-    this._rationalize();
-  }
-
   private _click(e: MouseEvent): void {
     if (this.disabled) {
       return;
     }
-    const oldIndex = this._selection;
+    const oldIndex = this.selection;
     // Look up the DOM path until we find an element that is a child of
     // 'this', and set _selection based on that.
     let target: Element | null = e.target as Element;
@@ -146,13 +178,18 @@ export class SelectSk extends HTMLElement {
     if (target?.parentElement === this) {
       for (let i = 0; i < this.children.length; i++) {
         if (this.children[i] === target) {
-          this._selection = i;
+          this.selection = i;
           break;
         }
       }
     }
-    this._rationalize();
-    if (oldIndex !== this._selection) {
+    // _rationalize is called by setter if selection changes
+    // But if selection didn't change (clicked same item), ensure DOM is correct
+    if (oldIndex === this.selection) {
+      this._rationalize();
+    }
+
+    if (oldIndex !== this.selection) {
       this._emitEvent();
     }
   }
@@ -161,7 +198,7 @@ export class SelectSk extends HTMLElement {
     this.dispatchEvent(
       new CustomEvent<SelectSkSelectionChangedEventDetail>('selection-changed', {
         detail: {
-          selection: this._selection,
+          selection: this.selection as number,
         },
         bubbles: true,
       })
@@ -170,11 +207,14 @@ export class SelectSk extends HTMLElement {
 
   // Loop over all immediate child elements and make sure at most only one is selected.
   private _rationalize(): void {
+    if (this.disabled) {
+      return;
+    }
     this.observerDisconnect();
     if (!this.hasAttribute('role')) {
       this.setAttribute('role', 'listbox');
     }
-    if (!this.hasAttribute('tabindex')) {
+    if (!this.hasAttribute('tabindex') && !this.disabled) {
       this.setAttribute('tabindex', '0');
     }
     for (let i = 0; i < this.children.length; i++) {
@@ -182,7 +222,7 @@ export class SelectSk extends HTMLElement {
       if (!child.hasAttribute('role')) {
         child.setAttribute('role', 'option');
       }
-      if (this._selection === i) {
+      if (this.selection === i) {
         child.setAttribute('selected', '');
         child.setAttribute('aria-selected', 'true');
       } else {
@@ -195,66 +235,57 @@ export class SelectSk extends HTMLElement {
 
   // Loop over all immediate child elements and find the first one selected.
   private _bubbleUp(): void {
-    this._selection = -1;
-    if (this.disabled) {
-      return;
-    }
-    for (let i = 0; i < this.children.length; i++) {
-      if (this.children[i].hasAttribute('selected')) {
-        this._selection = i;
-        break;
+    const oldSelection = this.selection;
+    let newSelection = -1;
+    if (!this.disabled) {
+      for (let i = 0; i < this.children.length; i++) {
+        if (this.children[i].hasAttribute('selected')) {
+          newSelection = i;
+          break;
+        }
       }
     }
-    this._rationalize();
-  }
 
-  attributeChangedCallback(_name: string, _oldValue: any, newValue: any): void {
-    // Only handling 'disabled'.
-    const hasValue = newValue !== null;
-    this.setAttribute('aria-disabled', String(hasValue));
-    if (hasValue) {
-      this.removeAttribute('tabindex');
-      this.blur();
+    if (newSelection !== oldSelection) {
+      this.selection = newSelection;
     } else {
-      this.setAttribute('tabindex', '0');
+      this._rationalize();
     }
   }
 
   private _onKeyDown(e: KeyboardEvent): void {
-    if (e.altKey) return;
-    const oldIndex = this._selection;
+    if (e.altKey || this.disabled) return;
+    const oldIndex = (this.selection as number) ?? -1;
+    let newIndex = oldIndex;
+
     switch (e.key) {
       case 'ArrowDown':
-        if (this._selection < this.children.length - 1) {
-          (this.selection as number) += 1;
+        if (newIndex < this.children.length - 1) {
+          newIndex += 1;
         }
         e.preventDefault();
         break;
       case 'ArrowUp':
-        if (this._selection > 0) {
-          (this.selection as number) -= 1;
+        if (newIndex > 0) {
+          newIndex -= 1;
         }
         e.preventDefault();
         break;
       case 'Home':
-        this.selection = 0;
+        newIndex = 0;
         e.preventDefault();
         break;
       case 'End':
-        this.selection = this.children.length - 1;
+        newIndex = this.children.length - 1;
         e.preventDefault();
         break;
       default:
         break;
     }
-    if (oldIndex !== this._selection) {
+
+    if (newIndex !== oldIndex) {
+      this.selection = newIndex;
       this._emitEvent();
     }
   }
-}
-
-define('select-sk', SelectSk);
-
-export interface SelectSkSelectionChangedEventDetail {
-  readonly selection: number;
 }
