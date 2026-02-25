@@ -263,6 +263,103 @@ export function SummaryChartOptions(
   };
 }
 
+// Exported for testing purposes
+export const internals = {
+  /**
+   * Calculates a hash for a given string.
+   *
+   * @param {string} traceName - The string to hash.
+   * @return {number} The hash value.
+   */
+  getTraceHash: (traceName: string): number => {
+    let hash = 0;
+    for (let i = traceName.length - 1; i >= 0; i--) {
+      // eslint-disable-next-line no-bitwise
+      hash = (hash << 5) - hash + traceName.charCodeAt(i);
+      // eslint-disable-next-line no-bitwise
+      hash |= 0;
+    }
+    return Math.abs(hash);
+  },
+};
+
+// We hardcode 'ref' and 'pgo' here because they are special V8 build variants that
+// frequently appear together with the base trace. We want to ensure they always
+// have distinct colors from the base trace and from each other to make strict comparisons easier.
+// ref: Reference build
+// pgo: Profile Guided Optimization build
+const KNOWN_VARIANT_VALUES = ['ref', 'pgo'];
+
+/**
+ * Calculates the color index for a trace, applying special offsets for
+ * known variants (like ref and pgo) if they collide with their base trace or each other.
+ *
+ * @param {string} traceName - The name of the trace.
+ * @return {number} The index into the defaultColors array.
+ */
+function removeCollisionsForKnownVariants(traceName: string): number {
+  // Match any subtest_N=value where value is in KNOWN_VARIANT_VALUES
+  const regex = new RegExp(`subtest_(\\d+)=(${KNOWN_VARIANT_VALUES.join('|')})`);
+  const match = traceName.match(regex);
+
+  if (!match) {
+    return internals.getTraceHash(traceName) % defaultColors.length;
+  }
+
+  const subtestId = match[1];
+  const currentType = match[2];
+  const currentTypeIndex = KNOWN_VARIANT_VALUES.indexOf(currentType);
+
+  // Remove the tag to get base trace.
+  // specific regex to remove *this* specific subtest/value pair
+  const removeRegex = new RegExp(
+    `,subtest_${subtestId}=${currentType}|subtest_${subtestId}=${currentType},|subtest_${subtestId}=${currentType}`
+  );
+  const baseTrace = traceName.replace(removeRegex, '');
+
+  const baseColorIndex = internals.getTraceHash(baseTrace) % defaultColors.length;
+
+  // Calculate indices for all variants (Base + all Known Variants)
+  const variantIndices: number[] = [];
+  // Add base trace index (not used for collision checking against itself in the loop, but needed for set)
+  // Actually, we want to check if ANY of them collide.
+
+  const allIndices = new Set<number>();
+  allIndices.add(baseColorIndex);
+
+  // Calculate hash for each variant
+  for (const variant of KNOWN_VARIANT_VALUES) {
+    let variantTrace: string;
+    if (variant === currentType) {
+      variantTrace = traceName;
+    } else {
+      // Replace current type with this variant type
+      variantTrace = traceName.replace(
+        `subtest_${subtestId}=${currentType}`,
+        `subtest_${subtestId}=${variant}`
+      );
+    }
+    const index = internals.getTraceHash(variantTrace) % defaultColors.length;
+    variantIndices.push(index);
+    allIndices.add(index);
+  }
+
+  // Check for collisions.
+  // We have 1 Base + N Variants. Total N+1 items.
+  // If the Set size is less than N+1, there is a collision.
+  if (allIndices.size < KNOWN_VARIANT_VALUES.length + 1) {
+    // Collision detected!
+    // Enforce offsets relative to Base.
+    // Variant 0 -> Base + 1
+    // Variant 1 -> Base + 2
+    // ...
+    return (baseColorIndex + currentTypeIndex + 1) % defaultColors.length;
+  }
+
+  // No collision, return original hash for this trace
+  return internals.getTraceHash(traceName) % defaultColors.length;
+}
+
 /**
  * Returns a consistent color for a given trace name.
  *
@@ -270,13 +367,6 @@ export function SummaryChartOptions(
  * @return {string} The hex color string.
  */
 export function getTraceColor(traceName: string): string {
-  let hash = 0;
-  for (let i = traceName.length - 1; i >= 0; i--) {
-    // eslint-disable-next-line no-bitwise
-    hash = (hash << 5) - hash + traceName.charCodeAt(i);
-    // eslint-disable-next-line no-bitwise
-    hash |= 0;
-  }
-  hash = Math.abs(hash);
-  return defaultColors[hash % defaultColors.length];
+  const index = removeCollisionsForKnownVariants(traceName);
+  return defaultColors[index];
 }

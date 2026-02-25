@@ -109,7 +109,9 @@ karma_test(
     deps = [
         ":plot-builder_ts_lib",
         "//:node_modules/@types/chai",
+        "//:node_modules/@types/sinon",
         "//:node_modules/chai",
+        "//:node_modules/sinon",
         "//perf/modules/const:const_ts_lib",
         "//perf/modules/json:index_ts_lib",
     ],
