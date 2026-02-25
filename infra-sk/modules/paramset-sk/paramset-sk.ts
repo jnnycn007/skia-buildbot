@@ -81,16 +81,14 @@
  * a checkbox to let the user select/unselect the specific value.
  *
  */
-import { html, TemplateResult } from 'lit/html.js';
-import { define } from '../../../elements-sk/modules/define';
+import { html, TemplateResult, LitElement, PropertyValues } from 'lit';
+import { customElement, property, state } from 'lit/decorators.js';
 import { ParamSet } from '../query';
-import { ElementSk } from '../ElementSk';
 import '../../../elements-sk/modules/icons/add-icon-sk';
 import { ToastSk } from '../../../elements-sk/modules/toast-sk/toast-sk';
 import '../../../elements-sk/modules/icons/cancel-icon-sk';
 import '../../../elements-sk/modules/checkbox-sk';
 import '../../../elements-sk/modules/toast-sk';
-import { $$ } from '../dom';
 import { CheckOrRadio } from '../../../elements-sk/modules/checkbox-sk/checkbox-sk';
 
 export interface ParamSetSkClickEventDetail {
@@ -121,33 +119,95 @@ export interface ParamSetSkKeyCheckboxClickEventDetail {
   readonly selected: boolean;
 }
 
-export class ParamSetSk extends ElementSk {
-  private static template = (ele: ParamSetSk) => html`
-    <table @click=${ele._click} class=${ele._computeClass()}>
-      <tbody>
-        <tr>
-          <th></th>
-          ${ParamSetSk.titlesTemplate(ele)}
-        </tr>
-        ${ParamSetSk.rowsTemplate(ele)}
-      </tbody>
-    </table>
-    <toast-sk duration="2000">Copied</toast-sk>
-  `;
+@customElement('paramset-sk')
+export class ParamSetSk extends LitElement {
+  @property({ type: Array })
+  titles: string[] = [];
 
-  private static titlesTemplate = (ele: ParamSetSk) =>
-    ele._normalizedTitles().map((t) => html`<th>${t}</th>`);
+  @property({ type: Array })
+  paramsets: ParamSet[] = [];
 
-  private static rowsTemplate = (ele: ParamSetSk) =>
-    ele._sortedKeys.map((key) => ParamSetSk.rowTemplate(ele, key));
+  @property({ type: Object })
+  highlight: { [key: string]: string } = {};
 
-  private static rowTemplate = (ele: ParamSetSk, key: string) => {
-    if (ele.checkbox_values) {
+  @property({ type: Boolean, reflect: true })
+  clickable: boolean = false;
+
+  @property({ type: Boolean, reflect: true, attribute: 'clickable_values' })
+  clickable_values: boolean = false;
+
+  @property({ type: Boolean, reflect: true, attribute: 'clickable_plus' })
+  clickable_plus: boolean = false;
+
+  @property({ type: Boolean, reflect: true, attribute: 'checkbox_values' })
+  checkbox_values: boolean = false;
+
+  @property({ type: Boolean, reflect: true, attribute: 'removable_values' })
+  removable_values: boolean = false;
+
+  @property({ type: Boolean, reflect: true, attribute: 'copy-content' })
+  copy_content: boolean = false;
+
+  @state()
+  private _sortedKeys: string[] = [];
+
+  @state()
+  private _unchecked: Map<string, Set<string>> = new Map();
+
+  private _toast: ToastSk | null = null;
+
+  createRenderRoot() {
+    return this;
+  }
+
+  protected firstUpdated() {
+    this._toast = this.querySelector('toast-sk');
+  }
+
+  protected willUpdate(changedProperties: PropertyValues) {
+    if (changedProperties.has('paramsets')) {
+      // Compute a rolled up set of all parameter keys across all paramsets.
+      const allKeys = new Set<string>();
+      this.paramsets.forEach((p) => {
+        Object.keys(p).forEach((key) => {
+          allKeys.add(key);
+        });
+      });
+      this._sortedKeys = Array.from(allKeys).sort();
+      this._unchecked = new Map();
+    }
+  }
+
+  render() {
+    return html`
+      <table @click=${this._click} class=${this.computeClass()}>
+        <tbody>
+          <tr>
+            <th></th>
+            ${this.titlesTemplate()}
+          </tr>
+          ${this.rowsTemplate()}
+        </tbody>
+      </table>
+      <toast-sk duration="2000">Copied</toast-sk>
+    `;
+  }
+
+  private titlesTemplate() {
+    return this.normalizedTitles().map((t) => html`<th>${t}</th>`);
+  }
+
+  private rowsTemplate() {
+    return this._sortedKeys.map((key) => this.rowTemplate(key));
+  }
+
+  private rowTemplate(key: string) {
+    if (this.checkbox_values) {
       // If this row contains only one value, let's disable the key checkbox.
       let disabled = false;
-      ele._paramsets.forEach((ps) => {
+      this.paramsets.forEach((ps) => {
         const vals = ps[key];
-        if (vals.length <= 1) {
+        if (vals && vals.length <= 1) {
           disabled = true;
         }
       });
@@ -156,7 +216,7 @@ export class ParamSetSk extends ElementSk {
           <checkbox-sk
             id="selectAll-${key}"
             name=""
-            @change=${(e: MouseEvent) => ele.paramsetKeySelectAllHandler(e, key)}
+            @change=${(e: MouseEvent) => this.paramsetKeySelectAllHandler(e, key)}
             label=""
             checked
             ?disabled=${disabled}
@@ -164,55 +224,49 @@ export class ParamSetSk extends ElementSk {
           </checkbox-sk>
           ${key}
         </th>
-        ${ParamSetSk.paramsetValuesTemplate(ele, key)}
+        ${this.paramsetValuesTemplate(key)}
       </tr>`;
     } else {
-      // We do not want this checkbox when the values are
-      // not going to be having checkboxes. Eg: query dialog.
       return html`<tr>
         <th data-key=${key}>${key}</th>
-        ${ParamSetSk.paramsetValuesTemplate(ele, key)}
+        ${this.paramsetValuesTemplate(key)}
       </tr>`;
     }
-  };
+  }
 
-  private static paramsetValuesTemplate = (ele: ParamSetSk, key: string) => {
+  private paramsetValuesTemplate(key: string) {
     const ret: TemplateResult[] = [];
-    ele._paramsets.forEach((p) =>
+    this.paramsets.forEach((p) =>
       ret.push(
-        html`<td>${ParamSetSk.paramsetValueTemplate(ele, key, p[key] || [])}</td>`,
-        ParamSetSk.optionalPlusSign(ele, key, p),
-        ParamSetSk.optionalCopyContent(ele, key, p)
+        html`<td>${this.paramsetValueTemplate(key, p[key] || [])}</td>`,
+        this.optionalPlusSign(key, p),
+        this.optionalCopyContent(key, p)
       )
     );
     return ret;
-  };
+  }
 
-  private static optionalPlusSign = (ele: ParamSetSk, key: string, p: ParamSet): TemplateResult => {
-    if (!ele.clickable_plus) {
+  private optionalPlusSign(key: string, p: ParamSet): TemplateResult {
+    if (!this.clickable_plus) {
       return html``;
     }
     return html` <td>
       <add-icon-sk data-key=${key} data-values=${JSON.stringify(p[key])}></add-icon-sk>
     </td>`;
-  };
+  }
 
-  private static optionalCopyContent = (
-    ele: ParamSetSk,
-    key: string,
-    p: ParamSet
-  ): TemplateResult => {
-    if (!ele.copy_content) {
+  private optionalCopyContent(key: string, p: ParamSet): TemplateResult {
+    if (!this.copy_content) {
       return html``;
     }
     return html` <td>
-      <div class="icon-sk copy-content" @click=${() => ele.copyContent(`${key}=${p[key]}`)}>
+      <div class="icon-sk copy-content" @click=${() => this.copyContent(`${key}=${p[key]}`)}>
         content_copy
       </div>
     </td>`;
-  };
+  }
 
-  private static paramsetValueTemplate = (ele: ParamSetSk, key: string, params: string[]) => {
+  private paramsetValueTemplate(key: string, params: string[]) {
     // Figure out if we are down to just one checkbox being checked. If so we'll
     // want to disable that checkbox so that it can't be unchecked, otherwise
     // all the data will disappear from the display.
@@ -220,7 +274,7 @@ export class ParamSetSk extends ElementSk {
 
     // Count the number of unchecked values for this key.
     let numUnchecked = 0;
-    const uncheckedSet = ele.unchecked.get(key);
+    const uncheckedSet = this._unchecked.get(key);
     if (uncheckedSet !== undefined) {
       numUnchecked = uncheckedSet.size;
     }
@@ -229,7 +283,7 @@ export class ParamSetSk extends ElementSk {
       downToJustOneCheckedCheckboxForThisKey = true;
     }
     return params.map((value) => {
-      if (ele.checkbox_values) {
+      if (this.checkbox_values) {
         let disabled = false;
         const currentCheckboxChecked = uncheckedSet === undefined || !uncheckedSet.has(value);
         if (downToJustOneCheckedCheckboxForThisKey && currentCheckboxChecked) {
@@ -237,11 +291,11 @@ export class ParamSetSk extends ElementSk {
         }
 
         return html`
-          <div class=${ele._highlighted(key, value)} data-key=${key} data-value=${value}>
+          <div class=${this.highlighted(key, value)} data-key=${key} data-value=${value}>
             <checkbox-sk
               id="checkbox-${key}-${value}"
               name=""
-              @change=${(e: MouseEvent) => ele.checkboxValueClickHandler(e, key, value)}
+              @change=${(e: MouseEvent) => this.checkboxValueClickHandler(e, key, value)}
               label=""
               checked
               ?disabled=${disabled}
@@ -251,18 +305,14 @@ export class ParamSetSk extends ElementSk {
           </div>
         `;
       }
-      return html`<div class=${ele._highlighted(key, value)} data-key=${key} data-value=${value}>
-        ${value} ${ParamSetSk.cancelIconTemplate(ele, key, value)}
+      return html`<div class=${this.highlighted(key, value)} data-key=${key} data-value=${value}>
+        <span>${value}</span> ${this.cancelIconTemplate(key, value)}
       </div> `;
     });
-  };
+  }
 
-  private static cancelIconTemplate = (
-    ele: ParamSetSk,
-    key: string,
-    value: string
-  ): TemplateResult => {
-    if (ele.removable_values) {
+  private cancelIconTemplate(key: string, value: string): TemplateResult {
+    if (this.removable_values) {
       return html`<cancel-icon-sk
         id="${key}-${value}-remove"
         data-key=${key}
@@ -270,39 +320,9 @@ export class ParamSetSk extends ElementSk {
         title="Negative"></cancel-icon-sk>`;
     }
     return html``;
-  };
-
-  private _titles: string[] = [];
-
-  private _paramsets: ParamSet[] = [];
-
-  private _sortedKeys: string[] = [];
-
-  private _highlight: { [key: string]: string } = {};
-
-  // unchecked maps the param keys to the values that are unchecked. Note we use
-  // the unchecked state because the checkboxes start off as all checked by
-  // default.
-  private unchecked: Map<string, Set<string>> = new Map();
-
-  private toast: ToastSk | null = null;
-
-  constructor() {
-    super(ParamSetSk.template);
   }
 
-  connectedCallback(): void {
-    super.connectedCallback();
-    this._upgradeProperty('paramsets');
-    this._upgradeProperty('highlight');
-    this._upgradeProperty('clickable');
-    this._upgradeProperty('clickable_values');
-    this._upgradeProperty('checkbox_values');
-    this._render();
-    this.toast = $$<ToastSk>('toast-sk', this);
-  }
-
-  private _computeClass() {
+  private computeClass() {
     if (this.clickable_values) {
       return 'clickable_values';
     }
@@ -312,55 +332,50 @@ export class ParamSetSk extends ElementSk {
     return '';
   }
 
-  private _highlighted(key: string, value: string) {
-    return this._highlight[key] === value ? 'highlight' : '';
+  private highlighted(key: string, value: string) {
+    return this.highlight[key] === value ? 'highlight' : '';
   }
 
   private async copyContent(body: string) {
     await navigator.clipboard.writeText(body);
-    this.toast!.show();
+    this._toast?.show();
   }
 
   private fixUpDisabledStateOnRemainingCheckboxes(isChecked: boolean, key: string, value: string) {
     // Update the unchecked status and then re-render.
-    const set = this.unchecked.get(key) || new Set();
+    const set = this._unchecked.get(key) || new Set();
     if (isChecked) {
       set.delete(value);
     } else {
       set.add(value);
     }
-    this.unchecked.set(key, set);
-
-    this._render();
+    this._unchecked.set(key, set);
   }
 
-  /**
-   * Handler to take appropriate actions when the checkbox for paramset key is changed.
-   * This is either to select or unselect all values under that key.
-   * @param e Event object.
-   * @param key The key for which the checkbox is clicked.
-   */
   private paramsetKeySelectAllHandler(e: MouseEvent, key: string) {
     const selectAll = (e.target! as HTMLInputElement).checked;
-    this._paramsets.forEach((p) => {
+    this.paramsets.forEach((p) => {
       const vals = p[key];
+      if (!vals) return;
       let keepCheckedIndex = -1;
       const valuesToUpdate: string[] = [];
       for (let i = 0; i < vals.length; i++) {
         const checkbox_id = `checkbox-${key}-${vals[i]}`;
-        const checkbox = document.getElementById(checkbox_id) as CheckOrRadio;
+        const checkbox = this.querySelector(`#${CSS.escape(checkbox_id)}`) as CheckOrRadio;
+        if (!checkbox) continue;
+
         // If we are unselecting, we want to keep the first checked item
         // from selected values around. This is because we would need at least
         // one trace in the graph.
         if (keepCheckedIndex === -1 && checkbox.checked && !selectAll) {
           keepCheckedIndex = i;
         } else {
-          checkbox.checked = selectAll;
           valuesToUpdate.push(vals[i]);
           this.fixUpDisabledStateOnRemainingCheckboxes(selectAll, key, vals[i]);
         }
       }
-      this._render();
+      this.requestUpdate();
+
       const detail: ParamSetSkKeyCheckboxClickEventDetail = {
         selected: selectAll,
         key: key,
@@ -391,6 +406,7 @@ export class ParamSetSk extends ElementSk {
     );
 
     this.fixUpDisabledStateOnRemainingCheckboxes(isChecked, key, value);
+    this.requestUpdate();
   }
 
   private _click(e: MouseEvent) {
@@ -404,15 +420,22 @@ export class ParamSetSk extends ElementSk {
     }
 
     const t = e.target as HTMLElement;
-    if (!t.dataset.key) {
+    // Check if we clicked "content_copy" which is a div
+    if (t.classList.contains('copy-content')) {
       return;
     }
-    if (t.nodeName === 'TH') {
+
+    const target = t.closest('[data-key]') as HTMLElement | null;
+    if (!target) {
+      return;
+    }
+
+    if (target.nodeName === 'TH') {
       if (!this.clickable) {
         return;
       }
       const detail: ParamSetSkClickEventDetail = {
-        key: t.dataset.key,
+        key: target.dataset.key!,
         ctrl: e.ctrlKey,
       };
       this.dispatchEvent(
@@ -421,10 +444,11 @@ export class ParamSetSk extends ElementSk {
           bubbles: true,
         })
       );
-    } else if (t.nodeName === 'DIV') {
+    } else if (target.nodeName === 'DIV') {
+      // It could be a value click
       const detail: ParamSetSkClickEventDetail = {
-        key: t.dataset.key,
-        value: t.dataset.value,
+        key: target.dataset.key!,
+        value: target.dataset.value,
         ctrl: e.ctrlKey,
       };
       this.dispatchEvent(
@@ -433,163 +457,43 @@ export class ParamSetSk extends ElementSk {
           bubbles: true,
         })
       );
-    } else if (t.nodeName === 'ADD-ICON-SK') {
-      const detail: ParamSetSkPlusClickEventDetail = {
-        key: t.dataset.key,
-        values: JSON.parse(t.dataset.values!) as string[],
-      };
-      this.dispatchEvent(
-        new CustomEvent<ParamSetSkPlusClickEventDetail>('plus-click', {
-          detail,
-          bubbles: true,
-        })
-      );
-    } else if (t.nodeName === 'CANCEL-ICON-SK') {
-      this.removeParam(t.dataset.key, t.dataset.value!);
-    }
-  }
-
-  static get observedAttributes() {
-    return ['clickable', 'clickable_values', 'clickable_plus', 'copy-content', 'checkbox_values'];
-  }
-
-  /** Mirrors the clickable attribute.  */
-  get clickable() {
-    return this.hasAttribute('clickable');
-  }
-
-  set clickable(val) {
-    if (val) {
-      this.setAttribute('clickable', '');
     } else {
-      this.removeAttribute('clickable');
+      // Check if target is ADD-ICON-SK or CANCEL-ICON-SK
+      // Since closest('[data-key]') might find them.
+      if (target.nodeName === 'ADD-ICON-SK') {
+        const detail: ParamSetSkPlusClickEventDetail = {
+          key: target.dataset.key!,
+          values: JSON.parse(target.dataset.values!) as string[],
+        };
+        this.dispatchEvent(
+          new CustomEvent<ParamSetSkPlusClickEventDetail>('plus-click', {
+            detail,
+            bubbles: true,
+          })
+        );
+      } else if (target.nodeName === 'CANCEL-ICON-SK') {
+        this.removeParam(target.dataset.key!, target.dataset.value!);
+      }
     }
-  }
-
-  /** Mirrors the checkbox_values attribute */
-  get checkbox_values() {
-    return this.hasAttribute('checkbox_values');
-  }
-
-  set checkbox_values(val) {
-    if (val) {
-      this.setAttribute('checkbox_values', '');
-    } else {
-      this.removeAttribute('checkbox_values');
-    }
-  }
-
-  /** Mirrors the clickable_values attribute.  */
-  get clickable_values() {
-    return this.hasAttribute('clickable_values');
-  }
-
-  set clickable_values(val) {
-    if (val) {
-      this.setAttribute('clickable_values', '');
-    } else {
-      this.removeAttribute('clickable_values');
-    }
-  }
-
-  /** Mirrors the clickable_plus attribute.  */
-  get clickable_plus() {
-    return this.hasAttribute('clickable_plus');
-  }
-
-  set clickable_plus(val) {
-    if (val) {
-      this.setAttribute('clickable_plus', '');
-    } else {
-      this.removeAttribute('clickable_plus');
-    }
-  }
-
-  get removable_values(): boolean {
-    return this.hasAttribute('removable_values');
-  }
-
-  set removable_values(val: boolean) {
-    if (val) {
-      this.setAttribute('removable_values', '');
-    } else {
-      this.removeAttribute('removable_values');
-    }
-  }
-
-  get copy_content(): boolean {
-    return this.hasAttribute('copy_content');
-  }
-
-  set copy_content(val: boolean) {
-    if (val) {
-      this.setAttribute('copy_content', '');
-    } else {
-      this.removeAttribute('copy_content');
-    }
-  }
-
-  attributeChangedCallback(): void {
-    this._render();
-  }
-
-  /**
-   * Titles for the ParamSets to display. The number of titles must match the
-   * number of ParamSets, otherwise no titles will be shown.
-   */
-  get titles() {
-    return this._titles;
-  }
-
-  set titles(val) {
-    this._titles = val;
-    this._render();
   }
 
   // Returns the titles specified by the user, or an empty title for each paramset
   // if the number of specified titles and the number of paramsets don't match.
-  private _normalizedTitles() {
-    if (this._titles.length === this._paramsets.length) {
-      return this._titles;
+  private normalizedTitles() {
+    if (this.titles.length === this.paramsets.length) {
+      return this.titles;
     }
-    return new Array<string>(this._paramsets.length).fill('');
-  }
-
-  /** ParamSets to display. */
-  get paramsets() {
-    return this._paramsets;
-  }
-
-  set paramsets(val) {
-    this._paramsets = val;
-
-    // Compute a rolled up set of all parameter keys across all paramsets.
-    const allKeys = new Set<string>();
-    this._paramsets.forEach((p) => {
-      Object.keys(p).forEach((key) => {
-        allKeys.add(key);
-      });
-    });
-    this._sortedKeys = Array.from(allKeys).sort();
-    this.unchecked = new Map();
-    this._render();
-  }
-
-  /** A serialized paramtools.Params indicating the entries to highlight. */
-  get highlight() {
-    return this._highlight;
-  }
-
-  set highlight(val) {
-    this._highlight = val;
-    this._render();
+    return new Array<string>(this.paramsets.length).fill('');
   }
 
   removeParam(key: string, value: string) {
-    // Let's remove it from the current param set
     const paramsets: ParamSet[] = [];
     this.paramsets.forEach((paramset) => {
       const values = paramset[key];
+      if (!values) {
+        paramsets.push(paramset);
+        return;
+      }
       const valIndex = values.indexOf(value);
       if (valIndex > -1) {
         values.splice(valIndex, 1);
@@ -598,16 +502,12 @@ export class ParamSetSk extends ElementSk {
         } else {
           paramset[key] = values;
         }
-        paramsets.push(paramset);
       }
+      paramsets.push(paramset);
     });
 
     // Set the current paramsets to the updated value
     this.paramsets = paramsets;
-    this._render();
-
-    // Now that the state of paramsets is current,
-    // let's dispatch the event to notify listeners
     const detail: ParamSetSkRemoveClickEventDetail = {
       key: key,
       value: value,
@@ -620,5 +520,3 @@ export class ParamSetSk extends ElementSk {
     );
   }
 }
-
-define('paramset-sk', ParamSetSk);

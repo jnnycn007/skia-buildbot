@@ -35,16 +35,18 @@ describe('paramset-sk with checkbox', () => {
   let paramSetSk: ParamSetSk;
   let paramSetSkPO: ParamSetSkPO;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     paramSetSk = newInstance();
     paramSetSk.checkbox_values = true;
+    await paramSetSk.updateComplete;
     paramSetSkPO = new ParamSetSkPO(paramSetSk);
   });
 
   describe('key checkboxes', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       paramSetSk.paramsets = [paramSet1];
       paramSetSk.titles = [title1];
+      await paramSetSk.updateComplete;
     });
 
     it('emits an event when the checkbox for a key is checked', async () => {
@@ -86,9 +88,10 @@ describe('paramset-sk', () => {
   });
 
   describe('one single ParamSet', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       paramSetSk.paramsets = [paramSet1];
       paramSetSk.titles = [title1];
+      await paramSetSk.updateComplete;
     });
 
     it('should display the ParamSet', async () => {
@@ -101,9 +104,10 @@ describe('paramset-sk', () => {
   });
 
   describe('multiple ParamSets', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       paramSetSk.paramsets = [paramSet1, paramSet2];
       paramSetSk.titles = [title1, title2];
+      await paramSetSk.updateComplete;
     });
 
     it('should display the ParamSet', async () => {
@@ -116,8 +120,9 @@ describe('paramset-sk', () => {
   });
 
   describe('titles', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       paramSetSk.paramsets = [paramSet1, paramSet2];
+      await paramSetSk.updateComplete;
     });
 
     it('should not be visible if none are provided', async () => {
@@ -126,18 +131,21 @@ describe('paramset-sk', () => {
 
     it('should not be visible there are fewer titles than there are ParamSets', async () => {
       paramSetSk.titles = [title1];
+      await paramSetSk.updateComplete;
       expect(await paramSetSkPO.getTitles()).to.deep.equal(['', '']);
     });
 
     it('should not be visible there are more titles than there are ParamSets', async () => {
       paramSetSk.titles = [title1, title2, 'superfluous title'];
+      await paramSetSk.updateComplete;
       expect(await paramSetSkPO.getTitles()).to.deep.equal(['', '']);
     });
   });
 
   describe('highlighed values', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       paramSetSk.paramsets = [paramSet1, paramSet2];
+      await paramSetSk.updateComplete;
     });
 
     it('should not highlight anything by default', async () => {
@@ -152,6 +160,7 @@ describe('paramset-sk', () => {
         d: 'IV',
         e: 'alpha',
       };
+      await paramSetSk.updateComplete;
 
       const expected: ParamSetKeyValueTuple[] = [
         { paramSetIndex: 0, key: 'a', value: 'hello' },
@@ -166,9 +175,10 @@ describe('paramset-sk', () => {
   });
 
   describe('clicks', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       paramSetSk.paramsets = [paramSet1, paramSet2];
       paramSetSk.titles = [title1, title2];
+      await paramSetSk.updateComplete;
     });
 
     describe('not clickable', () => {
@@ -190,8 +200,9 @@ describe('paramset-sk', () => {
     });
 
     describe('only values are clickable', () => {
-      beforeEach(() => {
+      beforeEach(async () => {
         paramSetSk.clickable_values = true;
+        await paramSetSk.updateComplete;
       });
 
       it('does not emit an event when clicking a key', async () => {
@@ -219,8 +230,9 @@ describe('paramset-sk', () => {
     });
 
     describe('clicking keys and values', () => {
-      beforeEach(() => {
+      beforeEach(async () => {
         paramSetSk.clickable = true;
+        await paramSetSk.updateComplete;
       });
 
       it('emits an event when clicking a key', async () => {
@@ -252,9 +264,10 @@ describe('paramset-sk', () => {
     });
 
     describe('clicking plus', () => {
-      beforeEach(() => {
+      beforeEach(async () => {
         paramSetSk.clickable_plus = true;
         paramSetSk.clickable_values = true;
+        await paramSetSk.updateComplete;
       });
 
       it('emits an event when clicking the plus', async () => {
@@ -270,9 +283,10 @@ describe('paramset-sk', () => {
   });
 
   describe('Removable values', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       paramSetSk.removable_values = true;
       paramSetSk.paramsets = [paramSet1];
+      await paramSetSk.updateComplete;
     });
 
     it('generates the relevant event when the remove button is clicked', async () => {

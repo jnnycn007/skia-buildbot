@@ -27,6 +27,7 @@ describe('paramset-sk', () => {
       'paramset-value-remove-click',
       'paramset-checkbox-click',
     ]);
+
     await testBed.page.goto(testBed.baseUrl);
     await testBed.page.setViewport({ width: 800, height: 600 });
   });

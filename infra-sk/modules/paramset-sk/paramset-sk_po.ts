@@ -87,7 +87,12 @@ export class ParamSetSkPO extends PageObject {
         curPkv.key === pkv.key &&
         curPkv.value === pkv.value
       ) {
-        await valueDiv.click();
+        const span = valueDiv.bySelector('span');
+        if (!(await span.isEmpty())) {
+          await span.click();
+        } else {
+          await valueDiv.click();
+        }
       }
     });
   }
