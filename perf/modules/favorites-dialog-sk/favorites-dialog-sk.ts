@@ -5,50 +5,51 @@
  * This module is a modal that contains a form to capture user
  * input for adding/editing a new favorite.
  */
-import { html } from 'lit/html.js';
-import { ElementSk } from '../../../infra-sk/modules/ElementSk';
-import { $$ } from '../../../infra-sk/modules/dom';
-import { define } from '../../../elements-sk/modules/define';
+import { html, LitElement } from 'lit';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import { errorMessage } from '../../../elements-sk/modules/errorMessage';
 import '../../../elements-sk/modules/spinner-sk';
 import '../../../elements-sk/modules/icons/close-icon-sk';
 
 // FavoritesDialogSk is a modal that contains a form to capture user
 // input for adding/editing a new favorite.
-export class FavoritesDialogSk extends ElementSk {
+@customElement('favorites-dialog-sk')
+export class FavoritesDialogSk extends LitElement {
   private static nextUniqueId = 0;
 
   private readonly uniqueId = `${FavoritesDialogSk.nextUniqueId++}`;
 
+  @property({ type: String })
   favId: string = '';
 
+  @property({ type: String })
   name: string = '';
 
+  @property({ type: String })
   description: string = '';
 
+  @property({ type: String })
   url: string = '';
 
-  private dialog: HTMLDialogElement | null = null;
+  @query('dialog')
+  private dialog!: HTMLDialogElement;
 
+  @state()
   private updatingFavorite: boolean = false;
 
   private resolve: ((value?: any) => void) | null = null;
 
   private reject: ((value?: any) => void) | null = null;
 
-  constructor() {
-    super(FavoritesDialogSk.template);
-  }
-
-  connectedCallback(): void {
-    super.connectedCallback();
-    this._render();
-    this.dialog = $$('dialog', this);
+  createRenderRoot() {
+    return this;
   }
 
   private dismiss(): void {
-    this.dialog!.close();
-    this.reject!();
+    this.dialog.close();
+    if (this.reject) {
+      this.reject();
+    }
   }
 
   private async confirm(): Promise<void> {
@@ -75,7 +76,6 @@ export class FavoritesDialogSk extends ElementSk {
 
     try {
       this.updatingFavorite = true;
-      this._render();
       const resp = await fetch(apiUrl, {
         method: 'POST',
         body: JSON.stringify(body),
@@ -90,20 +90,27 @@ export class FavoritesDialogSk extends ElementSk {
       }
     } finally {
       this.updatingFavorite = false;
-      this.dialog!.close();
-      this.resolve!();
+      this.dialog.close();
+      if (this.resolve) {
+        this.resolve();
+      }
     }
   }
 
   // open shows the popup dialog when called.
-  public open(favId?: string, name?: string, description?: string, url?: string): Promise<void> {
+  public async open(
+    favId?: string,
+    name?: string,
+    description?: string,
+    url?: string
+  ): Promise<void> {
     this.favId = favId || '';
     this.name = name || '';
     this.description = description || '';
     this.url = url || window.location.href;
 
-    this._render();
-    this.dialog!.showModal();
+    await this.updateComplete;
+    this.dialog.showModal();
 
     // If the dialog closes it could be due to 2 reasons:
     //    1: User pressed on close
@@ -113,79 +120,64 @@ export class FavoritesDialogSk extends ElementSk {
     // So we're using the reject function when the user presses on close dialog
     // which is eventually used in favorites-sk to decide if it wants to
     // re-fetch the favorites or not.
-    return new Promise((resolve, reject) => {
+    return await new Promise((resolve, reject) => {
       this.resolve = resolve;
       this.reject = reject;
     });
   }
 
-  private filterName(e: Event): void {
-    this.name = (e.target as HTMLInputElement).value;
-    this._render();
-  }
-
-  private filterDescription(e: Event): void {
-    this.description = (e.target as HTMLInputElement).value;
-    this._render();
-  }
-
-  private filterUrl(e: Event): void {
-    this.url = (e.target as HTMLInputElement).value;
-    this._render();
-  }
-
-  private static template = (ele: FavoritesDialogSk) => html`
-      <dialog id="favDialog">
+  render() {
+    return html`
+      <dialog class="fav-dialog">
         <h2>Favorite</h2>
 
-        <button id="favCloseIcon" @click=${ele.dismiss}>
+        <button class="close-btn" @click=${this.dismiss}>
           <close-icon-sk></close-icon-sk>
         </button>
 
-        <div id=spinContainer>
-          <spinner-sk ?active=${ele.updatingFavorite}></spinner-sk>
+        <div class="spin-container">
+          <spinner-sk ?active=${this.updatingFavorite}></spinner-sk>
         </div>
 
         <span class="label">
-          <label for="name-${ele.uniqueId}">Name*</label>
+          <label for="name-${this.uniqueId}">Name*</label>
         </span>
         <input
-          id="name-${ele.uniqueId}"
+          id="name-${this.uniqueId}"
           placeholder="Name"
-          .value="${ele.name}"
-          @input=${(e: Event) => ele.filterName(e)}>
+          .value="${this.name}"
+          @input=${(e: Event) => (this.name = (e.target as HTMLInputElement).value)}>
         </input>
         <br/>
 
         <span class="label">
-          <label for="desc-${ele.uniqueId}">Description</label>
+          <label for="desc-${this.uniqueId}">Description</label>
         </span>
         <input
-          id="desc-${ele.uniqueId}"
+          id="desc-${this.uniqueId}"
           placeholder="Description"
-          .value="${ele.description}"
-          @input=${(e: Event) => ele.filterDescription(e)}></input>
+          .value="${this.description}"
+          @input=${(e: Event) => (this.description = (e.target as HTMLInputElement).value)}></input>
         <br/>
 
         <span class="label">
-          <label for="url-${ele.uniqueId}">URL*</label>
+          <label for="url-${this.uniqueId}">URL*</label>
         </span>
         <input
-          id="url-${ele.uniqueId}"
+          id="url-${this.uniqueId}"
           placeholder="URL"
-          value="${ele.url}"
-          @input=${(e: Event) => ele.filterUrl(e)}></input>
+          .value="${this.url}"
+          @input=${(e: Event) => (this.url = (e.target as HTMLInputElement).value)}></input>
         <br/><br/>
 
-        <div ?hidden="${!ele.updatingFavorite}">
+        <div ?hidden="${!this.updatingFavorite}">
           Working on it...
         </div>
 
         <div class="buttons">
-          <button ?disabled="${ele.updatingFavorite}" @click=${ele.dismiss}>Cancel</button>
-          <button ?disabled="${ele.updatingFavorite}" @click=${ele.confirm}>Save</button>
+          <button ?disabled="${this.updatingFavorite}" @click=${this.dismiss}>Cancel</button>
+          <button ?disabled="${this.updatingFavorite}" @click=${this.confirm}>Save</button>
         </div>
       </dialog>`;
+  }
 }
-
-define('favorites-dialog-sk', FavoritesDialogSk);
