@@ -364,6 +364,21 @@ describe('explore-simple-sk', () => {
       return { tooltipPO, triageMenuPO };
     };
 
+    it('verify Anomaly Regression in the tooltip', async () => {
+      const { tooltipPO } = await OpenTooltip();
+
+      const anomalyDetails = await tooltipPO.container.bySelector('#anomaly-details');
+      expect(await anomalyDetails.isEmpty()).to.be.false;
+
+      const keys = await anomalyDetails.bySelectorAll('#tooltip-key');
+      const keyTexts = await keys.map(async (el) => await el.innerText);
+      expect(keyTexts).to.include('Anomaly');
+
+      const regressionSpan = await anomalyDetails.bySelector('span.regression');
+      expect(await regressionSpan.isEmpty()).to.be.false;
+      expect(await regressionSpan.innerText).to.equal('Regression');
+    });
+
     it('verify <New bug> action in the tooltip', async () => {
       const { tooltipPO, triageMenuPO } = await OpenTooltip();
 
@@ -396,6 +411,44 @@ describe('explore-simple-sk', () => {
         const texts = await tooltipTexts.map(async (el) => await el.innerText);
         return texts.includes('Ignored Alert');
       }, 'Tooltip should show "Ignored Alert"');
+    });
+
+    it('verify Nudge buttons in the tooltip', async () => {
+      const { tooltipPO } = await OpenTooltip();
+
+      // Verify Nudge label
+      const keys = await tooltipPO.container.bySelectorAll('#tooltip-key');
+      let nudgeLabelFound = false;
+      for (let i = 0; i < (await keys.length); i++) {
+        const key = await keys.item(i);
+        if ((await key.innerText) === 'Nudge') {
+          nudgeLabelFound = true;
+          break;
+        }
+      }
+      expect(nudgeLabelFound).to.be.true;
+
+      // Verify Nudge buttons presence
+      const nudgeValues = ['-2', '-1', '0', '1', '2'];
+      for (const val of nudgeValues) {
+        const btn = await tooltipPO.container.bySelector(`button[value="${val}"]`);
+        expect(await btn.isEmpty()).to.be.false;
+
+        const expectedText = val === '0' ? '0' : parseInt(val) > 0 ? `+${val}` : val;
+        expect((await btn.innerText).trim()).to.equal(expectedText);
+      }
+    });
+
+    it('verify Bisect button in the tooltip', async () => {
+      const { tooltipPO } = await OpenTooltip();
+
+      const bisectBtn = await tooltipPO.container.bySelector('#bisect');
+      expect(await bisectBtn.isEmpty()).to.be.false;
+      expect((await bisectBtn.innerText).trim()).to.equal('Bisect');
+
+      await bisectBtn.click();
+      const bisectDialog = await testBed.page.$('bisect-dialog-sk');
+      expect(bisectDialog).to.not.be.null;
     });
   });
 
