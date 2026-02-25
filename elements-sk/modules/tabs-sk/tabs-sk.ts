@@ -46,19 +46,37 @@
  *        value of detail.index is the index of the selected tab.
  *
  */
-import { define } from '../define';
+import { LitElement, PropertyValues, noChange } from 'lit';
+import { customElement } from 'lit/decorators.js';
+import { property } from 'lit/decorators.js';
 
-export class TabsSk extends HTMLElement {
-  static get observedAttributes(): string[] {
-    return ['selected'];
+export interface TabSelectedSkEventDetail {
+  readonly index: number;
+}
+
+@customElement('tabs-sk')
+export class TabsSk extends LitElement {
+  @property({ type: Number, reflect: true })
+  selected: number = 0;
+
+  createRenderRoot() {
+    return this;
+  }
+
+  render() {
+    return noChange;
   }
 
   connectedCallback(): void {
+    super.connectedCallback();
     this.addEventListener('click', this);
-    this.select(0, false);
+    // Ensure initial state is consistent
+    this._updateChildren();
+    this._updatePanel();
   }
 
   disconnectedCallback(): void {
+    super.disconnectedCallback();
     this.removeEventListener('click', this);
   }
 
@@ -71,13 +89,23 @@ export class TabsSk extends HTMLElement {
     });
   }
 
-  /** Reflects the 'selected' attribute.  */
-  get selected(): number {
-    return +(this.getAttribute('selected') || '');
+  updated(changedProperties: PropertyValues) {
+    if (changedProperties.has('selected')) {
+      this._updateChildren();
+      this._updatePanel();
+    }
   }
 
-  set selected(val: number) {
-    this.setAttribute('selected', String(val));
+  private _updateChildren() {
+    this.querySelectorAll('button').forEach((ele, i) => {
+      ele.classList.toggle('selected', i === this.selected);
+    });
+  }
+
+  private _updatePanel() {
+    if (this.nextElementSibling?.tagName === 'TABS-PANEL-SK') {
+      this.nextElementSibling.setAttribute('selected', String(this.selected));
+    }
   }
 
   /**
@@ -88,13 +116,6 @@ export class TabsSk extends HTMLElement {
    */
   select(index: number, trigger = false): void {
     this.selected = index;
-    this.querySelectorAll('button').forEach((ele, i) => {
-      ele.classList.toggle('selected', i === index);
-    });
-    this._trigger(index, trigger);
-  }
-
-  private _trigger(index: number, trigger: boolean): void {
     if (trigger) {
       this.dispatchEvent(
         new CustomEvent<TabSelectedSkEventDetail>('tab-selected-sk', {
@@ -103,21 +124,5 @@ export class TabsSk extends HTMLElement {
         })
       );
     }
-    if (this.nextElementSibling?.tagName === 'TABS-PANEL-SK') {
-      this.nextElementSibling.setAttribute('selected', String(index));
-    }
   }
-
-  attributeChangedCallback(_name: string, oldValue: any, newValue: any) {
-    if (oldValue === newValue) {
-      return;
-    }
-    this.select(+newValue, false);
-  }
-}
-
-define('tabs-sk', TabsSk);
-
-export interface TabSelectedSkEventDetail {
-  readonly index: number;
 }

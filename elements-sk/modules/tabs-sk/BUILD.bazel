@@ -4,7 +4,7 @@ sk_element(
     name = "tabs-sk",
     sass_deps = ["//elements-sk/modules/themes:themes_sass_lib"],
     sass_srcs = ["tabs-sk.scss"],
-    ts_deps = ["//elements-sk/modules:define_ts_lib"],
+    ts_deps = ["//:node_modules/lit"],
     ts_srcs = [
         "index.ts",
         "tabs-sk.ts",

@@ -34,7 +34,7 @@ describe('tabs-sk', () => {
     document.body.removeChild(container);
   });
 
-  it('has selected attribute', () => {
+  it('has selected attribute', async () => {
     container.innerHTML = `
         <tabs-sk>
           <button>One</button>
@@ -46,9 +46,14 @@ describe('tabs-sk', () => {
         </tabs-panel-sk>
         `;
     const s = container.firstElementChild as TabsSk;
+    await s.updateComplete;
     assert.equal('0', s.getAttribute('selected'));
+
     s.setAttribute('selected', '1');
     assert.equal('1', s.getAttribute('selected'));
+
+    await s.updateComplete;
+
     const panel1 = container.querySelector('#panel1')!;
     const panel2 = container.querySelector('#panel2')!;
     assert.isNotNull(panel2);
@@ -56,7 +61,7 @@ describe('tabs-sk', () => {
     assert.isTrue(panel2.classList.contains('selected'));
   }); // has selected attribute
 
-  it('has selected property', () => {
+  it('has selected property', async () => {
     container.innerHTML = `
         <tabs-sk>
           <button>One</button>
@@ -68,9 +73,14 @@ describe('tabs-sk', () => {
         </tabs-panel-sk>
         `;
     const s = container.firstElementChild as TabsSk;
+    await s.updateComplete;
     assert.equal(0, s.selected);
+
     s.selected = 1;
     assert.equal(1, s.selected);
+
+    await s.updateComplete;
+
     const panel1 = container.querySelector('#panel1')!;
     const panel2 = container.querySelector('#panel2')!;
     assert.isNotNull(panel2);
