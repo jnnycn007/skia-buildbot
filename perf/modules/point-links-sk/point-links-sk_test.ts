@@ -25,6 +25,7 @@ describe('point-links-sk', () => {
       displayTexts: {
         key4: 'Commit Link',
       },
+      fetched: true,
     };
     it('With no eligible links.', async () => {
       const currentCommitId = CommitNumber(4);
@@ -39,7 +40,6 @@ describe('point-links-sk', () => {
         keysForUsefulLinks,
         []
       );
-      await element.updateComplete;
       assert.isEmpty(element.displayUrls, 'No display urls expected.');
       assert.isEmpty(element.displayTexts, 'No display texts expected.');
     });
@@ -61,7 +61,6 @@ describe('point-links-sk', () => {
         keysForUsefulLinks,
         [commitLinks]
       );
-      await element.updateComplete;
       assert.deepEqual(expectedLinks, element.displayUrls);
     });
 
@@ -72,7 +71,8 @@ describe('point-links-sk', () => {
         key1: 'https://commit/link1',
         key2: 'https://commit/link2',
       };
-      fetchMock.post('/_/links/', {
+      // Mock /_/details/ as it is now the primary
+      fetchMock.post('/_/details/?results=false', {
         version: 1,
         links: returnLinks,
       });
@@ -92,7 +92,6 @@ describe('point-links-sk', () => {
         keysForUsefulLinks,
         [commitLinks]
       );
-      await element.updateComplete;
       assert.deepEqual(expectedLinks, element.displayUrls);
     });
 
@@ -123,7 +122,6 @@ describe('point-links-sk', () => {
         keysForUsefulLinks,
         []
       );
-      await element.updateComplete;
       assert.deepEqual(expectedLinks, element.displayUrls);
     });
 
@@ -165,7 +163,6 @@ describe('point-links-sk', () => {
         keysForUsefulLinks,
         []
       );
-      await element.updateComplete;
       const expectedLinks = {
         key1: 'https://repoHost/repo1/+log/preLink..curLink?n=1000',
         key2: 'https://repoHost/repo2/+log/preLink..curLink?n=1000',
@@ -201,7 +198,6 @@ describe('point-links-sk', () => {
         keysForUsefulLinks,
         []
       );
-      await element.updateComplete;
       assert.deepEqual(expectedLinks, element.displayUrls);
     });
 
@@ -230,7 +226,6 @@ describe('point-links-sk', () => {
         keysForUsefulLinks,
         []
       );
-      await element.updateComplete;
       assert.deepEqual(expectedLinks, element.displayUrls);
     });
 
@@ -275,7 +270,6 @@ describe('point-links-sk', () => {
         keysForUsefulLinks,
         []
       );
-      await element.updateComplete;
       const expectedLinks = {
         key1: 'https://repoHost/repo1/+/curLink',
         key2: 'https://repoHost/repo2/+log/preLink..curLink?n=1000',
@@ -310,7 +304,71 @@ describe('point-links-sk', () => {
         keysForUsefulLinks,
         []
       );
-      await element.updateComplete;
+      assert.deepEqual(expectedLinks, element.displayUrls);
+    });
+
+    it('Fallback to /_/links/ if /_/details/ returns null.', async () => {
+      const keysForCommitRange = [''];
+      const keysForUsefulLinks = ['Detail Key'];
+      const returnLinks = {
+        'Detail Key': 'https://detail-link',
+      };
+
+      // Mock /_/details/ to return null/empty
+      fetchMock.post('/_/details/?results=false', {
+        version: 1,
+        links: null,
+      });
+
+      // Mock /_/links/ to return valid links
+      fetchMock.post('/_/links/', {
+        version: 1,
+        links: returnLinks,
+      });
+
+      const currentCommitId = CommitNumber(4);
+      const prevCommitId = CommitNumber(3);
+
+      const expectedLinks = {
+        'Detail Key': 'https://detail-link',
+      };
+      await element.load(
+        currentCommitId,
+        prevCommitId,
+        'my trace',
+        keysForCommitRange,
+        keysForUsefulLinks,
+        []
+      );
+      assert.deepEqual(expectedLinks, element.displayUrls);
+    });
+
+    it('Robust key matching with whitespace.', async () => {
+      const keysForCommitRange = [''];
+      const keysForUsefulLinks = ['My Key'];
+      const returnLinks = {
+        ' My Key ': 'https://link',
+      };
+      // Mock /_/details/ as it is now the primary
+      fetchMock.post('/_/details/?results=false', {
+        version: 1,
+        links: returnLinks,
+      });
+
+      const currentCommitId = CommitNumber(4);
+      const prevCommitId = CommitNumber(3);
+
+      const expectedLinks = {
+        ' My Key ': 'https://link',
+      };
+      await element.load(
+        currentCommitId,
+        prevCommitId,
+        'my trace',
+        keysForCommitRange,
+        keysForUsefulLinks,
+        []
+      );
       assert.deepEqual(expectedLinks, element.displayUrls);
     });
 
@@ -339,7 +397,6 @@ describe('point-links-sk', () => {
         keysForUsefulLinks,
         []
       );
-      await element.updateComplete;
       assert.deepEqual(expectedLinks, element.displayUrls);
     });
   });

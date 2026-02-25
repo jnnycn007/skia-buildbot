@@ -29,64 +29,67 @@
  *
  * V8 Git Hash Range: <a href='https://chromium.googlesource.com/v8/v8/+/47f420e89ec1b33dacc048d93e0317ab7fec43dd>47f420e - 47f420e</a>
  */
-import { html, LitElement, TemplateResult } from 'lit';
+import { TemplateResult, html } from 'lit/html.js';
 import { until } from 'lit/directives/until.js';
-import { customElement, property, state } from 'lit/decorators.js';
+import { define } from '../../../elements-sk/modules/define';
+import { ElementSk } from '../../../infra-sk/modules/ElementSk';
 import { CommitDetailsRequest, CommitNumber, ingest } from '../json';
 import { jsonOrThrow } from '../../../infra-sk/modules/jsonOrThrow';
 import { errorMessage } from '../errorMessage';
 
 import '@material/web/icon/icon.js';
-import '@material/web/iconbutton/icon-button.js';
 
 export interface CommitLinks {
   traceid: string;
   cid: number;
   displayUrls: { [key: string]: string } | null;
   displayTexts: { [key: string]: string } | null;
+  fetched?: boolean;
 }
 
-@customElement('point-links-sk')
-export class PointLinksSk extends LitElement {
+export class PointLinksSk extends ElementSk {
+  constructor() {
+    super(PointLinksSk.template);
+  }
+
   private abortController: AbortController = new AbortController();
 
   // The point links for the current commit.
-  @state()
   commitPosition: CommitNumber | null = null;
 
   // Contains the urls to be displayed.
-  @property({ attribute: false })
-  displayUrls: { [key: string]: string } = {};
+  _displayUrls: { [key: string]: string } = {};
 
   // Contains texts to be displayed.
-  @property({ attribute: false })
-  displayTexts: { [key: string]: string } = {};
+  _displayTexts: { [key: string]: string } = {};
 
   private buildLogText = 'Build Log';
 
   private fuchsiaBuildLogKey = 'Test stdio';
 
-  createRenderRoot() {
-    return this;
-  }
-
-  render() {
-    return html`<div
-      class="point-links"
-      ?hidden=${Object.keys(this.displayUrls || {}).length === 0}>
+  private static template = (ele: PointLinksSk) =>
+    html`<div class="point-links" ?hidden=${Object.keys(ele.displayUrls || {}).length === 0}>
       <ul class="table">
-        ${Object.keys(this.displayUrls).map((key) =>
-          until(this.getHtml(key), html`<li>Loading...</li>`)
-        )}
-        ${this.renderRevisionLink()}
+        ${Object.keys(ele.displayUrls)
+          .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
+          .map((key) => until(ele.getHtml(key), html`<li>Loading...</li>`))}
+        ${ele.renderRevisionLink()}
       </ul>
     </div>`;
+
+  connectedCallback(): void {
+    super.connectedCallback();
+    this._render();
   }
 
   private async getHtml(key: string): Promise<TemplateResult> {
     const link = this.displayUrls![key];
     // TODO(b/398878559): Strip after 'Git' string until json keys are ready.
-    const keyText: string = key.replace(/ Git.*/i, '');
+    const keyText: string = key
+      .replace(/ Git.*/i, '')
+      .replace('Trace Iteration', 'Trace')
+      .replace('Device fingerprint', 'Fingerprint')
+      .replace('Profiling Traces and Test Artifacts', 'Artifacts');
     let linkText = this.displayTexts![key] || 'Link';
     // This is a specific change for just v8.
     if (keyText === 'V8') {
@@ -221,18 +224,18 @@ export class PointLinksSk extends LitElement {
       // Check if the commit and traceID have already been loaded. Also verify that the existing
       // link contains urls.
       const existingLink = commitLinks.find(
-        (link) =>
-          link &&
-          link.cid === commit_position &&
-          link.traceid === trace_id &&
-          link.displayUrls &&
-          Object.keys(link.displayUrls).length > 0
+        (commitLink) =>
+          commitLink &&
+          commitLink.cid === commit_position &&
+          commitLink.traceid === trace_id &&
+          commitLink.displayUrls &&
+          Object.keys(commitLink.displayUrls).length > 0
       );
-      if (existingLink) {
+      if (existingLink && existingLink.fetched) {
         // Reuse the existing links
         this.displayUrls = existingLink.displayUrls || {};
         this.displayTexts = existingLink.displayTexts || {};
-
+        this.render();
         return commitLinks;
       }
     }
@@ -261,72 +264,80 @@ export class PointLinksSk extends LitElement {
           console.log(`Request aborted for ${commit_position})`);
           return commitLinks;
         }
-        keysForCommitRange.forEach((key) => {
-          const currentCommitUrl = currentLinks[key];
-          if (
-            currentCommitUrl !== undefined &&
-            currentCommitUrl !== null &&
-            currentCommitUrl !== ''
-          ) {
-            const prevCommitUrl = prevLinks[key];
-            const currentCommitId = this.getCommitIdFromCommitUrl(currentCommitUrl).substring(0, 8);
-            const prevCommitId = this.getCommitIdFromCommitUrl(prevCommitUrl).substring(0, 8);
-            // Workaround to ensure no duplication with links.
-            const displayKey = `${key.split(' Git')[0]}`;
-            // The links should be different depending on whether the
-            // commits are the same. If the commits are the same, simply point to
-            // the commit. If they're not, point to the log list.
-
-            if (currentCommitId === prevCommitId) {
-              displayTexts[displayKey] = `${currentCommitId} (No Change)`;
-              displayUrls[displayKey] = currentCommitUrl;
-            } else {
-              displayTexts[displayKey] = this.getFormattedCommitRangeText(
-                prevCommitId,
-                currentCommitId
+        if (prevLinks) {
+          keysForCommitRange.forEach((key) => {
+            const currentCommitUrl = currentLinks[key];
+            if (
+              currentCommitUrl !== undefined &&
+              currentCommitUrl !== null &&
+              currentCommitUrl !== ''
+            ) {
+              const prevCommitUrl = prevLinks[key];
+              const currentCommitId = this.getCommitIdFromCommitUrl(currentCommitUrl).substring(
+                0,
+                8
               );
-              const repoUrl = this.getRepoUrlFromCommitUrl(currentCommitUrl);
-              // Set pagination to large value to ease skipping (1000 is arbitrary).
-              const commitRangeUrl = `${repoUrl}+log/${prevCommitId}..${currentCommitId}?n=1000`;
-              displayUrls[displayKey] = commitRangeUrl;
+              const prevCommitId = this.getCommitIdFromCommitUrl(prevCommitUrl).substring(0, 8);
+              // Workaround to ensure no duplication with links.
+              const displayKey = `${key.split(' Git')[0]}`;
+              // The links should be different depending on whether the
+              // commits are the same. If the commits are the same, simply point to
+              // the commit. If they're not, point to the log list.
+
+              if (currentCommitId === prevCommitId) {
+                displayTexts[displayKey] = `${currentCommitId} (No Change)`;
+                displayUrls[displayKey] = currentCommitUrl;
+              } else {
+                displayTexts[displayKey] = this.getFormattedCommitRangeText(
+                  prevCommitId,
+                  currentCommitId
+                );
+                const repoUrl = this.getRepoUrlFromCommitUrl(currentCommitUrl);
+                // Set pagination to large value to ease skipping (1000 is arbitrary).
+                const commitRangeUrl = `${repoUrl}+log/${prevCommitId}..${currentCommitId}?n=1000`;
+                displayUrls[displayKey] = commitRangeUrl;
+              }
             }
-          }
-        });
+          });
+        }
       }
       // Extra links found, add them to the displayUrls.
       Object.keys(currentLinks).forEach((key) => {
         // TODO(b/398878559): Strip after 'Git' string until json keys are ready.
         const cleanKey = key.replace(/ Git.*/i, '');
-        if (
-          keysForUsefulLinks &&
-          (keysForUsefulLinks.includes(key) || keysForUsefulLinks.includes(cleanKey))
-        ) {
-          displayUrls[key] = currentLinks[key];
+        if (keysForUsefulLinks) {
+          const match = keysForUsefulLinks.some(
+            (k) =>
+              k.trim().toLowerCase() === key.trim().toLowerCase() ||
+              k.trim().toLowerCase() === cleanKey.trim().toLowerCase()
+          );
+          if (match) {
+            displayUrls[key] = currentLinks[key];
+          }
         }
       });
-
       const commitLink: CommitLinks = {
         cid: commit_position,
         traceid: trace_id,
         displayUrls: displayUrls,
         displayTexts: displayTexts,
+        fetched: true,
       };
 
-      if (commitLinks.indexOf(commitLink) === -1) {
+      const existingIndex = commitLinks.findIndex(
+        (cl) => cl && cl.cid === commit_position && cl.traceid === trace_id
+      );
+
+      if (existingIndex !== -1) {
+        commitLinks[existingIndex] = commitLink;
+      } else {
         commitLinks.push(commitLink);
       }
 
       this.displayTexts = displayTexts;
       this.displayUrls = displayUrls;
 
-      // Before adding a new commit link, check if it already exists in the array.
-      // This should not be necessary, but it is a safeguard due to async calls.
-      const existingLink = commitLinks.find(
-        (link) => link && link.cid === commit_position && link.traceid === trace_id
-      );
-      if (!existingLink) {
-        commitLinks.push(commitLink);
-      }
+      this.render();
       return commitLinks;
     } catch (error: any) {
       if (error.name === 'AbortError') {
@@ -343,6 +354,11 @@ export class PointLinksSk extends LitElement {
     this.commitPosition = null;
     this.displayUrls = {};
     this.displayTexts = {};
+    this.render();
+  }
+
+  render(): void {
+    this._render();
   }
 
   /**
@@ -384,24 +400,26 @@ export class PointLinksSk extends LitElement {
   private async getLinksForPoint(
     cid: CommitNumber,
     traceId: string
-  ): Promise<{ [key: string]: string }> {
-    let url = '/_/links/';
+  ): Promise<{ [key: string]: string } | null> {
+    // TODO(b/398878559): Revert back to using /_/links/ as the primary source once
+    // the endpoint is fixed to return all links.
+    let url = '/_/details/?results=false';
     let response = await this.invokeLinksForPointApi(cid, traceId, url);
     if (!response) {
-      url = '/_/details/?results=false';
+      url = '/_/links/';
       response = await this.invokeLinksForPointApi(cid, traceId, url);
     }
     if (response) {
       // Workaround for b/410254837 until data is fixed.
       const chromiumUrl = 'https://chromium.googlesource.com/';
       Object.keys(response).forEach((key) => {
-        if (key === 'V8' && !response[key].startsWith('http')) {
+        if (key === 'V8' && !response![key].startsWith('http')) {
           const v8Url = 'v8/v8/+/';
-          response[key] = chromiumUrl.concat(v8Url).concat(response[key]);
+          response![key] = chromiumUrl.concat(v8Url).concat(response![key]);
         }
-        if (key === 'WebRTC' && !response[key].startsWith('http')) {
+        if (key === 'WebRTC' && !response![key].startsWith('http')) {
           const webrtcUrl = 'external/webrtc/+/';
-          response[key] = chromiumUrl.concat(webrtcUrl).concat(response[key]);
+          response![key] = chromiumUrl.concat(webrtcUrl).concat(response![key]);
         }
       });
     }
@@ -419,12 +437,12 @@ export class PointLinksSk extends LitElement {
     cid: CommitNumber,
     traceId: string,
     url: string
-  ): Promise<{ [key: string]: string }> {
+  ): Promise<{ [key: string]: string } | null> {
     const body: CommitDetailsRequest = {
       cid: cid,
       traceid: traceId,
     };
-    let response: { [key: string]: string } = {};
+    let response: { [key: string]: string } | null = null;
     try {
       const resp = await fetch(url, {
         method: 'POST',
@@ -435,14 +453,14 @@ export class PointLinksSk extends LitElement {
       });
       const json = await jsonOrThrow(resp);
       const format = json as ingest.Format;
-      response = format.links!;
+      response = format.links || null;
       // Currently in fuchsia json response. The key-value pair is not "Build Log": "url".
       // For example, the key-value format for fuchsia instance is:
       // Test stdio: '[Build Log](https://ci.chromium.org/b/8719307892946930401)'
       if (format.links && format.links![this.fuchsiaBuildLogKey]) {
         const val = this.extractUrlFromStringForFuchsia(format.links![this.fuchsiaBuildLogKey]);
-        response[this.buildLogText] = val;
-        delete response[this.fuchsiaBuildLogKey];
+        response![this.buildLogText] = val;
+        delete response![this.fuchsiaBuildLogKey];
         return response;
       }
     } catch (error) {
@@ -460,4 +478,22 @@ export class PointLinksSk extends LitElement {
     }
     return '';
   }
+
+  set displayTexts(val: { [key: string]: string }) {
+    this._displayTexts = val;
+  }
+
+  get displayTexts(): { [key: string]: string } {
+    return this._displayTexts;
+  }
+
+  set displayUrls(val: { [key: string]: string }) {
+    this._displayUrls = val;
+  }
+
+  get displayUrls(): { [key: string]: string } {
+    return this._displayUrls;
+  }
 }
+
+define('point-links-sk', PointLinksSk);
