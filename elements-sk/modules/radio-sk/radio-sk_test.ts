@@ -22,8 +22,9 @@ describe('radio-sk', () => {
 
   let radioElement: RadioElement;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     radioElement = newInstance();
+    await radioElement.updateComplete;
   });
 
   it('responds to click()', async () => {

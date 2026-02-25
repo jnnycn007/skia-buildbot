@@ -22,8 +22,9 @@ describe('checkbox-sk', () => {
 
   let checkOrRadio: CheckOrRadio;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     checkOrRadio = newInstance();
+    await checkOrRadio.updateComplete;
   });
 
   it('responds to click()', async () => {
@@ -45,8 +46,9 @@ describe('checkbox-sk', () => {
     assert.equal(label.getAttribute('for'), input.id);
   });
 
-  it('generates unique IDs across instances', () => {
+  it('generates unique IDs across instances', async () => {
     const other = newInstance();
+    await other.updateComplete;
     const input1 = checkOrRadio.querySelector('input')!;
     const input2 = other.querySelector('input')!;
     assert.notEqual(input1.id, input2.id);

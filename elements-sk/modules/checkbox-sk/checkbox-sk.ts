@@ -48,142 +48,88 @@
  * @prop label This mirrors the label attribute.
  *
  */
+import { html, LitElement, TemplateResult } from 'lit';
+import { property } from 'lit/decorators.js';
 import { define } from '../define';
-import { upgradeProperty } from '../upgradeProperty';
 
-export class CheckOrRadio extends HTMLElement {
+export class CheckOrRadio extends LitElement {
   private static nextUniqueId = 0;
 
   protected readonly uniqueId = `${CheckOrRadio.nextUniqueId++}`;
 
-  protected get _role() {
+  @property({ type: Boolean, reflect: true })
+  checked: boolean = false;
+
+  @property({ type: Boolean, reflect: true })
+  disabled: boolean = false;
+
+  @property({ type: String, reflect: true })
+  name: string = '';
+
+  @property({ type: String, reflect: true })
+  label: string = '';
+
+  protected get _role(): string {
     return 'checkbox';
   }
 
-  static get observedAttributes() {
-    return ['checked', 'disabled', 'name', 'label'];
+  // Allow subclasses to override icons
+  protected get checkedIcon(): string {
+    return 'check_box';
   }
 
-  private _label: HTMLSpanElement | null = null;
-
-  private _input: HTMLInputElement | null = null;
-
-  content: string = `<label for="${this._role}-${this.uniqueId}">
-    <input type=${this._role} id="${this._role}-${this.uniqueId}"></input>
-    <span class=icons>
-    <span class="icon-sk unchecked">check_box_outline_blank</span>
-    <span class="icon-sk checked">check_box</span>
-  </span>
-  <span class=label></span></label>`;
+  protected get uncheckedIcon(): string {
+    return 'check_box_outline_blank';
+  }
 
   connectedCallback() {
-    this.innerHTML = this.content;
+    super.connectedCallback();
+    this.addEventListener('click', this.handleHostClick);
+  }
 
-    this._label = this.querySelector<HTMLSpanElement>('.label');
-    this._input = this.querySelector<HTMLInputElement>('input');
-    upgradeProperty(this, 'checked');
-    upgradeProperty(this, 'disabled');
-    upgradeProperty(this, 'name');
-    upgradeProperty(this, 'label');
-    // Since attributeChangedCallback can be called before connectedCallback,
-    // and we have non-trivial actions when the attributes change to reflect
-    // the values to this._input, we need trigger each setter on
-    // connectedCallback.
-    this.checked = this.checked;
-    this.disabled = this.disabled;
-    this.name = this.name;
-    this.label = this.label;
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this.removeEventListener('click', this.handleHostClick);
+  }
 
-    // TODO(jcgregorio) Do we capture and alter the 'input' and 'change' events generated
-    // by the input element so that the evt.target points to 'this'?
-    this._input!.addEventListener('change', (e) => {
-      this.checked = (e.target as HTMLInputElement).checked;
-    });
-    this.addEventListener('click', (e) => {
-      if (e.target === this) {
-        if (this.checked && this._role === 'radio') {
-          return;
-        }
-        this._input!.click();
+  private handleHostClick = (e: MouseEvent) => {
+    if (e.target === this) {
+      if (this.checked && this._role === 'radio') {
+        return;
       }
-    });
-  }
-
-  get checked(): boolean {
-    return this.hasAttribute('checked');
-  }
-
-  set checked(val: boolean) {
-    // The attribute is the source of truth, not the property.
-    if (val) {
-      this.setAttribute('checked', '');
-    } else {
-      this.removeAttribute('checked');
+      const input = this.querySelector('input');
+      input?.click();
     }
+  };
+
+  createRenderRoot() {
+    return this;
   }
 
-  get disabled(): boolean {
-    return this.hasAttribute('disabled');
+  render(): TemplateResult {
+    return html`
+      <label for="${this._role}-${this.uniqueId}">
+        <input
+          type=${this._role}
+          name=${this.name}
+          id="${this._role}-${this.uniqueId}"
+          ?disabled=${this.disabled}
+          .checked=${this.checked}
+          @change=${this.handleChange} />
+        <span class="icons">
+          <span class="icon-sk unchecked">${this.uncheckedIcon}</span>
+          <span class="icon-sk checked">${this.checkedIcon}</span>
+        </span>
+        <span class="label">${this.label}</span>
+      </label>
+    `;
   }
 
-  set disabled(val: boolean) {
-    if (val) {
-      this.setAttribute('disabled', '');
-    } else {
-      this.removeAttribute('disabled');
-    }
-  }
-
-  get name(): string {
-    return this.getAttribute('name') || '';
-  }
-
-  set name(val: string) {
-    if (val === null || val === undefined) {
-      return;
-    }
-    this.setAttribute('name', val);
-  }
-
-  get label(): string {
-    return this.getAttribute('label') || '';
-  }
-
-  set label(val: string) {
-    if (val === null || val === undefined) {
-      return;
-    }
-    this.setAttribute('label', val);
-  }
-
-  attributeChangedCallback(name: string, _oldValue: string | null, newValue: string | null): void {
-    if (!this._input) {
-      return;
-    }
-    // Strictly check for null since an empty string doesn't mean false
-    // for a boolean attribute.
-    const isTrue = newValue !== null;
-    switch (name) {
-      case 'checked':
-        this._input.checked = isTrue;
-        break;
-      case 'disabled':
-        this._input.disabled = isTrue;
-        break;
-      case 'name':
-        this._input.name = newValue || '';
-        break;
-      case 'label':
-        if (this._label) {
-          this._label.textContent = newValue;
-        }
-        break;
-      default:
-        break;
-    }
+  private handleChange(e: Event) {
+    // The native input event 'change' bubbles, but we want to ensure
+    // the property is updated.
+    this.checked = (e.target as HTMLInputElement).checked;
   }
 }
 
 define('checkbox-sk', CheckOrRadio);
-
-export const sayHello = () => 'hello';

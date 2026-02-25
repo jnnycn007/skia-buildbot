@@ -89,6 +89,7 @@ describe('comments-sk', () => {
         });
       });
       expect($('checkbox-sk', element)).to.have.length(2);
+      await Promise.all(($('checkbox-sk', element) as any[]).map((e) => e.updateComplete));
       ($('checkbox-sk', element)[0] as any).click();
       ($('checkbox-sk', element)[1] as any).click();
       ($$('input-sk', element) as any).value = 'This is flaky, lets ignore it.';

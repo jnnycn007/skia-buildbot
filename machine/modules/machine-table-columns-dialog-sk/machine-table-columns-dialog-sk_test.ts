@@ -39,7 +39,9 @@ describe('machine-table-columns-dialog-sk', () => {
     const promise = element.edit(startValue);
 
     // Click first checkbox.
-    $$<CheckOrRadio>('checkbox-sk')!.click();
+    const checkbox = $$<CheckOrRadio>('checkbox-sk', element)!;
+    await checkbox.updateComplete;
+    checkbox.click();
     $$<HTMLButtonElement>('#ok', element)!.click();
     const result = await promise;
     const expected = [ColumnOrder[0], ...startValue];

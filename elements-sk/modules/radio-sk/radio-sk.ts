@@ -52,19 +52,16 @@ import { define } from '../define';
 import { CheckOrRadio } from '../checkbox-sk/checkbox-sk';
 
 export class RadioElement extends CheckOrRadio {
-  constructor() {
-    super();
-    this.content = `<label for="${this._role}-${this.uniqueId}">
-      <input type=${this._role} id="${this._role}-${this.uniqueId}"></input>
-      <span class=icons>
-      <span class="icon-sk unchecked">radio_button_unchecked</span>
-      <span class="icon-sk checked">radio_button_checked</span>
-    </span>
-    <span class=label></span></label>`;
-  }
-
   protected get _role(): string {
     return 'radio';
+  }
+
+  protected get checkedIcon(): string {
+    return 'radio_button_checked';
+  }
+
+  protected get uncheckedIcon(): string {
+    return 'radio_button_unchecked';
   }
 }
 
