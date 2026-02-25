@@ -13,15 +13,10 @@
  * @attr {boolean} hide_regex - If the option to include regex in the query should be made
  *       available to the user.
  */
-import { html } from 'lit/html.js';
-import { define } from '../../../elements-sk/modules/define';
+import { html, LitElement } from 'lit';
+import { customElement, property, state } from 'lit/decorators.js';
+import { MultiSelectSkSelectionChangedEventDetail } from '../../../elements-sk/modules/multi-select-sk/multi-select-sk';
 import { CheckOrRadio } from '../../../elements-sk/modules/checkbox-sk/checkbox-sk';
-import {
-  MultiSelectSk,
-  MultiSelectSkSelectionChangedEventDetail,
-} from '../../../elements-sk/modules/multi-select-sk/multi-select-sk';
-import { ElementSk } from '../ElementSk';
-
 import '../../../elements-sk/modules/checkbox-sk';
 import '../../../elements-sk/modules/multi-select-sk';
 
@@ -31,256 +26,230 @@ export interface QueryValuesSkQueryValuesChangedEventDetail {
   values: string[];
 }
 
-export class QueryValuesSk extends ElementSk {
-  private static template = (ele: QueryValuesSk) => html`
-    <checkbox-sk
-      id="invert-${ele.uniqueId}"
-      @change=${ele._invertChange}
-      title="Match items not selected below."
-      label="Invert"
-      ?hidden=${ele.hide_invert}></checkbox-sk>
-    <checkbox-sk
-      id="regex-${ele.uniqueId}"
-      class="regex"
-      @change=${ele._regexChange}
-      title="Match items via regular expression."
-      label="Regex"
-      ?hidden=${ele.hide_regex}></checkbox-sk>
-    <input
-      type="text"
-      id="regexValue-${ele.uniqueId}"
-      class="regexValue"
-      @input=${ele._regexInputChange} />
-    <div class="filtering">
-      <input
-        id="filter-${ele.uniqueId}"
-        @input=${ele._fastFilter}
-        placeholder="Filter Values"
-        name="query-value-sk-filter-val"
-        autocomplete="off" />
-      ${QueryValuesSk.clearFilterButton(ele)}
-    </div>
-    <multi-select-sk
-      id="values-${ele.uniqueId}"
-      class="values"
-      @selection-changed=${ele._selectionChange}>
-      ${QueryValuesSk.valuesTemplate(ele)}
-    </multi-select-sk>
-  `;
-
-  private static valuesTemplate = (ele: QueryValuesSk) =>
-    ele.options.map(
-      (v) => html` <div value=${v} ?selected=${ele._selected.indexOf(v) !== -1}>${v}</div> `
-    );
-
-  private static clearFilterButton(ele: QueryValuesSk) {
-    if (!ele._filtering) {
-      return html``;
-    }
-    return html`
-      <button @click=${ele._clearFilter} class="clear_filters" title="Clear filter">&cross;</button>
-    `;
-  }
-
-  private _clearFilter(): void {
-    this._filterInput!.value = '';
-    this._filtering = false;
-    this._render();
-  }
-
-  public clearFilter(): void {
-    this._clearFilter();
-  }
-
-  private _options: string[] = [];
-
-  private _filteredOptions: string[] = [];
-
-  private _selected: string[] = [];
-
-  private _filtering: boolean = false;
-
-  private _invert: CheckOrRadio | null = null;
-
-  private _regex: CheckOrRadio | null = null;
-
-  private _regexValue: HTMLInputElement | null = null;
-
-  private _filterInput: HTMLInputElement | null = null;
-
-  private _values: MultiSelectSk | null = null;
-
+@customElement('query-values-sk')
+export class QueryValuesSk extends LitElement {
   private static nextUniqueId = 0;
 
   readonly uniqueId = `${QueryValuesSk.nextUniqueId++}`;
 
-  constructor() {
-    super(QueryValuesSk.template);
+  private _options: string[] = [];
+
+  private _selected: string[] = [];
+
+  // Custom setter for options to handle legacy filtering logic
+  @property({ attribute: false, noAccessor: true })
+  get options(): string[] {
+    return this._options;
   }
 
-  connectedCallback() {
-    super.connectedCallback();
-    this._render();
-    this._invert = this.querySelector(`#invert-${this.uniqueId}`);
-    this._regex = this.querySelector(`#regex-${this.uniqueId}`);
-    this._values = this.querySelector(`#values-${this.uniqueId}`);
-    this._regexValue = this.querySelector(`#regexValue-${this.uniqueId}`);
-    this._filterInput = this.querySelector(`#filter-${this.uniqueId}`);
-    this._upgradeProperty('options');
-    this._upgradeProperty('selected');
-    this._upgradeProperty('hide_invert');
-    this._upgradeProperty('hide_regex');
+  set options(val: string[]) {
+    const oldVal = this._options;
+    this._options = val;
+    this._selected = []; // Legacy options setter resets selected
+    this._fastFilter();
+    this.requestUpdate('options', oldVal);
   }
 
-  private _invertChange() {
-    if (this._regex!.checked) {
-      this._regex!.checked = false;
+  // Custom setter for selected to handle legacy cleaning and state synchronization
+  @property({ attribute: false, noAccessor: true })
+  get selected(): string[] {
+    return this._selected;
+  }
+
+  set selected(val: string[]) {
+    const oldVal = this._selected;
+    this._selected = val;
+    this._syncStateFromSelected();
+    this.requestUpdate('selected', oldVal);
+  }
+
+  @property({ type: Boolean, reflect: true })
+  hide_invert: boolean = false;
+
+  @property({ type: Boolean, reflect: true })
+  hide_regex: boolean = false;
+
+  @state()
+  private _filtering: boolean = false;
+
+  @state()
+  private _filteredOptions: string[] = [];
+
+  @state()
+  private _invertChecked: boolean = false;
+
+  @state()
+  private _regexChecked: boolean = false;
+
+  @state()
+  private _regexValue: string = '';
+
+  // We keep track of filter string to re-filter when options change
+  private _filterString: string = '';
+
+  createRenderRoot() {
+    return this;
+  }
+
+  private _syncStateFromSelected() {
+    const val = this._selected;
+    this._invertChecked = !!(val.length >= 1 && val[0].startsWith('!'));
+    this._regexChecked = !!(val.length === 1 && val[0].startsWith('~'));
+
+    // Clean _selected in place
+    this._selected = val.map((v) => {
+      if (v.startsWith('!') || v.startsWith('~')) {
+        return v.slice(1);
+      }
+      return v;
+    });
+
+    if (this._selected.length && this._regexChecked) {
+      this._regexValue = this._selected[0];
     }
-    this._render();
-    this._fireEvent();
-  }
-
-  private _regexChange() {
-    if (this._invert!.checked) {
-      this._invert!.checked = false;
-    }
-
-    this._render();
-    this._fireEvent();
   }
 
   /**
    * Filter the options displayed based on text entered in the
    * filter text box
    */
-  private _fastFilter(): void {
-    const filterString = this._filterInput!.value.trim();
-    const filters = filterString.toLowerCase().split(/\s+/);
+  private _fastFilter() {
+    const filterString = this._filterString ? this._filterString.trim() : '';
 
-    if (filterString) {
-      this._filtering = true;
-      this._filteredOptions = [];
-      // Create a closure that returns true if the given label matches the filter.
-      const matches = (s: string): boolean => {
-        s = s.toLowerCase();
-        return filters.filter((f) => s.indexOf(f) > -1).length > 0;
-      };
-
-      // Only add the values that match the filter text
-      this._filteredOptions = Object.values(this._options).filter(matches);
-    } else {
+    if (!filterString) {
       this._filtering = false;
+      this._filteredOptions = [];
+      return;
     }
-    this._render();
+
+    this._filtering = true;
+    const filters = filterString.toLowerCase().split(/\s+/);
+    const matches = (s: string): boolean => {
+      s = s.toLowerCase();
+      return filters.some((f) => s.includes(f));
+    };
+    this._filteredOptions = this._options.filter(matches);
   }
 
-  private _regexInputChange() {
+  protected render() {
+    // Determine which options to display (filtered or all)
+    const displayOptions = this._filtering ? this._filteredOptions : this._options;
+
+    return html`
+      <checkbox-sk
+        id="invert-${this.uniqueId}"
+        .checked=${this._invertChecked}
+        @change=${this._invertChange}
+        title="Match items not selected below."
+        label="Invert"
+        ?hidden=${this.hide_invert}></checkbox-sk>
+      <checkbox-sk
+        id="regex-${this.uniqueId}"
+        class="regex"
+        .checked=${this._regexChecked}
+        @change=${this._regexChange}
+        title="Match items via regular expression."
+        label="Regex"
+        ?hidden=${this.hide_regex}></checkbox-sk>
+      <input
+        type="text"
+        id="regexValue-${this.uniqueId}"
+        class="regexValue"
+        .value=${this._regexValue}
+        @input=${this._regexInputChange} />
+      <div class="filtering">
+        <input
+          id="filter-${this.uniqueId}"
+          .value=${this._filterString}
+          @input=${this._onFilterInput}
+          placeholder="Filter Values"
+          name="query-value-sk-filter-val"
+          autocomplete="off" />
+        ${this._filtering
+          ? html`<button @click=${this.clearFilter} class="clear_filters" title="Clear filter">
+              &cross;
+            </button>`
+          : ''}
+      </div>
+      <multi-select-sk
+        id="values-${this.uniqueId}"
+        class="values"
+        @selection-changed=${this._selectionChange}>
+        ${displayOptions.map(
+          (v) => html` <div value=${v} ?selected=${this._selected.includes(v)}>${v}</div> `
+        )}
+      </multi-select-sk>
+    `;
+  }
+
+  private _invertChange(e: Event) {
+    const checkbox = e.target as CheckOrRadio;
+    this._invertChecked = checkbox.checked;
+    if (this._invertChecked && this._regexChecked) {
+      this._regexChecked = false;
+    }
+    this._fireEvent();
+  }
+
+  private _regexChange(e: Event) {
+    const checkbox = e.target as CheckOrRadio;
+    this._regexChecked = checkbox.checked;
+    if (this._regexChecked && this._invertChecked) {
+      this._invertChecked = false;
+    }
+    this._fireEvent();
+  }
+
+  private _onFilterInput(e: Event) {
+    this._filterString = (e.target as HTMLInputElement).value;
+    this._fastFilter();
+  }
+
+  private _regexInputChange(e: Event) {
+    this._regexValue = (e.target as HTMLInputElement).value;
     this._fireEvent();
   }
 
   private _selectionChange(e: CustomEvent<MultiSelectSkSelectionChangedEventDetail>) {
-    this._selected = e.detail.selection.map((i) => this.options[i]);
-    this._render();
+    const currentOptions = this._filtering ? this._filteredOptions : this._options;
+
+    // Convert indices to values
+    const newSelected = e.detail.selection.map((i) => currentOptions[i]);
+
+    this._selected = newSelected;
     this._fireEvent();
+    this.requestUpdate();
   }
 
   private _fireEvent() {
-    const prefix = this._invert!.checked ? '!' : '';
-    let selected = this._values!.selection.map((i) => prefix + this.options[i]);
-    if (this._regex!.checked) {
-      selected = [`~${this._regexValue!.value}`];
+    const prefix = this._invertChecked ? '!' : '';
+    let selectedValues: string[] = [];
+
+    if (this._regexChecked) {
+      selectedValues = [`~${this._regexValue}`];
+    } else {
+      // Only include selected values that are currently visible options
+      // to match legacy behavior where multi-select-sk indices are used.
+      const currentOptions = this._filtering ? this._filteredOptions : this._options;
+      selectedValues = this._selected
+        .filter((v) => currentOptions.includes(v))
+        .map((v) => prefix + v);
     }
+
     this.dispatchEvent(
       new CustomEvent<QueryValuesSkQueryValuesChangedEventDetail>('query-values-changed', {
         detail: {
-          invert: this._invert!.checked,
-          regex: this._regex!.checked,
-          values: selected,
+          invert: this._invertChecked,
+          regex: this._regexChecked,
+          values: selectedValues,
         },
         bubbles: true,
       })
     );
   }
 
-  /** Mirrors the hide_invert attribute. */
-  get hide_invert() {
-    return this.hasAttribute('hide_invert');
-  }
-
-  set hide_invert(val) {
-    if (val) {
-      this.setAttribute('hide_invert', '');
-    } else {
-      this.removeAttribute('hide_invert');
-    }
-    this._render();
-  }
-
-  /** Mirrors the hide_regex attribute. */
-  get hide_regex() {
-    return this.hasAttribute('hide_regex');
-  }
-
-  set hide_regex(val) {
-    if (val) {
-      this.setAttribute('hide_regex', '');
-    } else {
-      this.removeAttribute('hide_regex');
-    }
-    this._render();
-  }
-
-  /** The available options. */
-  get options() {
-    if (this._filtering) {
-      return this._filteredOptions;
-    }
-
-    return this._options;
-  }
-
-  set options(val) {
-    this._options = val;
-    this._selected = [];
-
-    // Perform filtering for the values when
-    // updating the options
+  public clearFilter(): void {
+    this._filterString = '';
     this._fastFilter();
   }
-
-  /** Current selections. */
-  get selected() {
-    return this._selected;
-  }
-
-  set selected(val) {
-    this._selected = val;
-    this._invert!.checked = !!(this._selected.length >= 1 && this._selected[0][0] === '!');
-    this._regex!.checked = !!(this._selected.length === 1 && this._selected[0][0] === '~');
-    this._cleanSelected();
-    if (this._selected!.length && this._regex!.checked) {
-      this._regexValue!.value = this._selected[0];
-    }
-    this._render();
-  }
-
-  private _cleanSelected() {
-    // Remove prefixes from _selected.
-    this._selected = this._selected.map((val) => {
-      if ('~!'.includes(val[0])) {
-        return val.slice(1);
-      }
-      return val;
-    });
-  }
-
-  static get observedAttributes() {
-    return ['hide_invert', 'hide_regex'];
-  }
-
-  attributeChangedCallback() {
-    this._render();
-  }
 }
-
-define('query-values-sk', QueryValuesSk);
