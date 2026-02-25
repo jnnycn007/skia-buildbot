@@ -28,6 +28,8 @@ import (
 )
 
 var TOP_ANOMALIES_COUNT = 10
+var COMPONENET_ID = 1325852
+var ISSUESTATUS = "ASSIGNED"
 
 // IssueTracker defines an interface for accessing issuetracker v1 api.
 type IssueTracker interface {
@@ -40,6 +42,9 @@ type IssueTracker interface {
 
 	// FileBug craetes a new bug.
 	FileBug(ctx context.Context, req *FileBugRequest) (int, error)
+
+	// FileUserIssue creates a new user issue.
+	FileUserIssue(ctx context.Context, req *CreateUserIssueRequest) (int, error)
 }
 
 // / IssueTrackerImpl implements IssueTracker using the issue tracker API
@@ -72,13 +77,20 @@ type CreateCommentResponse struct {
 type FileBugRequest struct {
 	Keys        []string `json:"keys"`
 	Title       string   `json:"title"`
-	Description string   `json:"description" unused:"true"`
+	Description string   `json:"description"`
 	Component   string   `json:"component"`
-	Assignee    string   `json:"assignee,omitempty" unused:"true"`
+	Assignee    string   `json:"assignee,omitempty"`
 	Ccs         []string `json:"ccs,omitempty"`
-	Labels      []string `json:"labels,omitempty" unused:"true"`
-	TraceNames  []string `json:"trace_names,omitempty" unused:"true"`
-	Host        string   `json:"host,omitempty" unused:"true"`
+	Labels      []string `json:"labels,omitempty"`
+	TraceNames  []string `json:"trace_names,omitempty"`
+	Host        string   `json:"host,omitempty"`
+}
+
+// CreateUserIssueRequest is the request object for creating a user issue.
+type CreateUserIssueRequest struct {
+	TraceKey       string `json:"trace_key"`
+	CommitPosition int64  `json:"commit_position"`
+	Assignee       string `json:"assignee"`
 }
 
 func setupSecretClient(ctx context.Context, cfg config.IssueTrackerConfig, options []option.ClientOption) (*http.Client, []option.ClientOption, error) {
@@ -186,9 +198,11 @@ func (s *issueTrackerImpl) FileBug(ctx context.Context, req *FileBugRequest) (in
 	if req == nil {
 		return 0, skerr.Fmt("File bug request is null.")
 	}
+
 	if len(req.Keys) == 0 {
-		return 0, skerr.Fmt("File bug received an empty list of regression ids..")
+		return 0, skerr.Fmt("File bug received an empty list of regression ids.")
 	}
+
 	if !s.FetchAnomaliesFromSql {
 		return 0, skerr.Fmt("this implementation is supposed to use the DB. Please contact BERF engineers at go/berf-skia-chat.")
 	}
@@ -232,7 +246,7 @@ func (s *issueTrackerImpl) FileBug(ctx context.Context, req *FileBugRequest) (in
 	topAnomalies, err := ags.TopAnomaliesMedianCmp(regData, int64(TOP_ANOMALIES_COUNT))
 	description := ""
 	// TODO(b/464211673) Make sure the links lead to correct graphs.
-	description += s.generateLinkToGraph(req.Keys)
+	description += s.generateLinkToGraph(regressionIds)
 	description += s.describeTopAnomalies(topAnomalies)
 	description += s.describeBots(regData)
 
@@ -417,4 +431,58 @@ func describeAnomaly(a *v1.Anomaly) string {
 		a.Paramset["bot"], a.Paramset["benchmark"], a.Paramset["measurement"], a.Paramset["story"],
 		a.MedianBefore, a.MedianAfter, calcChange(a.MedianBefore, a.MedianAfter), a.StartCommit, a.EndCommit,
 	)
+}
+
+// FileUserIssue creates a new user issue.
+func (s *issueTrackerImpl) FileUserIssue(ctx context.Context, req *CreateUserIssueRequest) (int, error) {
+	if req == nil {
+		return 0, skerr.Fmt("Create user issue request is null.")
+	}
+
+	issueStatus := ISSUESTATUS
+
+	err := s.validateAssigneeAndStatus(req.Assignee, issueStatus)
+	if err != nil {
+		return 0, err
+	}
+
+	title := fmt.Sprintf("Trace ID %s shows a potential regression at commit position %d.", req.TraceKey, req.CommitPosition)
+
+	newIssue := &issuetracker.Issue{
+		IssueComment: &issuetracker.IssueComment{
+			FormattingMode: "MARKDOWN",
+		},
+		IssueState: &issuetracker.IssueState{
+			ComponentId: int64(COMPONENET_ID),
+			Priority:    "P2",
+			Severity:    "S2",
+			Status:      issueStatus,
+			Title:       title,
+			Assignee: &issuetracker.User{
+				EmailAddress: req.Assignee,
+			},
+			Type: "BUG",
+		},
+	}
+
+	resp, err := s.client.Issues.Create(newIssue).TemplateOptionsApplyTemplate(true).Do()
+	if err != nil {
+		return 0, skerr.Wrapf(err,
+			"[Perf_issuetracker] failed to create user issue: Title=%q, Assignee=%q, ComponentID=%d",
+			newIssue.IssueState.Title,
+			newIssue.IssueState.Assignee.EmailAddress,
+			newIssue.IssueState.ComponentId,
+		)
+	}
+
+	issueId := resp.IssueId
+
+	_, err = s.client.Issues.Comments.Create(issueId, &issuetracker.IssueComment{
+		Comment:        fmt.Sprintf("Link to trace by bugID: %s/u?bugID=%d", s.urlBase, issueId),
+		FormattingMode: "MARKDOWN",
+	}).Do()
+	if err != nil {
+		sklog.Errorf("failed to post comment with bugID due to err: %s", err)
+	}
+	return int(issueId), nil
 }

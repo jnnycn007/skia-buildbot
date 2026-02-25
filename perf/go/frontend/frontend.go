@@ -1134,7 +1134,7 @@ func (f *Frontend) getFrontendApis() []api.FrontendApi {
 		api.NewPinpointApi(f.loginProvider, f.pinpoint),
 		api.NewSheriffConfigApi(f.loginProvider),
 		api.NewTriageApi(f.loginProvider, triageClient, f.issuetracker),
-		api.NewUserIssueApi(f.loginProvider, f.userIssueStore),
+		api.NewUserIssueApi(f.loginProvider, f.userIssueStore, f.issuetracker),
 		api.NewMcpApi(f.dfBuilder),
 	}
 }

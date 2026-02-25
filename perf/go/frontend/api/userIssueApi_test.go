@@ -12,6 +12,8 @@ import (
 	"go.skia.org/infra/go/alogin"
 	"go.skia.org/infra/go/alogin/mocks"
 	"go.skia.org/infra/go/testutils"
+	"go.skia.org/infra/perf/go/issuetracker"
+	issuetrackerMocks "go.skia.org/infra/perf/go/issuetracker/mocks"
 	"go.skia.org/infra/perf/go/userissue"
 	userissueMocks "go.skia.org/infra/perf/go/userissue/mocks"
 )
@@ -46,8 +48,9 @@ func TestFrontendUserIssuesHandler_Success(t *testing.T) {
 	uiMocks.On("GetUserIssuesForTraceKeys", testutils.AnyContext, mock.Anything, mock.Anything, mock.Anything).Return(fakeUserIssues, nil)
 
 	login := mocks.NewLogin(t)
+	itMocks := issuetrackerMocks.NewIssueTracker(t)
 
-	ui := NewUserIssueApi(login, uiMocks)
+	ui := NewUserIssueApi(login, uiMocks, itMocks)
 
 	ui.userIssuesHandler(w, r)
 
@@ -70,8 +73,9 @@ func TestFrontendSaveUserIssueHandler_Success(t *testing.T) {
 
 	login := mocks.NewLogin(t)
 	login.On("LoggedInAs", r).Return(alogin.EMail("nobody@example.org"))
+	itMocks := issuetrackerMocks.NewIssueTracker(t)
 
-	ui := NewUserIssueApi(login, uiMocks)
+	ui := NewUserIssueApi(login, uiMocks, itMocks)
 
 	ui.saveUserIssueHandler(w, r)
 
@@ -93,10 +97,64 @@ func TestFrontendDeleteIssueHandler_Success(t *testing.T) {
 
 	login := mocks.NewLogin(t)
 	login.On("LoggedInAs", r).Return(alogin.EMail("nobody@example.org"))
+	itMocks := issuetrackerMocks.NewIssueTracker(t)
 
-	ui := NewUserIssueApi(login, uiMocks)
+	ui := NewUserIssueApi(login, uiMocks, itMocks)
 
 	ui.deleteUserIssueHandler(w, r)
 
 	require.Equal(t, http.StatusOK, w.Result().StatusCode)
+}
+
+func TestFrontendCreateUserIssueHandler_Success(t *testing.T) {
+	w := httptest.NewRecorder()
+	createReq := issuetracker.CreateUserIssueRequest{
+		TraceKey:       ",a=1,b=1,c=1,",
+		CommitPosition: 123,
+	}
+	uiBody, _ := json.Marshal(createReq)
+	body := bytes.NewReader(uiBody)
+	r := httptest.NewRequest("POST", "/_/user_issue/create", body)
+
+	uiMocks := userissueMocks.NewStore(t)
+	uiMocks.On("Save", testutils.AnyContext, mock.Anything).Return(nil)
+
+	login := mocks.NewLogin(t)
+	login.On("LoggedInAs", r).Return(alogin.EMail("nobody@example.org"))
+
+	itMocks := issuetrackerMocks.NewIssueTracker(t)
+	itMocks.On("FileUserIssue", testutils.AnyContext, mock.Anything).Return(12345, nil)
+
+	ui := NewUserIssueApi(login, uiMocks, itMocks)
+
+	ui.createUserIssueHandler(w, r)
+
+	require.Equal(t, http.StatusOK, w.Result().StatusCode)
+	var resp CreateUserIssueResponse
+	err := json.NewDecoder(w.Body).Decode(&resp)
+	require.NoError(t, err)
+	require.Equal(t, int64(12345), resp.IssueId)
+}
+
+func TestFrontendCreateUserIssueHandler_UnAuthorized(t *testing.T) {
+	w := httptest.NewRecorder()
+	createReq := issuetracker.CreateUserIssueRequest{
+		TraceKey:       ",a=1,b=1,c=1,",
+		CommitPosition: 123,
+	}
+	uiBody, _ := json.Marshal(createReq)
+	body := bytes.NewReader(uiBody)
+	r := httptest.NewRequest("POST", "/_/user_issue/create", body)
+
+	uiMocks := userissueMocks.NewStore(t)
+	login := mocks.NewLogin(t)
+	login.On("LoggedInAs", r).Return(alogin.EMail(""))
+
+	itMocks := issuetrackerMocks.NewIssueTracker(t)
+
+	ui := NewUserIssueApi(login, uiMocks, itMocks)
+
+	ui.createUserIssueHandler(w, r)
+
+	require.Equal(t, http.StatusUnauthorized, w.Result().StatusCode)
 }

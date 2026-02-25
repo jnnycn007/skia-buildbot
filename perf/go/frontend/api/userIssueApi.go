@@ -11,6 +11,7 @@ import (
 	"go.skia.org/infra/go/httputils"
 	"go.skia.org/infra/go/skerr"
 	"go.skia.org/infra/go/sklog"
+	"go.skia.org/infra/perf/go/issuetracker"
 	"go.skia.org/infra/perf/go/userissue"
 )
 
@@ -18,13 +19,15 @@ import (
 type userIssueApi struct {
 	loginProvider  alogin.Login
 	userIssueStore userissue.Store
+	issueTracker   issuetracker.IssueTracker
 }
 
 // NewUserIssueApi returns a new instance of userIssueApi.
-func NewUserIssueApi(loginProvider alogin.Login, userIssueStore userissue.Store) userIssueApi {
+func NewUserIssueApi(loginProvider alogin.Login, userIssueStore userissue.Store, issueTracker issuetracker.IssueTracker) userIssueApi {
 	return userIssueApi{
 		loginProvider:  loginProvider,
 		userIssueStore: userIssueStore,
+		issueTracker:   issueTracker,
 	}
 }
 
@@ -33,6 +36,7 @@ func (ui userIssueApi) RegisterHandlers(router *chi.Mux) {
 	router.Post("/_/user_issues", ui.userIssuesHandler)
 	router.Post("/_/user_issue/save", ui.saveUserIssueHandler)
 	router.Post("/_/user_issue/delete", ui.deleteUserIssueHandler)
+	router.Post("/_/user_issue/create", ui.createUserIssueHandler)
 }
 
 // GetUserIssuesForTraceKeysRequest is the request to fetch all user issues
@@ -162,5 +166,61 @@ func (ui *userIssueApi) deleteUserIssueHandler(w http.ResponseWriter, r *http.Re
 	err := ui.userIssueStore.Delete(ctx, deleteReq.TraceKey, deleteReq.CommitPosition)
 	if err != nil {
 		httputils.ReportError(w, skerr.Fmt("Error:"), "Failed to remove bug from this data point.", http.StatusInternalServerError)
+	}
+}
+
+type CreateUserIssueResponse struct {
+	IssueId int64 `json:"issue_id"`
+}
+
+// createUserIssueHandler creates a new user issue in Buganizer and saves it to the db
+func (ui *userIssueApi) createUserIssueHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), defaultDatabaseTimeout)
+	defer cancel()
+	w.Header().Set("Content-Type", "application/json")
+
+	loggedInEmail := ui.loginProvider.LoggedInAs(r)
+	if loggedInEmail == "" {
+		httputils.ReportError(w, skerr.Fmt("Login Required"), "", http.StatusUnauthorized)
+		return
+	}
+
+	var createReq issuetracker.CreateUserIssueRequest
+	if err := json.NewDecoder(r.Body).Decode(&createReq); err != nil {
+		httputils.ReportError(w, err, "Failed to decode JSON.", http.StatusBadRequest)
+		return
+	}
+
+	if createReq.TraceKey == "" || createReq.CommitPosition == 0 {
+		httputils.ReportError(w, skerr.Fmt("Invalid Argument"), "trace_key, commit_position are required", http.StatusBadRequest)
+		return
+	}
+
+	createReq.Assignee = loggedInEmail.String()
+
+	issueId, err := ui.issueTracker.FileUserIssue(ctx, &createReq)
+	if err != nil {
+		httputils.ReportError(w, err, "Failed to create issue in Buganizer", http.StatusInternalServerError)
+		return
+	}
+
+	userIssueObj := userissue.UserIssue{
+		UserId:         loggedInEmail.String(),
+		TraceKey:       createReq.TraceKey,
+		CommitPosition: createReq.CommitPosition,
+		IssueId:        int64(issueId),
+	}
+	err = ui.userIssueStore.Save(ctx, &userIssueObj)
+	if err != nil {
+		httputils.ReportError(w, err, "Failed to save user issue to database", http.StatusInternalServerError)
+		return
+	}
+
+	resp := CreateUserIssueResponse{
+		IssueId: int64(issueId),
+	}
+
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		sklog.Errorf("Failed to encode response: %s", http.StatusInternalServerError)
 	}
 }
