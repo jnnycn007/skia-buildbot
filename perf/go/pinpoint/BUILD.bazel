@@ -21,5 +21,8 @@ go_test(
     name = "pinpoint_test",
     srcs = ["pinpoint_test.go"],
     embed = [":pinpoint"],
-    deps = ["@com_github_stretchr_testify//assert"],
+    deps = [
+        "//go/httputils",
+        "@com_github_stretchr_testify//assert",
+    ],
 )

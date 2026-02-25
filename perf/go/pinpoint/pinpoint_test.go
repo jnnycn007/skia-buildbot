@@ -1,10 +1,14 @@
 package pinpoint
 
 import (
+	"context"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"go.skia.org/infra/go/httputils"
 )
 
 func TestExtractErrorMessageReturnsErrorMessage(t *testing.T) {
@@ -194,4 +198,67 @@ func TestDotify(t *testing.T) {
 			assert.Equal(t, test.expectation, dotify(test.input))
 		})
 	}
+}
+
+type mockTransport struct {
+	handler http.HandlerFunc
+}
+
+func (m *mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	recorder := httptest.NewRecorder()
+	m.handler(recorder, req)
+	return recorder.Result(), nil
+}
+
+func setupTestMocks(t *testing.T, handler http.HandlerFunc) *Client {
+	client := httputils.DefaultClientConfig().WithoutRetries().Client()
+	client.Transport = &mockTransport{
+		handler: handler,
+	}
+
+	pc := &Client{
+		httpClient: client,
+	}
+
+	return pc
+}
+
+func TestDoPostRequest(t *testing.T) {
+	t.Run("Returns parsed response on success", func(t *testing.T) {
+		pc := setupTestMocks(t, func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "/api/new", r.URL.Path)
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"jobId": "12345", "jobUrl": "https://example.com/job/12345"}`))
+		})
+
+		resp, err := pc.doPostRequest(context.Background(), pinpointLegacyURL)
+		assert.NoError(t, err)
+		assert.NotNil(t, resp)
+		assert.Equal(t, "12345", resp.JobID)
+		assert.Equal(t, "https://example.com/job/12345", resp.JobURL)
+	})
+
+	t.Run("Returns error if non-200 status code", func(t *testing.T) {
+		pc := setupTestMocks(t, func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`{"error": "Internal Server Error"}`))
+		})
+
+		resp, err := pc.doPostRequest(context.Background(), pinpointLegacyURL)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "Internal Server Error")
+		assert.Nil(t, resp)
+	})
+
+	t.Run("Returns error if invalid JSON response", func(t *testing.T) {
+		pc := setupTestMocks(t, func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{invalid json}`))
+		})
+
+		resp, err := pc.doPostRequest(context.Background(), pinpointLegacyURL)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "Failed to parse pinpoint response body")
+		assert.Nil(t, resp)
+	})
 }

@@ -103,36 +103,12 @@ func (pc *Client) CreateTryJob(ctx context.Context, req TryJobCreateRequest) (*C
 	}
 	sklog.Debugf("Preparing to call this Pinpoint service URL: %s", requestURL)
 
-	httpResponse, err := httputils.PostWithContext(ctx, pc.httpClient, requestURL, contentType, nil)
+	resp, err := pc.doPostRequest(ctx, requestURL)
 	if err != nil {
 		pc.createTryJobFailed.Inc(1)
-		return nil, skerr.Wrapf(err, "Failed to get pinpoint response.")
-	}
-	defer httpResponse.Body.Close()
-	sklog.Debugf("Got response from Pinpoint service: %+v", *httpResponse)
-
-	respBody, err := io.ReadAll(httpResponse.Body)
-	if err != nil {
-		pc.createTryJobFailed.Inc(1)
-		return nil, skerr.Wrapf(err, "Failed to read body from pinpoint response.")
-	}
-	if httpResponse.StatusCode != http.StatusOK {
-		requestErrorMessage := extractErrorMessage(respBody)
-		errMsg := fmt.Sprintf("Try job request failed with status code %d and error: %s", httpResponse.StatusCode, requestErrorMessage)
-		err = errors.New(errMsg)
-		pc.createTryJobFailed.Inc(1)
-		// TODO(b/483366834): Refactor other error messages displaying to the user.
 		return nil, err
 	}
-
-	resp := CreatePinpointResponse{}
-	err = json.Unmarshal([]byte(respBody), &resp)
-	if err != nil {
-		pc.createTryJobFailed.Inc(1)
-		return nil, skerr.Wrapf(err, "Failed to parse pinpoint response body.")
-	}
-
-	return &resp, nil
+	return resp, nil
 }
 
 func buildTryJobRequestURL(req TryJobCreateRequest) (string, error) {
@@ -171,36 +147,12 @@ func (pc *Client) CreateBisect(ctx context.Context, req BisectJobCreateRequest) 
 	requestURL := getBisectRequestURL(req, config.Config.FetchAnomaliesFromSql)
 	sklog.Debugf("Preparing to call this Pinpoint service URL: %s", requestURL)
 
-	httpResponse, err := httputils.PostWithContext(ctx, pc.httpClient, requestURL, contentType, nil)
+	resp, err := pc.doPostRequest(ctx, requestURL)
 	if err != nil {
 		pc.createBisectFailed.Inc(1)
-		return nil, skerr.Wrapf(err, "Failed to get pinpoint response.")
-	}
-	defer httpResponse.Body.Close()
-	sklog.Debugf("Got response from Pinpoint service: %+v", *httpResponse)
-
-	respBody, err := io.ReadAll(httpResponse.Body)
-	if err != nil {
-		pc.createBisectFailed.Inc(1)
-		return nil, skerr.Wrapf(err, "Failed to read body from pinpoint response.")
-	}
-	if httpResponse.StatusCode != http.StatusOK {
-		requestErrorMessage := extractErrorMessage(respBody)
-		errMsg := fmt.Sprintf("Bisect request failed with status code %d and error: %s", httpResponse.StatusCode, requestErrorMessage)
-		err = errors.New(errMsg)
-		pc.createBisectFailed.Inc(1)
-		// TODO(b/483366834): Refactor other error messages displaying to the user.
 		return nil, err
 	}
-
-	resp := CreatePinpointResponse{}
-	err = json.Unmarshal([]byte(respBody), &resp)
-	if err != nil {
-		pc.createBisectFailed.Inc(1)
-		return nil, skerr.Wrapf(err, "Failed to parse pinpoint response body.")
-	}
-
-	return &resp, nil
+	return resp, nil
 }
 
 func getBisectRequestURL(req BisectJobCreateRequest, isNewAnomaly bool) string {
@@ -265,4 +217,32 @@ func setIfNotEmpty(params url.Values, key, value string) {
 	if value != "" {
 		params.Set(key, value)
 	}
+}
+
+func (pc *Client) doPostRequest(ctx context.Context, requestURL string) (*CreatePinpointResponse, error) {
+	httpResponse, err := httputils.PostWithContext(ctx, pc.httpClient, requestURL, contentType, nil)
+	if err != nil {
+		return nil, skerr.Wrapf(err, "Failed to get pinpoint response.")
+	}
+	defer httpResponse.Body.Close()
+
+	sklog.Debugf("Got response from Pinpoint service: %+v", *httpResponse)
+
+	respBody, err := io.ReadAll(httpResponse.Body)
+	if err != nil {
+		return nil, skerr.Wrapf(err, "Failed to read body from pinpoint response.")
+	}
+	if httpResponse.StatusCode != http.StatusOK {
+		requestErrorMessage := extractErrorMessage(respBody)
+		errMsg := fmt.Sprintf("Request to %s failed with status code %d and error: %s", requestURL, httpResponse.StatusCode, requestErrorMessage)
+		// TODO(b/483366834): Refactor other error messages displaying to the user.
+		return nil, errors.New(errMsg)
+	}
+
+	resp := CreatePinpointResponse{}
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return nil, skerr.Wrapf(err, "Failed to parse pinpoint response body.")
+	}
+
+	return &resp, nil
 }
