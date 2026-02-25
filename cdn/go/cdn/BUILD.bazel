@@ -8,6 +8,7 @@ go_library(
     deps = [
         "//go/common",
         "//go/httputils",
+        "//go/skerr",
         "//go/sklog",
         "//go/util",
         "@com_github_rs_cors//:cors",
