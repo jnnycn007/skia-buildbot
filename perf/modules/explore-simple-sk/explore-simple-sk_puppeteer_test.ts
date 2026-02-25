@@ -304,8 +304,12 @@ describe('explore-simple-sk', () => {
       // After click, should be true
       expect(await simplePageSkPO.getEvenXAxisSpacing()).to.be.true;
     });
+  });
 
-    it('displays a tooltip when clicking on a data point', async () => {
+  // A sanity check is conducted here, while full test scenarios are
+  // handled within the dedicated components such as 'triage-page-sk'.
+  describe('Graph tooltip', () => {
+    const OpenTooltip = async () => {
       // Show a graph.
       await testBed.page.click('#demo-show-graph');
 
@@ -321,7 +325,7 @@ describe('explore-simple-sk', () => {
 
       // Get the trace keys and coordinates of the first data point.
       const traceKeys = await simplePageSkPO.getTraceKeys();
-      expect(traceKeys.length).deep.equal(1);
+      expect(traceKeys.length).deep.equal(1, 'Expected 1 trace to load.');
       const traceKey = traceKeys[0];
       const coords = await simplePageSkPO.getTraceCoordinates(traceKey, 0);
       // Click on the data point.
@@ -353,6 +357,45 @@ describe('explore-simple-sk', () => {
 
       // Verify the tooltip tracekey.
       expect(traceKey).to.include(expected_trace_key);
+
+      // Verify the Triage buttons on the tooltip window.
+      const tooltipPO = simplePageSkPO.chartTooltip;
+      const triageMenuPO = tooltipPO.getTriageMenu;
+      return { tooltipPO, triageMenuPO };
+    };
+
+    it('verify <New bug> action in the tooltip', async () => {
+      const { tooltipPO, triageMenuPO } = await OpenTooltip();
+
+      await triageMenuPO.newBugButton.click();
+      await testBed.page.$('new-bug-dialog-sk');
+      // By mocking '/_/triage/file_bug', expecting '358011161' bug number.
+      await poll(async () => {
+        const link = await tooltipPO.container.bySelector('a[href="/358011161"]');
+        return !(await link.isEmpty()) && (await link.innerText).includes('358011161');
+      }, 'Tooltip should show bug ID 358011161');
+    });
+
+    it('verify <Existing bug> action in the tooltip', async () => {
+      const { triageMenuPO } = await OpenTooltip();
+
+      await triageMenuPO.ignoreButton.click();
+      // Wait to get a response.
+      await new Promise((r) => setTimeout(r, 500));
+    });
+
+    it('verify <Ignore> action in the tooltip', async () => {
+      const { tooltipPO, triageMenuPO } = await OpenTooltip();
+
+      await triageMenuPO.ignoreButton.click();
+      // Wait to get a response.
+      await new Promise((r) => setTimeout(r, 500));
+
+      await poll(async () => {
+        const tooltipTexts = tooltipPO.container.bySelectorAll('#tooltip-text');
+        const texts = await tooltipTexts.map(async (el) => await el.innerText);
+        return texts.includes('Ignored Alert');
+      }, 'Tooltip should show "Ignored Alert"');
     });
   });
 

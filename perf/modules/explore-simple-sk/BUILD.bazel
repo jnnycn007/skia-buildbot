@@ -140,6 +140,7 @@ sk_page(
     ts_deps = [
         "//perf/modules/common:test-util_ts_lib",
         "//infra-sk/modules:dom_ts_lib",
+        "//:node_modules/fetch-mock",
     ],
     ts_entry_point = "explore-simple-sk-demo.ts",
 )

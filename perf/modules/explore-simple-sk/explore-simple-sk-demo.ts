@@ -3,6 +3,7 @@ import '../../../elements-sk/modules/error-toast-sk';
 import { setUpExploreDemoEnv, MOCK_TRACE_KEY_1 } from '../common/test-util';
 import { $$ } from '../../../infra-sk/modules/dom';
 import { ExploreSimpleSk } from './explore-simple-sk';
+import fetchMock from 'fetch-mock';
 
 setUpExploreDemoEnv();
 
@@ -44,6 +45,38 @@ window.perf = {
   enable_v2_ui: false,
   extra_links: null,
 };
+
+fetchMock.post('/_/triage/file_bug', async () => {
+  return {
+    bug_id: 358011161,
+  };
+});
+
+fetchMock.post('/_/triage/list_issues', async () => {
+  return {
+    status: 200,
+    body: JSON.stringify({
+      issues: [{ issueId: '358011161', issueState: { title: 'Test Bug' } }],
+    }),
+  };
+});
+
+fetchMock.post('/_/triage/associate_alerts', async () => {
+  return {
+    bug_id: 358011161,
+  };
+});
+
+fetchMock.post('/_/triage/edit_anomalies', async (_url, opts: any) => {
+  const body = JSON.parse(opts.body);
+  return {
+    status: 200,
+    body: JSON.stringify({
+      keys: body.keys,
+      action: body.action,
+    }),
+  };
+});
 
 customElements.whenDefined('explore-simple-sk').then(() => {
   document
