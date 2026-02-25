@@ -73,7 +73,7 @@ describe('query-count-sk', () => {
       const originalFetch = window.fetch;
       window.fetch = async (input, init) => {
         await new Promise((resolve) => setTimeout(resolve, 500));
-        return originalFetch(input, init);
+        return await originalFetch(input, init);
       };
     });
 

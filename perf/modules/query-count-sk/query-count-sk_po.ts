@@ -15,15 +15,15 @@ export class QueryCountSkPO extends PageObject {
   /**
    * Returns true if the spinner is active.
    */
-  isSpinnerActive(): Promise<boolean> {
-    return this.bySelector('spinner-sk').applyFnToDOMNode((el: any) => el.active);
+  async isSpinnerActive(): Promise<boolean> {
+    return await this.bySelector('spinner-sk').applyFnToDOMNode((el: any) => el.active);
   }
 
   /**
    * Gets the 'url' property of the element.
    */
   async getUrl(): Promise<string> {
-    return this.bySelector('query-count-sk').applyFnToDOMNode((el: any) => el.url);
+    return await this.bySelector('query-count-sk').applyFnToDOMNode((el: any) => el.url);
   }
 
   /**

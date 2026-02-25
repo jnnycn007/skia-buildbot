@@ -12,123 +12,83 @@
  *   from the fetch response.
  *
  */
-import { html } from 'lit/html.js';
-import { define } from '../../../elements-sk/modules/define';
+import { html, LitElement } from 'lit';
+import { customElement, property } from 'lit/decorators.js';
+import { Task, TaskStatus } from '@lit/task';
 import { jsonOrThrow } from '../../../infra-sk/modules/jsonOrThrow';
 import { errorMessage } from '../errorMessage';
-import { ElementSk } from '../../../infra-sk/modules/ElementSk';
 import { CountHandlerRequest, CountHandlerResponse, ReadOnlyParamSet } from '../json';
 import '../../../elements-sk/modules/spinner-sk';
 
-export class QueryCountSk extends ElementSk {
-  private _count = 0;
+@customElement('query-count-sk')
+export class QueryCountSk extends LitElement {
+  @property({ type: String })
+  url: string = '';
 
-  private _requestInProgress = false;
+  @property({ type: String, attribute: 'current_query' })
+  current_query: string = '';
 
-  private fetchController: AbortController | null = null;
+  private _fetchTask = new Task(this, {
+    task: async (
+      [url, current_query]: readonly [string, string],
+      { signal }: { signal: AbortSignal }
+    ) => {
+      if (!url || !current_query) {
+        return 0;
+      }
 
-  constructor() {
-    super(QueryCountSk.template);
-    this._count = 0;
-    this._requestInProgress = false;
-  }
+      const now = Math.floor(Date.now() / 1000);
+      const body: CountHandlerRequest = {
+        q: current_query,
+        end: now,
+        begin: now - 24 * 60 * 60,
+      };
 
-  private static template = (ele: QueryCountSk) => html`
-    <div>
-      <span>${ele._count}</span>
-      <spinner-sk ?active=${ele._requestInProgress}></spinner-sk>
-    </div>
-  `;
-
-  connectedCallback(): void {
-    super.connectedCallback();
-    this._upgradeProperty('url');
-    this._upgradeProperty('current_query');
-    this._render();
-    this._fetch();
-  }
-
-  attributeChangedCallback(): void {
-    this._fetch();
-  }
-
-  static get observedAttributes(): string[] {
-    return ['current_query', 'url'];
-  }
-
-  private _fetch() {
-    if (!this._connected) {
-      return;
-    }
-    if (!this.url || this.current_query === '') {
-      return;
-    }
-
-    // Force only one fetch at a time. Abort any outstanding requests.
-    if (this.fetchController) {
-      this.fetchController.abort();
-    }
-    this.fetchController = new AbortController();
-    this._requestInProgress = true;
-    const now = Math.floor(Date.now() / 1000);
-    const body: CountHandlerRequest = {
-      q: this.current_query,
-      end: now,
-      begin: now - 24 * 60 * 60,
-    };
-    this._render();
-    fetch(this.url, {
-      method: 'POST',
-      signal: this.fetchController.signal,
-      body: JSON.stringify(body),
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-      .then(jsonOrThrow)
-      .then((json: CountHandlerResponse) => {
-        this._count = json.count;
-        this._requestInProgress = false;
-        this._render();
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          signal,
+          body: JSON.stringify(body),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        const json = (await jsonOrThrow(response)) as CountHandlerResponse;
         this.dispatchEvent(
           new CustomEvent<ReadOnlyParamSet>('paramset-changed', {
             detail: json.paramset,
             bubbles: true,
+            composed: true,
           })
         );
-      })
-      .catch((msg) => {
-        this._requestInProgress = false;
+        return json.count;
+      } catch (msg: any) {
         if (msg.name === 'AbortError') {
-          // User did something to invalidate the request, so just
-          // return without updating the UI state or displaying an
-          // error message.
-          return;
+          throw msg;
         }
-        this._render();
         errorMessage(msg);
-      });
+        throw msg;
+      }
+    },
+    args: () => [this.url, this.current_query] as const,
+  });
+
+  createRenderRoot() {
+    return this;
   }
 
-  /** @prop url - The URL to make POST requests to.  */
-  get url(): string {
-    return this.getAttribute('url') || '';
-  }
+  render() {
+    // Reset count to 0 while loading to match legacy behavior.
+    const isLoading =
+      this._fetchTask.status === TaskStatus.PENDING ||
+      this._fetchTask.status === TaskStatus.INITIAL;
+    const count = isLoading ? 0 : this._fetchTask.value ?? 0;
 
-  set url(val: string) {
-    this.setAttribute('url', val);
-  }
-
-  /** @prop current_query - The current trace query. */
-  get current_query(): string {
-    return this.getAttribute('current_query') || '';
-  }
-
-  set current_query(val: string) {
-    this.setAttribute('current_query', val);
-    this._count = 0;
-    this._render();
+    return html`
+      <div>
+        <span>${count}</span>
+        <spinner-sk ?active=${isLoading}></spinner-sk>
+      </div>
+    `;
   }
 }
-
-define('query-count-sk', QueryCountSk);
