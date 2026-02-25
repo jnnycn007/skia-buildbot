@@ -498,6 +498,18 @@ use_repo(
 )
 
 ####################################################################################################
+# CA Certificates
+####################################################################################################
+
+gcs_mirror.http_archive(
+    name = "ca-certificates",
+    build_file_content = "exports_files([\"data.tar.xz\"])",
+    sha256 = "ef590f89563aa4b46c8260d49d1cea0fc1b181d19e8df3782694706adf05c184",
+    url = "https://snapshot-cloudflare.debian.org/archive/debian/20260201T022025Z/pool/main/c/ca-certificates/ca-certificates_20250419_all.deb",
+)
+use_repo(gcs_mirror, "ca-certificates")
+
+####################################################################################################
 # bazel_skylib
 ####################################################################################################
 

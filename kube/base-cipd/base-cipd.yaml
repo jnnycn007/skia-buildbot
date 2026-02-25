@@ -10,5 +10,4 @@ archs:
   - amd64
 
 packages:
-  - ca-certificates
   - curl

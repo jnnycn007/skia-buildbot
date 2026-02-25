@@ -1,3 +1,4 @@
+load("@rules_distroless//distroless:defs.bzl", "cacerts")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("//bazel:skia_app_container.bzl", "skia_app_container")
 
@@ -121,6 +122,11 @@ pkg_tar(
     strip_prefix = ".",
 )
 
+cacerts(
+    name = "ca-certs",
+    package = "@ca-certificates//:data.tar.xz",
+)
+
 skia_app_container(
     name = "base-cipd",
     base_image = "@debian-testing-slim",
@@ -129,6 +135,7 @@ skia_app_container(
     env = {
         "PATH": "/cipd:/cipd/cipd_bin_packages/gsutil:/cipd/cipd_bin_packages:/cipd/cipd_bin_packages/bin:/cipd/cipd_bin_packages/cpython3:/cipd/cipd_bin_packages/cpython3/bin:${PATH}",
         "CIPD_ROOT": "/cipd",
+        "SSL_CERT_FILE": "/etc/ssl/certs/ca-certificates.crt",
     },
     extra_tars = [
         "@base-cipd-apt-install//:flat",
@@ -147,6 +154,7 @@ skia_app_container(
         ":patch_tar",
         ":swarming_tar",
         ":vpython3_tar",
+        ":ca-certs",
     ],
     repository = "skia-public/base-cipd",
     visibility = ["//visibility:public"],
