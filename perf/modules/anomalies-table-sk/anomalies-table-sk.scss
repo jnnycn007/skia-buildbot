@@ -216,7 +216,8 @@ details.grouping-settings summary {
 }
 
 .grouping-setting-label {
-  display: block;
+  display: flex;
+  align-items: center;
   font-weight: bold;
   font-size: 12px;
   text-transform: uppercase;
@@ -225,6 +226,21 @@ details.grouping-settings summary {
   margin-bottom: 8px;
   border-bottom: 1px solid var(--surface-1dp);
   padding-bottom: 4px;
+
+  help-icon-sk {
+    margin: 0 0 0 8px;
+    cursor: default;
+    fill: var(--on-surface-variant, #999);
+
+    &:hover {
+      fill: var(--primary);
+    }
+
+    .icon-sk-svg {
+      width: 18px;
+      height: 18px;
+    }
+  }
 }
 
 .checkbox-container label {

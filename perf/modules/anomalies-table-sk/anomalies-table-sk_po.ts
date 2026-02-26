@@ -227,20 +227,6 @@ export class AnomaliesTableSkPO extends PageObject {
     await this.toggleGroupingSettings(false); // Close
   }
 
-  async setGroupSingles(checked: boolean): Promise<void> {
-    await this.toggleGroupingSettings(true); // Open
-
-    const checkbox = await this.groupingSettingsDetails.bySelector(
-      'input[type="checkbox"]:not([value])'
-    );
-    const isChecked = await checkbox.applyFnToDOMNode((el) => (el as HTMLInputElement).checked);
-    if (isChecked !== checked) {
-      await checkbox.click();
-    }
-
-    await this.toggleGroupingSettings(false); // Close
-  }
-
   async waitForBugIdStatus(rowIndex: number, status: string): Promise<void> {
     await poll(async () => {
       const rows = await this.rows;

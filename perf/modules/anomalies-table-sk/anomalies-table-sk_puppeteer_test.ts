@@ -332,7 +332,6 @@ describe('anomalies-table-sk', () => {
       await anomaliesTableSkPO.setGroupBy('BENCHMARK', true);
       await anomaliesTableSkPO.setGroupBy('BOT', false);
       await anomaliesTableSkPO.setGroupBy('TEST', false);
-      await anomaliesTableSkPO.setGroupSingles(false);
     });
 
     afterEach(async () => {
@@ -406,24 +405,6 @@ describe('anomalies-table-sk', () => {
       // Total Groups = 3 (Bug + BenchX + BenchZ).
       // Total Rows = 3 Groups + 1 Header Row = 4 Rows.
       expect(await anomaliesTableSkPO.getRowCount()).to.equal(4);
-    });
-
-    it('6. GroupSingles: TRUE', async () => {
-      await anomaliesTableSkPO.setRevisionMode('EXACT');
-      await anomaliesTableSkPO.setGroupSingles(true);
-
-      // Groups:
-      // 1. Bug 12345 (merged) -> 1 Group.
-      // 2. Rev A (Multi-item) -> 1 Group.
-      // 3. Rev B (Single) matches BenchX.
-      // 4. Single 1 matches BenchZ.
-      // 5. Single 2 matches BenchZ.
-      // GroupSingles=TRUE (default criteria: BENCHMARK).
-      // - BenchX Group: Rev B (1 item).
-      // - BenchZ Group: Single 1 + Single 2 (2 items).
-      // Total Groups = 1 Bug + 1 Rev A + 1 RevB(BenchX) + 1 Singles(BenchZ) = 4 Groups.
-      // Total Rows = 4 Groups + 1 Header Row = 5 Rows.
-      expect(await anomaliesTableSkPO.getRowCount()).to.equal(5);
     });
   });
 

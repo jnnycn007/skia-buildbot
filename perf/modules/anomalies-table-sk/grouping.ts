@@ -6,9 +6,6 @@ export type GroupingCriteria = 'BENCHMARK' | 'BOT' | 'TEST' | 'NONE';
 export interface AnomalyGroupingConfig {
   revisionMode: RevisionGroupingMode;
   groupBy: Set<GroupingCriteria>;
-  /** * If true, applies the 'groupBy' logic to anomalies that did not
-   * fit into any revision group. */
-  groupSingles: boolean;
 }
 
 export class AnomalyGroup {
@@ -111,8 +108,8 @@ export function isSameTest(a: Anomaly, b: Anomaly): boolean {
  * 1. Anomalies with bug IDs are always grouped together.
  * 2. Anomalies without bug IDs are grouped by revision, based on the `revisionMode`.
  * 3. The resulting revision groups can be further split by attributes in `groupBy`.
- * 4. Anomalies that didn't fit into any revision group ('singles') can also be
- *    grouped based on the `groupSingles` and `groupBy` settings.
+ * 4. Anomalies that didn't fit into any revision group ('singles') are treated
+ *    as individual groups.
  */
 export function groupAnomalies(
   anomalyList: Anomaly[],
@@ -212,25 +209,13 @@ export function groupAnomalies(
     processedGroups = revisionGroups;
   }
 
-  // 4. Configurable Logic: Grouping Singles
-  const processedSingles: AnomalyGroup[] = [];
-  if (config.groupSingles && predicates.length > 0) {
-    const combinedPredicate = (a: Anomaly, b: Anomaly) => predicates.every((p) => p(a, b));
-    const { multiItemGroups, singleAnomalies } = groupAndPartition(singlesPool, combinedPredicate);
-    processedSingles.push(...multiItemGroups);
-    singleAnomalies.forEach((a) => {
-      const singleGroup = new AnomalyGroup();
-      singleGroup.anomalies = [a];
-      processedSingles.push(singleGroup);
-    });
-  } else {
-    singlesPool.forEach((a) => {
-      const singleGroup = new AnomalyGroup();
-      singleGroup.anomalies = [a];
-      processedSingles.push(singleGroup);
-    });
-  }
+  // 4. Remaining Singles
+  const singlesGroups = singlesPool.map((a) => {
+    const group = new AnomalyGroup();
+    group.anomalies = [a];
+    return group;
+  });
 
   // 5. Final Assembly
-  return [...bugIdGroups, ...processedGroups, ...processedSingles];
+  return [...bugIdGroups, ...processedGroups, ...singlesGroups];
 }

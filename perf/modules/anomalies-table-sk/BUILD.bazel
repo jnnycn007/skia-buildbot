@@ -206,6 +206,7 @@ ts_library(
     deps = [
         ":grouping_ts_lib",
         "//:node_modules/lit",
+        "//elements-sk/modules/icons/help-icon-sk",
     ],
 )
 

@@ -183,8 +183,6 @@ export class AnomaliesTableSk extends LitElement implements KeyboardShortcutHand
         .config=${{ ...this.groupingController.config }}
         @revision-mode-change=${(e: CustomEvent<RevisionGroupingMode>) =>
           this.groupingController.setRevisionMode(e.detail)}
-        @group-singles-change=${(e: CustomEvent<boolean>) =>
-          this.groupingController.setGroupSingles(e.detail)}
         @group-by-change=${(e: CustomEvent<{ criteria: GroupingCriteria; enabled: boolean }>) =>
           this.groupingController.toggleGroupBy(
             e.detail.criteria,

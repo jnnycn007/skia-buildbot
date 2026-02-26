@@ -1,5 +1,6 @@
 import { html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import '../../../elements-sk/modules/icons/help-icon-sk';
 import { AnomalyGroupingConfig, RevisionGroupingMode, GroupingCriteria } from './grouping';
 
 @customElement('anomalies-grouping-settings-sk')
@@ -24,40 +25,36 @@ export class AnomaliesGroupingSettingsSk extends LitElement {
         <summary>Grouping Settings</summary>
         <div class="grouping-settings-panel">
           <div class="grouping-setting-group">
-            <label class="grouping-setting-label" for="revision-mode-select-${safeId}"
-              >Commit Range Strategy</label
-            >
+            <div class="grouping-setting-label">
+              <label for="revision-mode-select-${safeId}">Revision Grouping</label>
+              <help-icon-sk
+                title="Determines how anomalies are grouped based on their commit range.
+
+* Range Overlap: Groups anomalies with overlapping ranges.
+* Exact Range: Groups anomalies with exact same ranges.
+* Ignore Range: Groups all anomalies into a single group."></help-icon-sk>
+            </div>
             <select
               id="revision-mode-select-${safeId}"
               @change=${(e: Event) => this.onRevisionModeChange(e)}>
               <option value="OVERLAPPING" ?selected=${this.config.revisionMode === 'OVERLAPPING'}>
-                Overlapping Ranges
+                Range Overlap
               </option>
               <option value="EXACT" ?selected=${this.config.revisionMode === 'EXACT'}>
-                Exact Range Only
+                Exact Range
               </option>
               <option value="ANY" ?selected=${this.config.revisionMode === 'ANY'}>
-                Ignore Range (Group All)
+                Ignore Range
               </option>
             </select>
           </div>
 
           <div class="grouping-setting-group">
-            <label class="grouping-setting-label">Single Anomalies Strategy</label>
-            <div class="checkbox-container">
-              <label title="If unchecked, single anomalies will not be forced into groups">
-                <input
-                  type="checkbox"
-                  ?checked=${this.config.groupSingles}
-                  @change=${(e: Event) => this.onGroupSinglesChange(e)} />
-                Group remaining single anomalies by selected criteria (may lead to grouping of
-                unrelated anomalies!)
-              </label>
+            <div class="grouping-setting-label">
+              <span>Split Groups By</span>
+              <help-icon-sk
+                title="Determines more granular group split *after* grouping by revision."></help-icon-sk>
             </div>
-          </div>
-
-          <div class="grouping-setting-group">
-            <label class="grouping-setting-label">Split Groups By</label>
             <div class="checkbox-container">
               <label>
                 <input
@@ -95,16 +92,6 @@ export class AnomaliesGroupingSettingsSk extends LitElement {
     this.dispatchEvent(
       new CustomEvent<RevisionGroupingMode>('revision-mode-change', {
         detail: select.value as RevisionGroupingMode,
-        bubbles: true,
-      })
-    );
-  }
-
-  private onGroupSinglesChange(e: Event) {
-    const checkbox = e.target as HTMLInputElement;
-    this.dispatchEvent(
-      new CustomEvent<boolean>('group-singles-change', {
-        detail: checkbox.checked,
         bubbles: true,
       })
     );

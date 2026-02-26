@@ -164,7 +164,7 @@ describe('anomalies-table-sk', () => {
       await element.openAnomalyGroupReportPage();
 
       assert.isTrue(openSpy.calledWith('/u/?sid=test_sid', '_blank'));
-      assert.isTrue(openSpy.calledThrice);
+      assert.equal(openSpy.callCount, 4);
     });
 
     it('navigates to anomaly group report page when sql anomalies are enabled', async () => {
@@ -191,8 +191,9 @@ describe('anomalies-table-sk', () => {
 
       assert.isTrue(openSpy.calledWith(`/u/?anomalyIDs=${encodeURIComponent('1,2')}`, '_blank'));
       assert.isTrue(openSpy.calledWith(`/u/?anomalyIDs=${encodeURIComponent('3,4')}`, '_blank'));
-      assert.isTrue(openSpy.calledWith(`/u/?anomalyIDs=${encodeURIComponent('5,6')}`, '_blank'));
-      assert.isTrue(openSpy.calledThrice);
+      assert.isTrue(openSpy.calledWith(`/u/?anomalyIDs=${encodeURIComponent('5')}`, '_blank'));
+      assert.isTrue(openSpy.calledWith(`/u/?anomalyIDs=${encodeURIComponent('6')}`, '_blank'));
+      assert.equal(openSpy.callCount, 4);
     });
 
     it('opens single anomaly group with anomaly id', async () => {
@@ -331,7 +332,6 @@ describe('anomalies-table-sk', () => {
       const config: AnomalyGroupingConfig = {
         revisionMode: 'ANY',
         groupBy: new Set(),
-        groupSingles: false,
       };
       const groups = groupAnomalies(anomalies, config);
       const bugGroup = groups.find((g) => g.anomalies.some((a) => a.id === '1' || a.id === '2'));
@@ -343,7 +343,6 @@ describe('anomalies-table-sk', () => {
       const config: AnomalyGroupingConfig = {
         revisionMode: 'EXACT',
         groupBy: new Set(),
-        groupSingles: false,
       };
       const groups = groupAnomalies(anomalies, config);
       // anoms 5 and 6 should be in a group.
@@ -359,7 +358,6 @@ describe('anomalies-table-sk', () => {
       const config: AnomalyGroupingConfig = {
         revisionMode: 'OVERLAPPING',
         groupBy: new Set(),
-        groupSingles: false,
       };
       const groups = groupAnomalies(anomalies, config);
       // anoms 3 and 4 should be in a group.
@@ -374,7 +372,6 @@ describe('anomalies-table-sk', () => {
       const config: AnomalyGroupingConfig = {
         revisionMode: 'ANY',
         groupBy: new Set(),
-        groupSingles: false,
       };
       const groups = groupAnomalies(anomalies, config);
       // all non-bug anomalies are grouped
@@ -390,41 +387,11 @@ describe('anomalies-table-sk', () => {
       const config: AnomalyGroupingConfig = {
         revisionMode: 'EXACT',
         groupBy: new Set(['BOT']),
-        groupSingles: false,
       };
       const groups = groupAnomalies(localAnomalies, config);
       assert.lengthOf(groups, 2); // Split into two groups of 1.
       assert.lengthOf(groups[0].anomalies, 1);
       assert.lengthOf(groups[1].anomalies, 1);
-    });
-
-    it('groups singles by BENCHMARK when groupSingles is true', () => {
-      const localAnomalies = [
-        dummyAnomaly('1', 0, 100, 100, 'master/bot1/suite1/test1'),
-        dummyAnomaly('2', 0, 200, 200, 'master/bot1/suite1/test2'),
-      ];
-      const config: AnomalyGroupingConfig = {
-        revisionMode: 'EXACT',
-        groupBy: new Set(['BENCHMARK']),
-        groupSingles: true,
-      };
-      const groups = groupAnomalies(localAnomalies, config);
-      assert.lengthOf(groups, 1);
-      assert.lengthOf(groups[0].anomalies, 2);
-    });
-
-    it('does not group singles when groupSingles is false', () => {
-      const localAnomalies = [
-        dummyAnomaly('1', 0, 100, 100, 'master/bot1/suite1/test1'),
-        dummyAnomaly('2', 0, 200, 200, 'master/bot1/suite1/test2'),
-      ];
-      const config: AnomalyGroupingConfig = {
-        revisionMode: 'EXACT',
-        groupBy: new Set(['BENCHMARK']),
-        groupSingles: false,
-      };
-      const groups = groupAnomalies(localAnomalies, config);
-      assert.lengthOf(groups, 2);
     });
 
     it('groups by multiple criteria (BOT and BENCHMARK)', () => {
@@ -437,7 +404,6 @@ describe('anomalies-table-sk', () => {
       const config: AnomalyGroupingConfig = {
         revisionMode: 'EXACT',
         groupBy: new Set(['BOT', 'BENCHMARK']),
-        groupSingles: false,
       };
       const groups = groupAnomalies(localAnomalies, config);
       assert.lengthOf(groups, 3);
@@ -1073,7 +1039,6 @@ describe('anomalies-table-sk', () => {
       const storedConfig: AnomalyGroupingConfig = {
         revisionMode: 'EXACT',
         groupBy: new Set(['BOT', 'TEST']),
-        groupSingles: false,
       };
 
       // localStorage stores sets as arrays.

@@ -18,7 +18,6 @@ export class AnomalyGroupingController implements ReactiveController {
   config: AnomalyGroupingConfig = {
     revisionMode: 'OVERLAPPING',
     groupBy: new Set(['BENCHMARK']),
-    groupSingles: true,
   };
 
   private anomalyList: Anomaly[] = [];
@@ -56,11 +55,6 @@ export class AnomalyGroupingController implements ReactiveController {
     } else {
       this.config.groupBy.delete(criteria);
     }
-    this.refreshGrouping();
-  }
-
-  setGroupSingles(enabled: boolean) {
-    this.config.groupSingles = enabled;
     this.refreshGrouping();
   }
 

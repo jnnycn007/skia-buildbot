@@ -98,14 +98,12 @@ describe('AnomalyGroupingController', () => {
       controller.hostConnected();
       assert.equal(controller.config.revisionMode, 'OVERLAPPING');
       assert.isTrue(controller.config.groupBy.has('BENCHMARK'));
-      assert.isTrue(controller.config.groupSingles);
     });
 
     it('loads config from localStorage if present', () => {
       const storedConfig = {
         revisionMode: 'EXACT' as RevisionGroupingMode,
         groupBy: ['BOT'],
-        groupSingles: false,
       };
       window.localStorage.setItem(GROUPING_CONFIG_STORAGE_KEY, JSON.stringify(storedConfig));
 
@@ -116,7 +114,6 @@ describe('AnomalyGroupingController', () => {
       assert.equal(controller.config.revisionMode, 'EXACT');
       assert.isTrue(controller.config.groupBy.has('BOT'));
       assert.isFalse(controller.config.groupBy.has('BENCHMARK'));
-      assert.isFalse(controller.config.groupSingles);
     });
 
     it('handles invalid JSON in localStorage', () => {
@@ -163,15 +160,6 @@ describe('AnomalyGroupingController', () => {
 
       saved = JSON.parse(window.localStorage.getItem(GROUPING_CONFIG_STORAGE_KEY)!);
       assert.notInclude(saved.groupBy, 'BOT');
-    });
-
-    it('setGroupSingles updates config, saves, and refreshes', () => {
-      controller.setGroupSingles(false);
-      assert.isFalse(controller.config.groupSingles);
-      assert.isTrue(host.requestUpdateCalled);
-
-      const saved = JSON.parse(window.localStorage.getItem(GROUPING_CONFIG_STORAGE_KEY)!);
-      assert.isFalse(saved.groupSingles);
     });
   });
 
