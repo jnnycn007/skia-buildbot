@@ -73,6 +73,12 @@ fetchMock.post('/_/triage/associate_alerts', async () => {
   };
 });
 
+fetchMock.post('/_/try/', async () => {
+  return {
+    jobUrl: 'http://pinpoint/123',
+  };
+});
+
 defaultConfig.include_params = ['benchmark', 'bot', 'master', 'test'];
 
 fetchMock.get('/_/defaults/', defaultConfig);

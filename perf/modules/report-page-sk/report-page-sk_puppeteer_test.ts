@@ -389,6 +389,36 @@ describe('report-page-sk', () => {
 
       // TODO(b/483690789): Verify the anomaly color changes from yellow to red.
     });
+
+    it('verify Request Trace button', async () => {
+      const tooltipPO = await openTooltip(0);
+      const tryJobBtn = await tooltipPO.container.bySelector('#try-job');
+
+      await poll(async () => {
+        return !(await tryJobBtn.hasAttribute('hidden'));
+      }, 'Request Trace button should be visible');
+
+      await tryJobBtn.click();
+
+      const tryJobDialogSk = await testBed.page.$('pinpoint-try-job-dialog-sk');
+      expect(tryJobDialogSk).to.not.be.null;
+
+      const dialog = await tryJobDialogSk!.$('dialog#pinpoint-try-job-dialog');
+      expect(dialog).to.not.be.null;
+      const open = await dialog!.evaluate((el) => el.hasAttribute('open'));
+      expect(open).to.be.true;
+
+      const generateBtn = await dialog!.$('#pinpoint-try-job-dialog-submit');
+      expect(generateBtn).to.not.be.null;
+      await generateBtn!.click();
+
+      await poll(async () => {
+        const link = await dialog!.$('a[href="http://pinpoint/123"]');
+        if (!link) return false;
+        const text = await link.evaluate((el) => el.textContent);
+        return text?.includes('Pinpoint Job Created') || false;
+      }, 'Pinpoint Job Created link should appear');
+    });
   });
 
   describe('Summary bar', () => {
