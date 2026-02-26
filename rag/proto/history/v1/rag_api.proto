@@ -133,11 +133,17 @@ message GetSummaryRequest {
     // The original query from the user.
     string query = 1;
 
-    // The IDs of the topics to summarize.
-    repeated int64 topic_ids = 2;
+    // Message defining the topic request.
+    message TopicRequest {
+        // ID of the topic.
+        int64 topic_id = 1;
 
-    // Repository for the topic.
-    string repository = 3;
+        // Repository for the topic.
+        string repository = 2;
+    }
+
+    // The topics to summarize.
+    repeated TopicRequest topics = 2;
 
     // Repository for the search.
     string search_repository = 4;

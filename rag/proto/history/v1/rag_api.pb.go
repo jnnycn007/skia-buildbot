@@ -360,10 +360,8 @@ type GetSummaryRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The original query from the user.
 	Query string `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
-	// The IDs of the topics to summarize.
-	TopicIds []int64 `protobuf:"varint,2,rep,packed,name=topic_ids,json=topicIds,proto3" json:"topic_ids,omitempty"`
-	// Repository for the topic.
-	Repository string `protobuf:"bytes,3,opt,name=repository,proto3" json:"repository,omitempty"`
+	// The topics to summarize.
+	Topics []*GetSummaryRequest_TopicRequest `protobuf:"bytes,2,rep,name=topics,proto3" json:"topics,omitempty"`
 	// Repository for the search.
 	SearchRepository string `protobuf:"bytes,4,opt,name=search_repository,json=searchRepository,proto3" json:"search_repository,omitempty"`
 	unknownFields    protoimpl.UnknownFields
@@ -407,18 +405,11 @@ func (x *GetSummaryRequest) GetQuery() string {
 	return ""
 }
 
-func (x *GetSummaryRequest) GetTopicIds() []int64 {
+func (x *GetSummaryRequest) GetTopics() []*GetSummaryRequest_TopicRequest {
 	if x != nil {
-		return x.TopicIds
+		return x.Topics
 	}
 	return nil
-}
-
-func (x *GetSummaryRequest) GetRepository() string {
-	if x != nil {
-		return x.Repository
-	}
-	return ""
 }
 
 func (x *GetSummaryRequest) GetSearchRepository() string {
@@ -702,6 +693,61 @@ func (x *GetTopicDetailsResponse_Topic) GetCodeChunks() []string {
 	return nil
 }
 
+// Message defining the topic request.
+type GetSummaryRequest_TopicRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// ID of the topic.
+	TopicId int64 `protobuf:"varint,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
+	// Repository for the topic.
+	Repository    string `protobuf:"bytes,2,opt,name=repository,proto3" json:"repository,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSummaryRequest_TopicRequest) Reset() {
+	*x = GetSummaryRequest_TopicRequest{}
+	mi := &file_rag_api_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSummaryRequest_TopicRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSummaryRequest_TopicRequest) ProtoMessage() {}
+
+func (x *GetSummaryRequest_TopicRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_rag_api_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSummaryRequest_TopicRequest.ProtoReflect.Descriptor instead.
+func (*GetSummaryRequest_TopicRequest) Descriptor() ([]byte, []int) {
+	return file_rag_api_proto_rawDescGZIP(), []int{6, 0}
+}
+
+func (x *GetSummaryRequest_TopicRequest) GetTopicId() int64 {
+	if x != nil {
+		return x.TopicId
+	}
+	return 0
+}
+
+func (x *GetSummaryRequest_TopicRequest) GetRepository() string {
+	if x != nil {
+		return x.Repository
+	}
+	return ""
+}
+
 var File_rag_api_proto protoreflect.FileDescriptor
 
 const file_rag_api_proto_rawDesc = "" +
@@ -753,14 +799,16 @@ const file_rag_api_proto_rawDesc = "" +
 	"topic_name\x18\x02 \x01(\tR\ttopicName\x12\x18\n" +
 	"\asummary\x18\x03 \x01(\tR\asummary\x12\x1f\n" +
 	"\vcode_chunks\x18\x04 \x03(\tR\n" +
-	"codeChunks\"\x93\x01\n" +
+	"codeChunks\"\xe8\x01\n" +
 	"\x11GetSummaryRequest\x12\x14\n" +
-	"\x05query\x18\x01 \x01(\tR\x05query\x12\x1b\n" +
-	"\ttopic_ids\x18\x02 \x03(\x03R\btopicIds\x12\x1e\n" +
+	"\x05query\x18\x01 \x01(\tR\x05query\x12E\n" +
+	"\x06topics\x18\x02 \x03(\v2-.historyrag.v1.GetSummaryRequest.TopicRequestR\x06topics\x12+\n" +
+	"\x11search_repository\x18\x04 \x01(\tR\x10searchRepository\x1aI\n" +
+	"\fTopicRequest\x12\x19\n" +
+	"\btopic_id\x18\x01 \x01(\x03R\atopicId\x12\x1e\n" +
 	"\n" +
-	"repository\x18\x03 \x01(\tR\n" +
-	"repository\x12+\n" +
-	"\x11search_repository\x18\x04 \x01(\tR\x10searchRepository\".\n" +
+	"repository\x18\x02 \x01(\tR\n" +
+	"repository\".\n" +
 	"\x12GetSummaryResponse\x12\x18\n" +
 	"\asummary\x18\x01 \x01(\tR\asummary2\x8c\x04\n" +
 	"\x14HistoryRagApiService\x12m\n" +
@@ -782,37 +830,39 @@ func file_rag_api_proto_rawDescGZIP() []byte {
 	return file_rag_api_proto_rawDescData
 }
 
-var file_rag_api_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_rag_api_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_rag_api_proto_goTypes = []any{
-	(*GetTopicsRequest)(nil),              // 0: historyrag.v1.GetTopicsRequest
-	(*GetRepositoriesRequest)(nil),        // 1: historyrag.v1.GetRepositoriesRequest
-	(*GetRepositoriesResponse)(nil),       // 2: historyrag.v1.GetRepositoriesResponse
-	(*GetTopicsResponse)(nil),             // 3: historyrag.v1.GetTopicsResponse
-	(*GetTopicDetailsRequest)(nil),        // 4: historyrag.v1.GetTopicDetailsRequest
-	(*GetTopicDetailsResponse)(nil),       // 5: historyrag.v1.GetTopicDetailsResponse
-	(*GetSummaryRequest)(nil),             // 6: historyrag.v1.GetSummaryRequest
-	(*GetSummaryResponse)(nil),            // 7: historyrag.v1.GetSummaryResponse
-	(*GetTopicsResponse_Topic)(nil),       // 8: historyrag.v1.GetTopicsResponse.Topic
-	(*GetTopicsResponse_Topic_Chunk)(nil), // 9: historyrag.v1.GetTopicsResponse.Topic.Chunk
-	(*GetTopicDetailsResponse_Topic)(nil), // 10: historyrag.v1.GetTopicDetailsResponse.Topic
+	(*GetTopicsRequest)(nil),               // 0: historyrag.v1.GetTopicsRequest
+	(*GetRepositoriesRequest)(nil),         // 1: historyrag.v1.GetRepositoriesRequest
+	(*GetRepositoriesResponse)(nil),        // 2: historyrag.v1.GetRepositoriesResponse
+	(*GetTopicsResponse)(nil),              // 3: historyrag.v1.GetTopicsResponse
+	(*GetTopicDetailsRequest)(nil),         // 4: historyrag.v1.GetTopicDetailsRequest
+	(*GetTopicDetailsResponse)(nil),        // 5: historyrag.v1.GetTopicDetailsResponse
+	(*GetSummaryRequest)(nil),              // 6: historyrag.v1.GetSummaryRequest
+	(*GetSummaryResponse)(nil),             // 7: historyrag.v1.GetSummaryResponse
+	(*GetTopicsResponse_Topic)(nil),        // 8: historyrag.v1.GetTopicsResponse.Topic
+	(*GetTopicsResponse_Topic_Chunk)(nil),  // 9: historyrag.v1.GetTopicsResponse.Topic.Chunk
+	(*GetTopicDetailsResponse_Topic)(nil),  // 10: historyrag.v1.GetTopicDetailsResponse.Topic
+	(*GetSummaryRequest_TopicRequest)(nil), // 11: historyrag.v1.GetSummaryRequest.TopicRequest
 }
 var file_rag_api_proto_depIdxs = []int32{
 	8,  // 0: historyrag.v1.GetTopicsResponse.topics:type_name -> historyrag.v1.GetTopicsResponse.Topic
 	10, // 1: historyrag.v1.GetTopicDetailsResponse.topics:type_name -> historyrag.v1.GetTopicDetailsResponse.Topic
-	9,  // 2: historyrag.v1.GetTopicsResponse.Topic.matching_chunks:type_name -> historyrag.v1.GetTopicsResponse.Topic.Chunk
-	0,  // 3: historyrag.v1.HistoryRagApiService.GetTopics:input_type -> historyrag.v1.GetTopicsRequest
-	4,  // 4: historyrag.v1.HistoryRagApiService.GetTopicDetails:input_type -> historyrag.v1.GetTopicDetailsRequest
-	6,  // 5: historyrag.v1.HistoryRagApiService.GetSummary:input_type -> historyrag.v1.GetSummaryRequest
-	1,  // 6: historyrag.v1.HistoryRagApiService.GetRepositories:input_type -> historyrag.v1.GetRepositoriesRequest
-	3,  // 7: historyrag.v1.HistoryRagApiService.GetTopics:output_type -> historyrag.v1.GetTopicsResponse
-	5,  // 8: historyrag.v1.HistoryRagApiService.GetTopicDetails:output_type -> historyrag.v1.GetTopicDetailsResponse
-	7,  // 9: historyrag.v1.HistoryRagApiService.GetSummary:output_type -> historyrag.v1.GetSummaryResponse
-	2,  // 10: historyrag.v1.HistoryRagApiService.GetRepositories:output_type -> historyrag.v1.GetRepositoriesResponse
-	7,  // [7:11] is the sub-list for method output_type
-	3,  // [3:7] is the sub-list for method input_type
-	3,  // [3:3] is the sub-list for extension type_name
-	3,  // [3:3] is the sub-list for extension extendee
-	0,  // [0:3] is the sub-list for field type_name
+	11, // 2: historyrag.v1.GetSummaryRequest.topics:type_name -> historyrag.v1.GetSummaryRequest.TopicRequest
+	9,  // 3: historyrag.v1.GetTopicsResponse.Topic.matching_chunks:type_name -> historyrag.v1.GetTopicsResponse.Topic.Chunk
+	0,  // 4: historyrag.v1.HistoryRagApiService.GetTopics:input_type -> historyrag.v1.GetTopicsRequest
+	4,  // 5: historyrag.v1.HistoryRagApiService.GetTopicDetails:input_type -> historyrag.v1.GetTopicDetailsRequest
+	6,  // 6: historyrag.v1.HistoryRagApiService.GetSummary:input_type -> historyrag.v1.GetSummaryRequest
+	1,  // 7: historyrag.v1.HistoryRagApiService.GetRepositories:input_type -> historyrag.v1.GetRepositoriesRequest
+	3,  // 8: historyrag.v1.HistoryRagApiService.GetTopics:output_type -> historyrag.v1.GetTopicsResponse
+	5,  // 9: historyrag.v1.HistoryRagApiService.GetTopicDetails:output_type -> historyrag.v1.GetTopicDetailsResponse
+	7,  // 10: historyrag.v1.HistoryRagApiService.GetSummary:output_type -> historyrag.v1.GetSummaryResponse
+	2,  // 11: historyrag.v1.HistoryRagApiService.GetRepositories:output_type -> historyrag.v1.GetRepositoriesResponse
+	8,  // [8:12] is the sub-list for method output_type
+	4,  // [4:8] is the sub-list for method input_type
+	4,  // [4:4] is the sub-list for extension type_name
+	4,  // [4:4] is the sub-list for extension extendee
+	0,  // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_rag_api_proto_init() }
@@ -826,7 +876,7 @@ func file_rag_api_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_rag_api_proto_rawDesc), len(file_rag_api_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   11,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -124,7 +124,18 @@ describe('rag-app-sk', () => {
 
     // Verify both search and summary requests were made
     assert.isTrue(fetchMock.called('/historyrag/v1/topics?query=test&topic_count=10'));
-    assert.isTrue(fetchMock.called('/historyrag/v1/summary'));
+    assert.isTrue(
+      fetchMock.called((url, opts) => {
+        if (url !== '/historyrag/v1/summary') return false;
+        const body = JSON.parse(opts.body as string);
+        return (
+          body.query === 'test' &&
+          body.topics.length === 1 &&
+          body.topics[0].topic_id === 1 &&
+          body.topics[0].repository === ''
+        );
+      })
+    );
 
     // Verify summary is displayed
     const summarySection = element.shadowRoot!.querySelector('.ai-summary-content');

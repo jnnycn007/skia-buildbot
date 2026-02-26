@@ -47,8 +47,13 @@ content2`,
 	})).Return("Final LLM Summary", nil)
 
 	req := &pb.GetSummaryRequest{
-		Query:    query,
-		TopicIds: []int64{topicID},
+		Query: query,
+		Topics: []*pb.GetSummaryRequest_TopicRequest{
+			{
+				TopicId:    topicID,
+				Repository: "test-repo",
+			},
+		},
 	}
 
 	resp, err := service.GetSummary(ctx, req)
@@ -230,8 +235,12 @@ func TestApiService_GetSummary_EmptyQuery(t *testing.T) {
 	service := &ApiService{}
 	ctx := context.Background()
 	req := &pb.GetSummaryRequest{
-		Query:    "",
-		TopicIds: []int64{123},
+		Query: "",
+		Topics: []*pb.GetSummaryRequest_TopicRequest{
+			{
+				TopicId: 123,
+			},
+		},
 	}
 	_, err := service.GetSummary(ctx, req)
 	assert.Error(t, err)
@@ -242,10 +251,10 @@ func TestApiService_GetSummary_NoTopics(t *testing.T) {
 	service := &ApiService{}
 	ctx := context.Background()
 	req := &pb.GetSummaryRequest{
-		Query:    "test",
-		TopicIds: []int64{},
+		Query:  "test",
+		Topics: []*pb.GetSummaryRequest_TopicRequest{},
 	}
 	_, err := service.GetSummary(ctx, req)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "topicIds cannot be empty")
+	assert.Contains(t, err.Error(), "topics cannot be empty")
 }

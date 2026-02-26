@@ -336,9 +336,9 @@ func (service *ApiService) GetSummary(ctx context.Context, req *pb.GetSummaryReq
 	if query == "" {
 		return nil, skerr.Fmt("query cannot be empty.")
 	}
-	topicIds := req.GetTopicIds()
-	if len(topicIds) == 0 {
-		return nil, skerr.Fmt("topicIds cannot be empty.")
+	topicsReq := req.GetTopics()
+	if len(topicsReq) == 0 {
+		return nil, skerr.Fmt("topics cannot be empty.")
 	}
 
 	service.getSummaryCounterMetric.Inc(1)
@@ -350,12 +350,13 @@ func (service *ApiService) GetSummary(ctx context.Context, req *pb.GetSummaryReq
 	sb.WriteString(fmt.Sprintf("Based on the following search results for the query \"%s\", please provide a concise and helpful summary.\n\n", query))
 
 	searchRepo := service.getRepoName(req.SearchRepository)
-	repo := service.getRepoName(req.Repository)
 
-	for _, topicId := range topicIds {
+	for _, tReq := range topicsReq {
+		topicId := tReq.GetTopicId()
+		repo := service.getRepoName(tReq.GetRepository())
 		topic, err := service.topicStore.ReadTopic(ctx, topicId, repo)
 		if err != nil {
-			sklog.Errorf("Error reading topic %d: %v", topicId, err)
+			sklog.Errorf("Error reading topic %d in repo %s: %v", topicId, repo, err)
 			return nil, err
 		}
 

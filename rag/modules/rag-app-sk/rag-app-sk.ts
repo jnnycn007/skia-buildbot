@@ -329,7 +329,10 @@ export class RagAppSk extends LitElement {
     this.isSummaryLoading = true;
     this.aiSummary = '';
     try {
-      const topicIds = this.topics.map((t) => t.topicId);
+      const topics = this.topics.map((t) => ({
+        topic_id: t.topicId,
+        repository: t.repository || this.selectedRepository,
+      }));
       const resp = (await fetch('/historyrag/v1/summary', {
         method: 'POST',
         headers: {
@@ -337,8 +340,7 @@ export class RagAppSk extends LitElement {
         },
         body: JSON.stringify({
           query: this.query,
-          topic_ids: topicIds,
-          repository: this.selectedRepository,
+          topics: topics,
           search_repository: this.selectedRepository,
         }),
       }).then(jsonOrThrow)) as { summary: string };
