@@ -1,7 +1,7 @@
 import { assert, expect } from 'chai';
 import { loadCachedTestBed, takeScreenshot, TestBed } from '../../../puppeteer-tests/util';
 import { ReportPageSkPO } from './report-page-sk_po';
-import { poll } from '../common/puppeteer-test-util';
+import { poll, STANDARD_LAPTOP_VIEWPORT } from '../common/puppeteer-test-util';
 
 describe('report-page-sk', () => {
   let testBed: TestBed;
@@ -24,7 +24,7 @@ describe('report-page-sk', () => {
       throw new Error('report-page-sk not found');
     }
     reportPageSkPO = new ReportPageSkPO(reportPageSk);
-    await testBed.page.setViewport({ width: 1200, height: 800 });
+    await testBed.page.setViewport(STANDARD_LAPTOP_VIEWPORT);
     await testBed.page.waitForSelector('#loading-spinner', { hidden: true });
   });
 
@@ -388,6 +388,40 @@ describe('report-page-sk', () => {
       expect(await (await submitBtn!.getProperty('innerText')).jsonValue()).to.equal('Submit');
 
       // TODO(b/483690789): Verify the anomaly color changes from yellow to red.
+    });
+  });
+
+  describe('Summary bar', () => {
+    it('change the summary bar range and verify the new range', async () => {
+      // Verify the begin and end of the selected area in the Summary bar.
+      const graph = await reportPageSkPO.getGraph(0);
+      const plotSummaryPO = graph.plotSummary;
+      const initialRange = await plotSummaryPO.getSelectedRange();
+      const header = await graph.element.applyFnToDOMNode((el: any) => el.getHeader());
+      const start = header[0].offset;
+      const end = header[header.length - 1].offset;
+      // Selected range must be within the summary bar's start and end points.
+      expect(initialRange!.begin).to.be.at.least(
+        start,
+        'Summary bar start must be less than or equal to the start of commit range'
+      );
+      expect(initialRange!.end).to.be.at.most(
+        end,
+        'Summary bar end must be greater than or equal to the end of commit range'
+      );
+
+      // Changing the summary range verification
+      await plotSummaryPO.resizeSelection(testBed.page, 'left', 0.75);
+      const finalRange = await plotSummaryPO.getSelectedRange();
+      // https://screencast.googleplex.com/cast/NTEyNTg0Njc5NTgxMjg2NHw4ODA2ZDg5My0yYw
+      expect(Math.round(finalRange!.begin)).to.greaterThan(
+        initialRange!.begin,
+        'New summary start must be greater than the initial summary start'
+      );
+      expect(Math.round(finalRange!.end)).to.be.equal(
+        initialRange!.end,
+        'New summary end must be equal to the initial summary end'
+      );
     });
   });
 });
