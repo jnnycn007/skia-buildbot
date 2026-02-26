@@ -22,6 +22,7 @@ import (
 	pb "go.skia.org/infra/perf/go/subscription/proto/v1"
 	"go.skia.org/infra/perf/go/types"
 	"go.skia.org/infra/perf/go/ui/frame"
+	userissueMocks "go.skia.org/infra/perf/go/userissue/mocks"
 )
 
 var sampleParamsetMap = map[string]string{
@@ -34,7 +35,7 @@ var sampleParamsetMap = map[string]string{
 var testSubOwner = "sergeirudenkov@google.com"
 var testSubEmail = "berf-issuetracker-testing@google.com"
 
-func createIssueTrackerForTest(t *testing.T) (*issueTrackerImpl, *regMocks.Store, *httptest.Server) {
+func createIssueTrackerForTest(t *testing.T) (*issueTrackerImpl, *regMocks.Store, *userissueMocks.Store, *httptest.Server) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		resp := &issuetracker.Issue{
@@ -48,14 +49,16 @@ func createIssueTrackerForTest(t *testing.T) (*issueTrackerImpl, *regMocks.Store
 	require.NoError(t, err)
 
 	regStore := &regMocks.Store{}
+	userIssueStore := &userissueMocks.Store{}
 	return &issueTrackerImpl{
 		client:                client,
 		FetchAnomaliesFromSql: true,
 		regStore:              regStore,
-	}, regStore, ts
+		userIssueStore:        userIssueStore,
+	}, regStore, userIssueStore, ts
 }
 
-func createIssueTrackerForTestInterceptRequests(t *testing.T) (*issueTrackerImpl, *regMocks.Store, *httptest.Server, *issuetracker.Issue, *issuetracker.IssueComment) {
+func createIssueTrackerForTestInterceptRequests(t *testing.T) (*issueTrackerImpl, *regMocks.Store, *userissueMocks.Store, *httptest.Server, *issuetracker.Issue, *issuetracker.IssueComment) {
 	var receivedReq issuetracker.Issue
 	var receivedCommentReq issuetracker.IssueComment
 	var counter int
@@ -83,17 +86,19 @@ func createIssueTrackerForTestInterceptRequests(t *testing.T) (*issueTrackerImpl
 	require.NoError(t, err)
 
 	regStore := &regMocks.Store{}
+	userIssueStore := &userissueMocks.Store{}
 	s := &issueTrackerImpl{
 		client:                c,
 		FetchAnomaliesFromSql: true,
 		regStore:              regStore,
+		userIssueStore:        userIssueStore,
 		urlBase:               "http://test.com",
 	}
-	return s, regStore, ts, &receivedReq, &receivedCommentReq
+	return s, regStore, userIssueStore, ts, &receivedReq, &receivedCommentReq
 }
 
 func TestFileBug_Success(t *testing.T) {
-	s, regStore, ts := createIssueTrackerForTest(t)
+	s, regStore, _, ts := createIssueTrackerForTest(t)
 	defer ts.Close()
 
 	regStore.On("GetSubscriptionsForRegressions", mock.Anything, mock.AnythingOfType("[]string")).Return([]string{"1"}, []int64{1}, []*pb.Subscription{
@@ -118,14 +123,14 @@ func TestFileBug_Success(t *testing.T) {
 }
 
 func TestFileBug_NilRequest(t *testing.T) {
-	s, _, ts := createIssueTrackerForTest(t)
+	s, _, _, ts := createIssueTrackerForTest(t)
 	defer ts.Close()
 	_, err := s.FileBug(context.Background(), nil)
 	require.Error(t, err)
 }
 
 func TestFileBug_InvalidComponent(t *testing.T) {
-	s, regStore, ts := createIssueTrackerForTest(t)
+	s, regStore, _, ts := createIssueTrackerForTest(t)
 	defer ts.Close()
 
 	regStore.On("GetSubscriptionsForRegressions", mock.Anything, mock.AnythingOfType("[]string")).Return([]string{"1"}, []int64{1}, []*pb.Subscription{
@@ -180,7 +185,7 @@ func TestFileBug_APIError(t *testing.T) {
 }
 
 func TestFileBug_RequestBody(t *testing.T) {
-	s, regStore, ts, receivedReq, receivedCommentReq := createIssueTrackerForTestInterceptRequests(t)
+	s, regStore, _, ts, receivedReq, receivedCommentReq := createIssueTrackerForTestInterceptRequests(t)
 	defer ts.Close()
 
 	regStore.On("GetSubscriptionsForRegressions", mock.Anything, mock.AnythingOfType("[]string")).Return([]string{"1"}, []int64{1}, []*pb.Subscription{
@@ -244,7 +249,7 @@ func TestFileBug_RequestBody(t *testing.T) {
 }
 
 func TestFileBug_EmptyDescription(t *testing.T) {
-	s, regStore, ts, receivedReq, receivedCommentReq := createIssueTrackerForTestInterceptRequests(t)
+	s, regStore, _, ts, receivedReq, receivedCommentReq := createIssueTrackerForTestInterceptRequests(t)
 	defer ts.Close()
 
 	req := &FileBugRequest{
@@ -272,7 +277,7 @@ func TestFileBug_EmptyDescription(t *testing.T) {
 }
 
 func TestFileBug_EmptyDescriptionTooManyKeys(t *testing.T) {
-	s, regStore, ts, receivedReq, receivedCommentReq := createIssueTrackerForTestInterceptRequests(t)
+	s, regStore, _, ts, receivedReq, receivedCommentReq := createIssueTrackerForTestInterceptRequests(t)
 	defer ts.Close()
 
 	keys := []string{}
@@ -304,7 +309,7 @@ func TestFileBug_EmptyDescriptionTooManyKeys(t *testing.T) {
 }
 
 func TestFileBug_DeduplicateBots(t *testing.T) {
-	s, regStore, ts, receivedReq, _ := createIssueTrackerForTestInterceptRequests(t)
+	s, regStore, _, ts, receivedReq, _ := createIssueTrackerForTestInterceptRequests(t)
 	defer ts.Close()
 
 	r := &regression.Regression{
@@ -356,7 +361,7 @@ func TestFileBug_DeduplicateBots(t *testing.T) {
 }
 
 func TestFileBug_SelectSubscription(t *testing.T) {
-	s, regStore, ts, receivedReq, _ := createIssueTrackerForTestInterceptRequests(t)
+	s, regStore, _, ts, receivedReq, _ := createIssueTrackerForTestInterceptRequests(t)
 	defer ts.Close()
 
 	regStore.On("GetByIDs", mock.Anything, mock.AnythingOfType("[]string")).Return([]*regression.Regression{}, nil)
@@ -397,7 +402,7 @@ func TestFileBug_SelectSubscription(t *testing.T) {
 }
 
 func TestFileBug_SelectSubscription_SamePrio(t *testing.T) {
-	s, regStore, ts, receivedReq, _ := createIssueTrackerForTestInterceptRequests(t)
+	s, regStore, _, ts, receivedReq, _ := createIssueTrackerForTestInterceptRequests(t)
 	defer ts.Close()
 
 	regStore.On("GetByIDs", mock.Anything, mock.AnythingOfType("[]string")).Return([]*regression.Regression{}, nil)
@@ -439,7 +444,7 @@ func TestFileBug_SelectSubscription_SamePrio(t *testing.T) {
 
 // Remove this test after testRun check (bug label = BerfTest) is removed.
 func TestFileBug_SelectSubscription_NotBerfDevTest(t *testing.T) {
-	s, regStore, ts, receivedReq, _ := createIssueTrackerForTestInterceptRequests(t)
+	s, regStore, _, ts, receivedReq, _ := createIssueTrackerForTestInterceptRequests(t)
 	defer ts.Close()
 
 	regStore.On("GetByIDs", mock.Anything, mock.AnythingOfType("[]string")).Return([]*regression.Regression{}, nil)
@@ -479,7 +484,7 @@ func TestFileBug_SelectSubscription_NotBerfDevTest(t *testing.T) {
 }
 
 func TestFileBug_EmptySubscriptionsList(t *testing.T) {
-	s, regStore, ts := createIssueTrackerForTest(t)
+	s, regStore, _, ts := createIssueTrackerForTest(t)
 	defer ts.Close()
 
 	regStore.On("GetSubscriptionsForRegressions", mock.Anything, mock.AnythingOfType("[]string")).Return([]string{"1"}, []int64{1}, []*pb.Subscription{}, nil)
@@ -491,4 +496,33 @@ func TestFileBug_EmptySubscriptionsList(t *testing.T) {
 
 	_, err := s.FileBug(context.Background(), req)
 	require.ErrorContains(t, err, "did not find any subscriptions linked to those regressions")
+}
+
+func TestFileUserIssue_Success(t *testing.T) {
+	s, _, userIssueStore, ts, receivedReq, receivedCommentReq := createIssueTrackerForTestInterceptRequests(t)
+	defer ts.Close()
+
+	userIssueStore.On("Save", mock.Anything, mock.Anything).Return(nil)
+
+	req := &CreateUserIssueRequest{
+		TraceKey:       "test-trace",
+		CommitPosition: 100,
+		Assignee:       "user@google.com",
+	}
+
+	issueID, err := s.FileUserIssue(context.Background(), req)
+	require.NoError(t, err)
+	require.Equal(t, 12345, issueID)
+
+	require.Equal(t, "Trace ID test-trace shows a potential regression at commit position 100.", receivedReq.IssueState.Title)
+	require.Equal(t, "user@google.com", receivedReq.IssueState.Assignee.EmailAddress)
+	require.Contains(t, receivedCommentReq.Comment, "Link to trace by bugID")
+	userIssueStore.AssertExpectations(t)
+}
+
+func TestFileUserIssue_NilRequest(t *testing.T) {
+	s, _, _, ts := createIssueTrackerForTest(t)
+	defer ts.Close()
+	_, err := s.FileUserIssue(context.Background(), nil)
+	require.Error(t, err)
 }

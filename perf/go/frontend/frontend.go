@@ -590,12 +590,17 @@ func (f *Frontend) initialize() {
 		sklog.Fatalf("Failed to create alerts configprovider: %s", err)
 	}
 
+	f.userIssueStore, err = builders.NewUserIssueStoreFromConfig(ctx, cfg)
+	if err != nil {
+		sklog.Fatalf("Failed to build userissue.Store: %s", err)
+	}
+
 	f.regStore, err = builders.NewRegressionStoreFromConfig(ctx, cfg, f.configProvider)
 	if err != nil {
 		sklog.Fatalf("Failed to build regression.Store: %s", err)
 	}
 
-	f.notifier, err = notify.New(ctx, &config.Config.NotifyConfig, &config.Config.IssueTrackerConfig, config.Config.URL, f.flags.CommitRangeURL, f.traceStore, f.regStore, f.ingestedFS, f.flags.DevMode)
+	f.notifier, err = notify.New(ctx, &config.Config.NotifyConfig, &config.Config.IssueTrackerConfig, config.Config.URL, f.flags.CommitRangeURL, f.traceStore, f.regStore, f.userIssueStore, f.ingestedFS, f.flags.DevMode)
 	if err != nil {
 		sklog.Fatalf("Failed to create issue tracker: %v", err)
 	}
@@ -619,11 +624,6 @@ func (f *Frontend) initialize() {
 	f.favStore, err = builders.NewFavoriteStoreFromConfig(ctx, cfg)
 	if err != nil {
 		sklog.Fatalf("Failed to build favorite.Store: %s", err)
-	}
-
-	f.userIssueStore, err = builders.NewUserIssueStoreFromConfig(ctx, cfg)
-	if err != nil {
-		sklog.Fatalf("Failed to build userissue.Store: %s", err)
 	}
 
 	// Ongoing migration to Spanner.
@@ -666,7 +666,7 @@ func (f *Frontend) initialize() {
 		}
 
 		if cfg.IssueTrackerConfig.IssueTrackerAPIKeySecretProject != "" && cfg.IssueTrackerConfig.IssueTrackerAPIKeySecretName != "" {
-			f.issuetracker, err = issuetracker.NewIssueTracker(ctx, cfg.IssueTrackerConfig, config.Config.FetchAnomaliesFromSql, f.regStore, f.flags.DevMode, cfg.URL)
+			f.issuetracker, err = issuetracker.NewIssueTracker(ctx, cfg.IssueTrackerConfig, config.Config.FetchAnomaliesFromSql, f.regStore, f.userIssueStore, f.flags.DevMode, cfg.URL)
 			if err != nil {
 				sklog.Fatalf("Failed to build issuetracker client: %s", err)
 			}
@@ -675,7 +675,7 @@ func (f *Frontend) initialize() {
 
 	// Build mock issuetracker
 	if f.flags.DevMode && f.issuetracker == nil {
-		f.issuetracker, err = issuetracker.NewIssueTracker(ctx, cfg.IssueTrackerConfig, config.Config.FetchAnomaliesFromSql, f.regStore, f.flags.DevMode, cfg.URL)
+		f.issuetracker, err = issuetracker.NewIssueTracker(ctx, cfg.IssueTrackerConfig, config.Config.FetchAnomaliesFromSql, f.regStore, f.userIssueStore, f.flags.DevMode, cfg.URL)
 		if err != nil {
 			sklog.Fatalf("Failed to build issuetracker client: %s", err)
 		}

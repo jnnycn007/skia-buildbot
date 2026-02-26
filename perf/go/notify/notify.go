@@ -23,6 +23,7 @@ import (
 	"go.skia.org/infra/perf/go/tracestore"
 	"go.skia.org/infra/perf/go/types"
 	"go.skia.org/infra/perf/go/ui/frame"
+	"go.skia.org/infra/perf/go/userissue"
 )
 
 // Formatter has implementations for both HTML and Markdown.
@@ -220,7 +221,7 @@ func (n *defaultNotifier) UpdateNotification(ctx context.Context, commit, previo
 }
 
 // New returns a Notifier of the selected type.
-func New(ctx context.Context, cfg *config.NotifyConfig, itCfg *config.IssueTrackerConfig, URL, commitRangeURITemplate string, traceStore tracestore.TraceStore, regressionStore regression.Store, fs fs.FS, devMode bool) (Notifier, error) {
+func New(ctx context.Context, cfg *config.NotifyConfig, itCfg *config.IssueTrackerConfig, URL, commitRangeURITemplate string, traceStore tracestore.TraceStore, regressionStore regression.Store, userIssueStore userissue.Store, fs fs.FS, devMode bool) (Notifier, error) {
 	formatter, err := getFormatter(cfg, commitRangeURITemplate)
 	if err != nil {
 		return nil, skerr.Wrap(err)
@@ -259,7 +260,7 @@ func New(ctx context.Context, cfg *config.NotifyConfig, itCfg *config.IssueTrack
 				return nil, skerr.Fmt("Invalid issue tracker configs. It is required by anomalygroup notifier type.")
 			}
 		}
-		perfIssueTracker, err := perf_issuetracker.NewIssueTracker(ctx, *itCfg, config.Config.FetchAnomaliesFromSql, regressionStore, devMode, URL)
+		perfIssueTracker, err := perf_issuetracker.NewIssueTracker(ctx, *itCfg, config.Config.FetchAnomaliesFromSql, regressionStore, userIssueStore, devMode, URL)
 		if err != nil {
 			return nil, skerr.Wrap(err)
 		}
