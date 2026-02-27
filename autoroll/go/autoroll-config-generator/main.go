@@ -34,8 +34,9 @@ import (
 var (
 	// FuncMap is used for executing templates.
 	FuncMap = template.FuncMap{
-		"map":                         makeMap,
 		"list":                        makeList,
+		"map":                         makeMap,
+		"replace":                     strings.Replace,
 		"sanitize":                    sanitize,
 		"truncateAndSanitizeRollerID": truncateAndSanitizeRollerID,
 	}
