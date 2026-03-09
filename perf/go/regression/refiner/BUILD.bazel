@@ -6,14 +6,18 @@ go_library(
     srcs = [
         "anomaly_peaks.go",
         "default_regression_refiner.go",
+        "regression_areas.go",
     ],
     importpath = "go.skia.org/infra/perf/go/regression/refiner",
     visibility = ["//visibility:public"],
     deps = [
+        "//go/metrics2",
+        "//go/sklog",
         "//perf/go/alerts",
         "//perf/go/clustering2",
         "//perf/go/regression",
         "//perf/go/stepfit",
+        "//perf/go/types",
     ],
 )
 
@@ -22,6 +26,8 @@ go_test(
     srcs = [
         "anomaly_peaks_test.go",
         "default_regression_refiner_test.go",
+        "regression_areas_test.go",
+        "testutils_test.go",
     ],
     embed = [":refiner"],
     deps = [
