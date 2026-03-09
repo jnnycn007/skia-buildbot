@@ -131,7 +131,7 @@ func logAllInterestingCase(resps []*regression.RegressionDetectionResponse, cfg 
 	endCommit := resps[len(resps)-1].Summary.Clusters[0].StepPoint.Offset
 
 	sklog.Warningf("All regressions in the range are interesting. Returning each as a separate group. Trace: %s, Start: %d, End: %d", traceName, startCommit, endCommit)
-	metrics2.GetCounter("super_anomaly_refiner_warnings", map[string]string{
+	metrics2.GetCounter("anomaly_bounds_refiner_warnings", map[string]string{
 		"cause": "regression_areas.all_interesting_case",
 	}).Inc(1)
 }

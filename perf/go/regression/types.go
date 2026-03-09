@@ -156,6 +156,9 @@ type RegressionDetectionResponse struct {
 	// Message contains context about the detection for this specific response,
 	// such as trace filtering statistics.
 	Message string `json:"-"` // Using json:"-" prevents it from being serialized by default.
+
+	PrevCommitNumber types.CommitNumber `json:"-"`
+	CommitNumber     types.CommitNumber `json:"-"`
 }
 
 // ConfirmedRegression is an alias for RegressionDetectionResponse used by the RegressionRefiner

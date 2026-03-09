@@ -21,7 +21,7 @@ type PeakIndexes struct {
 //   - MaxIndex: The index of the global maximum magnitude.
 //
 // The area between LeftIndex and RightIndex forms the core minimum regression area.
-// Points outside of these two peaks will be evaluated later in the SuperAnomalyRefiner, which may
+// Points outside of these two peaks will be evaluated later in the AnomalyBoundsRefiner, which may
 // extend the regression area into non-peak points based on further checks.
 //
 // The MaxIndex is not used by the regression refiner for boundary expansion, but it is stored as

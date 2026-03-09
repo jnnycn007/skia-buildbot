@@ -4,6 +4,7 @@ load("//bazel/go:go_test.bzl", "go_test")
 go_library(
     name = "refiner",
     srcs = [
+        "anomaly_bounds_refiner.go",
         "anomaly_checker.go",
         "anomaly_peaks.go",
         "default_regression_refiner.go",
@@ -26,6 +27,7 @@ go_library(
 go_test(
     name = "refiner_test",
     srcs = [
+        "anomaly_bounds_refiner_test.go",
         "anomaly_checker_test.go",
         "anomaly_peaks_test.go",
         "default_regression_refiner_test.go",
