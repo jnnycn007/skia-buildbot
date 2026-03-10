@@ -642,7 +642,7 @@ func (rApi regressionsApi) clusterStartHandler(w http.ResponseWriter, r *http.Re
 
 	cb := func(ctx context.Context, _ *regression.RegressionDetectionRequest, clusterResponse []*regression.ConfirmedRegression, _ string) {
 		// We don't do GroupBy clustering, so there will only be one clusterResponse.
-		req.Progress.Results((*regression.RegressionDetectionResponse)(clusterResponse[0]))
+		req.Progress.Results(clusterResponse[0])
 	}
 	rApi.progressTracker.Add(req.Progress)
 

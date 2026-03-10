@@ -17,7 +17,17 @@ func (p *DefaultRegressionRefiner) Process(ctx context.Context, cfg *alerts.Aler
 	confirmedRegressions := FilterRegressionsByStepFitAndDirection(cfg, responses)
 	var ret []*regression.ConfirmedRegression
 	for _, resp := range confirmedRegressions {
-		ret = append(ret, (*regression.ConfirmedRegression)(resp))
+		headerLength := len(resp.Frame.DataFrame.Header)
+		midPoint := headerLength / 2
+		commitNumber := resp.Frame.DataFrame.Header[midPoint].Offset
+
+		ret = append(ret, &regression.ConfirmedRegression{
+			Summary:          resp.Summary,
+			Frame:            resp.Frame,
+			Message:          resp.Message,
+			PrevCommitNumber: resp.Frame.DataFrame.Header[midPoint-1].Offset,
+			CommitNumber:     commitNumber,
+		})
 	}
 	return ret, nil
 }

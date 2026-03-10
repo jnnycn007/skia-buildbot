@@ -164,7 +164,7 @@ func (s *SQLRegressionStore) Range(ctx context.Context, begin, end types.CommitN
 }
 
 // SetHigh implements the regression.Store interface.
-func (s *SQLRegressionStore) SetHigh(ctx context.Context, commitNumber types.CommitNumber, alertID string, df *frame.FrameResponse, high *clustering2.ClusterSummary) (bool, string, error) {
+func (s *SQLRegressionStore) SetHigh(ctx context.Context, commitNumber types.CommitNumber, prevCommitNumber types.CommitNumber, alertID string, df *frame.FrameResponse, high *clustering2.ClusterSummary) (bool, string, error) {
 	ret := false
 	err := s.readModifyWrite(ctx, commitNumber, alertID, false /* mustExist*/, func(r *regression.Regression) {
 		if r.Frame == nil {
@@ -182,7 +182,7 @@ func (s *SQLRegressionStore) SetHigh(ctx context.Context, commitNumber types.Com
 }
 
 // SetLow implements the regression.Store interface.
-func (s *SQLRegressionStore) SetLow(ctx context.Context, commitNumber types.CommitNumber, alertID string, df *frame.FrameResponse, low *clustering2.ClusterSummary) (bool, string, error) {
+func (s *SQLRegressionStore) SetLow(ctx context.Context, commitNumber types.CommitNumber, prevCommitNumber types.CommitNumber, alertID string, df *frame.FrameResponse, low *clustering2.ClusterSummary) (bool, string, error) {
 	ret := false
 	err := s.readModifyWrite(ctx, commitNumber, alertID, false /* mustExist*/, func(r *regression.Regression) {
 		if r.Frame == nil {
@@ -351,6 +351,10 @@ func (s *SQLRegressionStore) GetRegressionsToMigrate(ctx context.Context, batchS
 		}
 		r.AlertId = alertID
 		r.CommitNumber = commitID
+		_, clusterSummary, _ := r.GetClusterTypeAndSummaryAndTriageStatus()
+		regressionPointIndex := clusterSummary.StepFit.TurningPoint
+		r.PrevCommitNumber = r.Frame.DataFrame.Header[regressionPointIndex-1].Offset
+
 		if regressionId != nil {
 			r.Id = *regressionId
 		}

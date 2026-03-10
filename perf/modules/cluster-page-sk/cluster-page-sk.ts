@@ -34,7 +34,7 @@ import {
   ClusterAlgo,
   Commit,
   FullSummary,
-  RegressionDetectionResponse,
+  ConfirmedRegression,
   progress,
   SerializesToString,
 } from '../json';
@@ -341,11 +341,11 @@ export class ClusterPageSk extends ElementSk {
       }
 
       this.summaries = [];
-      const regressionDetectionResponse = prog.results as RegressionDetectionResponse;
-      regressionDetectionResponse.summary!.Clusters!.forEach((clusterSummary) => {
+      const confirmedRegression = prog.results as ConfirmedRegression;
+      confirmedRegression.summary!.Clusters!.forEach((clusterSummary) => {
         this.summaries.push({
           summary: clusterSummary!,
-          frame: regressionDetectionResponse.frame!,
+          frame: confirmedRegression.frame!,
           triage: {
             status: '',
             message: '',

@@ -8,7 +8,7 @@ import {
   TimestampSeconds,
   TraceSet,
   ReadOnlyParamSet,
-  RegressionDetectionResponse,
+  ConfirmedRegression,
 } from '../json';
 
 describe('cluster-page-sk', () => {
@@ -92,7 +92,7 @@ describe('cluster-page-sk', () => {
     (element as any).state.query = 'config=8888';
     (element as any)._render();
 
-    const response: RegressionDetectionResponse = {
+    const response: ConfirmedRegression = {
       summary: {
         Clusters: [
           {
@@ -134,6 +134,8 @@ describe('cluster-page-sk', () => {
         display_mode: 'display_plot',
         anomalymap: {},
       },
+      prev_commit_number: 99 as CommitNumber,
+      commit_number: 100 as CommitNumber,
     };
 
     fetchMock.post('/_/cluster/start', {

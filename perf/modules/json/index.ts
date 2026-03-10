@@ -700,6 +700,19 @@ export interface CreatePinpointResponse {
 	jobUrl: string;
 }
 
+export interface ClusterSummaries {
+	Clusters: (ClusterSummary | null)[] | null;
+	StdDevThreshold: number;
+	K: number;
+}
+
+export interface ConfirmedRegression {
+	summary: ClusterSummaries | null;
+	frame: FrameResponse | null;
+	prev_commit_number: CommitNumber;
+	commit_number: CommitNumber;
+}
+
 export interface FullSummary {
 	summary: ClusterSummary;
 	triage: TriageStatus;
@@ -717,17 +730,6 @@ export interface RegressionDetectionRequest {
 	domain: Domain;
 	step: number;
 	total_queries: number;
-}
-
-export interface ClusterSummaries {
-	Clusters: (ClusterSummary | null)[] | null;
-	StdDevThreshold: number;
-	K: number;
-}
-
-export interface RegressionDetectionResponse {
-	summary: ClusterSummaries | null;
-	frame: FrameResponse | null;
 }
 
 export namespace progress {

@@ -126,9 +126,7 @@ func (c *Continuous) reportRegressions(ctx context.Context, req *regression.Regr
 
 	key := cfg.IDAsString
 	for _, resp := range resps {
-		headerLength := len(resp.Frame.DataFrame.Header)
-		midPoint := headerLength / 2
-		commitNumber := resp.Frame.DataFrame.Header[midPoint].Offset
+		commitNumber := resp.CommitNumber
 		details, err := c.perfGit.CommitFromCommitNumber(ctx, commitNumber)
 		if err != nil {
 			sklog.Errorf("Failed to look up commit %d: %s", commitNumber, err)
@@ -142,7 +140,7 @@ func (c *Continuous) reportRegressions(ctx context.Context, req *regression.Regr
 		// on any commit in (previousCommitNumber, commitNumber] (inclusive of
 		// commitNumber but exclusive of previousCommitNumber). This is way that
 		// Gitiles and the Android build site work by default.
-		previousCommitNumber := resp.Frame.DataFrame.Header[midPoint-1].Offset
+		previousCommitNumber := resp.PrevCommitNumber
 		previousCommitDetails, err := c.perfGit.CommitFromCommitNumber(ctx, previousCommitNumber)
 		if err != nil {
 			sklog.Errorf("Failed to look up commit %d: %s", previousCommitNumber, err)
@@ -162,7 +160,7 @@ func (c *Continuous) reportRegressions(ctx context.Context, req *regression.Regr
 			// All clusters received here have already been vetted against the alert's thresholds.
 			isLow := cl.StepFit.Status == stepfit.LOW
 			sklog.Infof("Found regression at %s. StepFit: %v Shortcut: %s AlertID: %s req: %#v", details.Subject, *cl.StepFit, cl.Shortcut, c.current.IDAsString, *req)
-			c.updateStoreAndNotification(ctx, resp, cfg, commitNumber, cl, details, previousCommitDetails, key, isLow)
+			c.updateStoreAndNotification(ctx, resp, cfg, cl, details, previousCommitDetails, key, isLow)
 		}
 	}
 }
@@ -317,15 +315,14 @@ func (c *Continuous) buildConfigAndParamsetChannel(ctx context.Context) <-chan c
 	return ret
 }
 
-func (c *Continuous) updateStoreAndNotification(ctx context.Context, resp *regression.ConfirmedRegression, cfg *alerts.Alert, commitNumber types.CommitNumber,
-	cl *clustering2.ClusterSummary, details provider.Commit, previousCommitDetails provider.Commit, key string, isLow bool) {
+func (c *Continuous) updateStoreAndNotification(ctx context.Context, resp *regression.ConfirmedRegression, cfg *alerts.Alert, cl *clustering2.ClusterSummary, details provider.Commit, previousCommitDetails provider.Commit, key string, isLow bool) {
 	ctx, span := trace.StartSpan(ctx, "regression.continuous.updateStoreAndNotification")
 	defer span.End()
 
 	updateNotification := true
-	regression, err := c.store.GetRegression(ctx, commitNumber, key)
+	regression, err := c.store.GetRegression(ctx, details.CommitNumber, key)
 	if err != nil {
-		sklog.Warningf("Regression not found or failed to retrieve! commitNumber=%s, key=%s, err=%s", commitNumber, key, err)
+		sklog.Warningf("Regression not found or failed to retrieve! commitNumber=%s, key=%s, err=%s", details.CommitNumber, key, err)
 	}
 	notificationID := getNotificationId(regression)
 	if notificationID != "" {
@@ -338,9 +335,9 @@ func (c *Continuous) updateStoreAndNotification(ctx context.Context, resp *regre
 		var isNew bool
 		var regressionID string
 		if isLow {
-			isNew, regressionID, err = c.store.SetLow(ctx, commitNumber, key, resp.Frame, cl)
+			isNew, regressionID, err = c.store.SetLow(ctx, details.CommitNumber, previousCommitDetails.CommitNumber, key, resp.Frame, cl)
 		} else {
-			isNew, regressionID, err = c.store.SetHigh(ctx, commitNumber, key, resp.Frame, cl)
+			isNew, regressionID, err = c.store.SetHigh(ctx, details.CommitNumber, previousCommitDetails.CommitNumber, key, resp.Frame, cl)
 		}
 		if err != nil {
 			sklog.Errorf("Failed to save newly found cluster: %s", err)
@@ -358,9 +355,9 @@ func (c *Continuous) updateStoreAndNotification(ctx context.Context, resp *regre
 	}
 	if notificationID != "" {
 		if isLow {
-			_, _, err = c.store.SetLow(ctx, commitNumber, key, resp.Frame, cl)
+			_, _, err = c.store.SetLow(ctx, details.CommitNumber, previousCommitDetails.CommitNumber, key, resp.Frame, cl)
 		} else {
-			_, _, err = c.store.SetHigh(ctx, commitNumber, key, resp.Frame, cl)
+			_, _, err = c.store.SetHigh(ctx, details.CommitNumber, previousCommitDetails.CommitNumber, key, resp.Frame, cl)
 		}
 		if err != nil {
 			sklog.Errorf("Failed to save cluster with notification: %s", err)

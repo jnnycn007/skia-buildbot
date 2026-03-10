@@ -489,10 +489,10 @@ func runClusterSummaryAndTriageTest(t *testing.T, isHighRegression bool, alertsP
 	}
 	if isHighRegression {
 		// Set a high regression.
-		success, _, err = store.SetHigh(ctx, r.CommitNumber, alertIdStr, frameResponse, clusterSummary)
+		success, _, err = store.SetHigh(ctx, r.CommitNumber, r.PrevCommitNumber, alertIdStr, frameResponse, clusterSummary)
 	} else {
 		// Set a low regression.
-		success, _, err = store.SetLow(ctx, r.CommitNumber, alertIdStr, frameResponse, clusterSummary)
+		success, _, err = store.SetLow(ctx, r.CommitNumber, r.PrevCommitNumber, alertIdStr, frameResponse, clusterSummary)
 	}
 	if skipTestIfSpannerEmulatorNotSupported(t, err) {
 		return
@@ -1511,7 +1511,7 @@ func TestAllowMultipleRegressionsPerAlertId(t *testing.T) {
 		require.NoError(t, err)
 
 		// Set first regression.
-		success, _, err := store.SetHigh(ctx, commitNumber, alertIdStr, frameResponse1, clusterSummary1)
+		success, _, err := store.SetHigh(ctx, commitNumber, commitNumber-1, alertIdStr, frameResponse1, clusterSummary1)
 		if skipTestIfSpannerEmulatorNotSupported(t, err) {
 			return
 		}
@@ -1519,7 +1519,7 @@ func TestAllowMultipleRegressionsPerAlertId(t *testing.T) {
 		assert.True(t, success)
 
 		// Set second regression for the same alert id but different trace.
-		success, _, err = store.SetHigh(ctx, commitNumber, alertIdStr, frameResponse2, clusterSummary2)
+		success, _, err = store.SetHigh(ctx, commitNumber, commitNumber-1, alertIdStr, frameResponse2, clusterSummary2)
 		assert.NoError(t, err)
 		assert.True(t, success)
 
@@ -1554,7 +1554,7 @@ func TestAllowMultipleRegressionsPerAlertId(t *testing.T) {
 		require.NoError(t, err)
 
 		// Set first regression.
-		success, _, err := store.SetHigh(ctx, commitNumber, alertIdStr, frameResponse1, clusterSummary1)
+		success, _, err := store.SetHigh(ctx, commitNumber, commitNumber-1, alertIdStr, frameResponse1, clusterSummary1)
 		if skipTestIfSpannerEmulatorNotSupported(t, err) {
 			return
 		}
@@ -1562,7 +1562,7 @@ func TestAllowMultipleRegressionsPerAlertId(t *testing.T) {
 		assert.True(t, success)
 
 		// Set second regression for the same alert id should fail to add a new one.
-		success, _, err = store.SetHigh(ctx, commitNumber, alertIdStr, frameResponse2, clusterSummary2)
+		success, _, err = store.SetHigh(ctx, commitNumber, commitNumber-1, alertIdStr, frameResponse2, clusterSummary2)
 		assert.NoError(t, err)
 		assert.False(t, success, "A new regression should not have been created.")
 
@@ -1616,7 +1616,7 @@ func TestUpdateBasedOnAlertAlgo_WithSubscriptionName(t *testing.T) {
 	}
 
 	// Set a high regression.
-	success, _, err := store.SetHigh(ctx, r.CommitNumber, alertIdStr, frameResponse, clusterSummary)
+	success, _, err := store.SetHigh(ctx, r.CommitNumber, r.PrevCommitNumber, alertIdStr, frameResponse, clusterSummary)
 	if skipTestIfSpannerEmulatorNotSupported(t, err) {
 		return
 	}

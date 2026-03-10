@@ -23,10 +23,10 @@ type Store interface {
 	RangeFiltered(ctx context.Context, begin, end types.CommitNumber, traceNames []string) ([]*Regression, error)
 
 	// SetHigh sets the ClusterSummary for a high regression at the given commit and alertID.
-	SetHigh(ctx context.Context, commitNumber types.CommitNumber, alertID string, df *frame.FrameResponse, high *clustering2.ClusterSummary) (bool, string, error)
+	SetHigh(ctx context.Context, commitNumber types.CommitNumber, prevCommitNumber types.CommitNumber, alertID string, df *frame.FrameResponse, high *clustering2.ClusterSummary) (bool, string, error)
 
 	// SetLow sets the ClusterSummary for a low regression at the given commit and alertID.
-	SetLow(ctx context.Context, commitNumber types.CommitNumber, alertID string, df *frame.FrameResponse, low *clustering2.ClusterSummary) (bool, string, error)
+	SetLow(ctx context.Context, commitNumber types.CommitNumber, prevCommitNumber types.CommitNumber, alertID string, df *frame.FrameResponse, low *clustering2.ClusterSummary) (bool, string, error)
 
 	// TriageLow sets the triage status for the low cluster at the given commit and alertID.
 	TriageLow(ctx context.Context, commitNumber types.CommitNumber, alertID string, tr TriageStatus) error
@@ -148,7 +148,6 @@ func NewRegressionDetectionRequest() *RegressionDetectionRequest {
 	}
 }
 
-// RegressionDetectionResponse is the response from running a RegressionDetectionRequest.
 type RegressionDetectionResponse struct {
 	Summary *clustering2.ClusterSummaries `json:"summary"`
 	Frame   *frame.FrameResponse          `json:"frame"`
@@ -156,15 +155,17 @@ type RegressionDetectionResponse struct {
 	// Message contains context about the detection for this specific response,
 	// such as trace filtering statistics.
 	Message string `json:"-"` // Using json:"-" prevents it from being serialized by default.
-
-	PrevCommitNumber types.CommitNumber `json:"-"`
-	CommitNumber     types.CommitNumber `json:"-"`
 }
 
-// ConfirmedRegression is an alias for RegressionDetectionResponse used by the RegressionRefiner
-// and ConfirmedRegressionHandler to represent regressions that have been validated and approved
-// for saving or alerting.
-type ConfirmedRegression RegressionDetectionResponse
+// ConfirmedRegression represents a regression that has been validated and approved
+// for saving or alerting. It includes the explicit commit boundary where it was found.
+type ConfirmedRegression struct {
+	Summary          *clustering2.ClusterSummaries `json:"summary"`
+	Frame            *frame.FrameResponse          `json:"frame"`
+	Message          string                        `json:"-"`
+	PrevCommitNumber types.CommitNumber            `json:"prev_commit_number"`
+	CommitNumber     types.CommitNumber            `json:"commit_number"`
+}
 
 // RegressionRefiner defines an interface for modules that process a complete
 // set of regression detection results before they are sent for storage.
