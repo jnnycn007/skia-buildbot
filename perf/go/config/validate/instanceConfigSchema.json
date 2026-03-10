@@ -7,6 +7,9 @@
       "properties": {
         "settling_time": {
           "$ref": "#/$defs/DurationAsString"
+        },
+        "use_anomaly_localization": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,

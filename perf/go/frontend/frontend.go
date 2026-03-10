@@ -686,7 +686,12 @@ func (f *Frontend) initialize() {
 
 	paramsProvider := newParamsetProvider(f.paramsetRefresher)
 
-	regressionRefiner := refiner.NewDefaultRegressionRefiner()
+	var regressionRefiner regression.RegressionRefiner
+	if config.Config.AnomalyConfig.UseAnomalyLocalization {
+		regressionRefiner = refiner.NewAnomalyBoundsRefiner(config.MinStdDev)
+	} else {
+		regressionRefiner = refiner.NewDefaultRegressionRefiner()
+	}
 
 	f.dryrunRequests = dryrun.New(f.perfGit, f.progressTracker, f.shortcutStore, f.dfBuilder, paramsProvider, regressionRefiner)
 

@@ -37,12 +37,13 @@ import (
 // SQLRegressionStore implements the regression.Store interface.
 type SQLRegression2Store struct {
 	// db is the underlying database.
-	db                         pool.Pool
-	statements                 map[statementFormat]string
-	alertConfigProvider        alerts.ConfigProvider
-	instanceConfig             *config.InstanceConfig
-	regressionFoundCounterLow  metrics2.Counter
-	regressionFoundCounterHigh metrics2.Counter
+	db                           pool.Pool
+	statements                   map[statementFormat]string
+	alertConfigProvider          alerts.ConfigProvider
+	instanceConfig               *config.InstanceConfig
+	regressionFoundCounterLow    metrics2.Counter
+	regressionFoundCounterHigh   metrics2.Counter
+	suspectAnomalyOverlapCounter metrics2.Counter
 }
 
 // statementFormat is an SQL statementFormat identifier.
@@ -54,6 +55,8 @@ const (
 	readCompat
 	readRegressionsByCommitAlertAndTraceName
 	readRegressionsByCommitAlertAndTraceId
+	readRegressionsByCommitRangeAlertAndTraceName
+	readRegressionsByCommitRangeAlertAndTraceId
 	readOldest
 	readRange
 	readByRev
@@ -109,6 +112,28 @@ var statementFormats = map[statementFormat]string{
 			commit_number=$1
 			AND alert_id=$2
 			AND trace_id=$3
+		`,
+	readRegressionsByCommitRangeAlertAndTraceName: `
+		SELECT
+			{{ .Columns }}
+		FROM
+			Regressions2
+		WHERE
+			prev_commit_number <= $1
+			AND commit_number >= $2
+			AND alert_id=$3
+			AND (frame->'dataframe'->'traceset') ? $4
+		`,
+	readRegressionsByCommitRangeAlertAndTraceId: `
+		SELECT
+			{{ .Columns }}
+		FROM
+			Regressions2
+		WHERE
+			prev_commit_number <= $1
+			AND commit_number >= $2
+			AND alert_id=$3
+			AND trace_id=$4
 		`,
 	readOldest: `
 		SELECT
@@ -297,6 +322,9 @@ func New(db pool.Pool, alertConfigProvider alerts.ConfigProvider, instanceConfig
 		instanceConfig:             instanceConfig,
 		regressionFoundCounterLow:  metrics2.GetCounter("perf_regression2_store_found", map[string]string{"direction": "low"}),
 		regressionFoundCounterHigh: metrics2.GetCounter("perf_regression2_store_found", map[string]string{"direction": "high"}),
+		suspectAnomalyOverlapCounter: metrics2.GetCounter("anomaly_bounds_refiner_warnings", map[string]string{
+			"cause": "sqlregressions2store.regressions_with_unexpected_range",
+		}),
 	}, nil
 }
 
@@ -884,12 +912,22 @@ func (s *SQLRegression2Store) readModifyWriteCompat(ctx context.Context, commitN
 
 	// An empty trace_name indicates that we are processing a k-means alert, which requires a query without a trace name filter.
 	if s.instanceConfig.AllowMultipleRegressionsPerAlertId && traceName != "" {
-		if s.instanceConfig.Experiments.RegressionsTraceIdField {
-			traceId := types.TraceIDForSQLInBytesFromTraceName(traceName)
-			traceIdAsBytes := traceId[:]
-			rows, err = tx.Query(ctx, s.statements[readRegressionsByCommitAlertAndTraceId], commitNumber, alertID, traceIdAsBytes)
+		if s.instanceConfig.AnomalyConfig.UseAnomalyLocalization && prevCommitNumber != types.BadCommitNumber {
+			if s.instanceConfig.Experiments.RegressionsTraceIdField {
+				traceId := types.TraceIDForSQLInBytesFromTraceName(traceName)
+				traceIdAsBytes := traceId[:]
+				rows, err = tx.Query(ctx, s.statements[readRegressionsByCommitRangeAlertAndTraceId], commitNumber, prevCommitNumber, alertID, traceIdAsBytes)
+			} else {
+				rows, err = tx.Query(ctx, s.statements[readRegressionsByCommitRangeAlertAndTraceName], commitNumber, prevCommitNumber, alertID, traceName)
+			}
 		} else {
-			rows, err = tx.Query(ctx, s.statements[readRegressionsByCommitAlertAndTraceName], commitNumber, alertID, traceName)
+			if s.instanceConfig.Experiments.RegressionsTraceIdField {
+				traceId := types.TraceIDForSQLInBytesFromTraceName(traceName)
+				traceIdAsBytes := traceId[:]
+				rows, err = tx.Query(ctx, s.statements[readRegressionsByCommitAlertAndTraceId], commitNumber, alertID, traceIdAsBytes)
+			} else {
+				rows, err = tx.Query(ctx, s.statements[readRegressionsByCommitAlertAndTraceName], commitNumber, alertID, traceName)
+			}
 		}
 	} else {
 		rows, err = tx.Query(ctx, s.statements[readCompat], commitNumber, alertID)
@@ -917,6 +955,8 @@ func (s *SQLRegression2Store) readModifyWriteCompat(ctx context.Context, commitN
 				return "", skerr.Wrapf(err, "%s", errorMsg)
 			}
 		}
+
+		s.logSuspectAnomalyOverlap(r, commitNumber, prevCommitNumber, traceName)
 
 		shouldUpdate, err := cb(r)
 		if err != nil {
@@ -952,6 +992,26 @@ func (s *SQLRegression2Store) readModifyWriteCompat(ctx context.Context, commitN
 		}
 	}
 	return r.Id, tx.Commit(ctx)
+}
+
+// logSuspectAnomalyOverlap logs a warning and counter metric if an anomaly loaded from the database
+// has a larger starting commit range than the requested range.
+func (s *SQLRegression2Store) logSuspectAnomalyOverlap(r *regression.Regression, inputCommitNumber types.CommitNumber, inputPrevCommitNumber types.CommitNumber, traceName string) {
+	if !s.instanceConfig.AnomalyConfig.UseAnomalyLocalization {
+		return
+	}
+	if inputPrevCommitNumber == types.BadCommitNumber {
+		return
+	}
+	// "If row which we loaded from the database contain exactly the same range we do nothing"
+	if r.PrevCommitNumber == inputPrevCommitNumber && r.CommitNumber == inputCommitNumber {
+		return
+	}
+	// "But if row prev_commit earlier that prevCommitNumber and commit number of row > commitNumber we need to log warning"
+	if r.PrevCommitNumber < inputPrevCommitNumber || r.CommitNumber > inputCommitNumber {
+		sklog.Warningf("Suspect anomaly overlap detected: db_row_prev_commit=%d db_row_commit=%d vs input_prev_commit=%d input_commit=%d alert_id=%d trace_name=%q", r.PrevCommitNumber, r.CommitNumber, inputPrevCommitNumber, inputCommitNumber, r.AlertId, traceName)
+		s.suspectAnomalyOverlapCounter.Inc(1)
+	}
 }
 
 func rollbackTransaction(ctx context.Context, tx pgx.Tx) {

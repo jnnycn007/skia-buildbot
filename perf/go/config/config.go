@@ -424,6 +424,10 @@ type AnomalyConfig struct {
 	// results may arrive out of order causing Anomalies to be mis-attributed,
 	// or attributed to a series of different CLs as new data arrives.
 	SettlingTime DurationAsString `json:"settling_time,omitempty"`
+
+	// UseAnomalyLocalization enables the new AnomalyBoundsRefiner logic.
+	// If false, the traditional DefaultRegressionRefiner is used.
+	UseAnomalyLocalization bool `json:"use_anomaly_localization,omitempty"`
 }
 
 // BackendFlags provide commandline flags for the Backend Service.

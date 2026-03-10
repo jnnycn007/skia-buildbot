@@ -444,6 +444,68 @@ func TestRangeFiltered(t *testing.T) {
 	assert.Empty(t, regressionsFromDb)
 }
 
+func TestRangeFiltered_Overlap(t *testing.T) {
+	const (
+		traceKey1 = ",benchmark=Blazor,bot=MacM1,master=ChromiumPerf,test=test1,"
+	)
+	alertsProvider := alerts_mock.NewConfigProvider(t)
+
+	// Enable UseAnomalyLocalization to use the new range overlap query
+	instanceConfig := &config.InstanceConfig{
+		AllowMultipleRegressionsPerAlertId: true,
+		Experiments:                        config.Experiments{RegressionsTraceIdField: false},
+		AnomalyConfig: config.AnomalyConfig{
+			UseAnomalyLocalization: true,
+		},
+	}
+	db := sqltest.NewSpannerDBForTests(t, "regstore")
+	store, _ := New(db, alertsProvider, instanceConfig)
+	ctx := context.Background()
+
+	// Add a regression into the database with range [2, 10]
+	r1 := generateNewRegression(subName)
+	r1.PrevCommitNumber = 2
+	r1.CommitNumber = 10
+	r1.Frame.DataFrame.TraceSet = types.TraceSet{traceKey1: {}}
+	_, err := store.WriteRegression(ctx, r1, nil)
+	assert.Nil(t, err)
+
+	queryPairs := []struct {
+		name        string
+		queryPrev   types.CommitNumber
+		queryCommit types.CommitNumber
+		shouldMatch bool
+	}{
+		{"database [2, 10] vs query [5, 15] (overlap)", 5, 15, true},
+		{"database [2, 10] vs query [0, 5] (overlap)", 0, 5, true},
+		{"database [2, 10] vs query [3, 8] (full enclosed)", 3, 8, true},
+		{"database [2, 10] vs query [0, 15] (fully enclosing)", 0, 15, true},
+		{"database [2, 10] vs query [0, 1] (no overlap, strictly before)", 0, 1, false},
+		{"database [2, 10] vs query [11, 15] (no overlap, strictly after)", 11, 15, false},
+	}
+
+	for _, tc := range queryPairs {
+		t.Run(tc.name, func(t *testing.T) {
+			// readModifyWriteCompat exercises the query with the specific traceName.
+			found := false
+			_, err := store.readModifyWriteCompat(ctx, tc.queryCommit, tc.queryPrev, alerts.IDToString(alertId), traceKey1, false, func(r *regression.Regression) (bool, error) {
+				// If cb is called with an existing regression (PrevCommitNumber = 2, CommitNumber = 10), then it found it.
+				// If cb is called with a NewRegression (PrevCommitNumber = 0, CommitNumber = queryCommit), then it wasn't found.
+				if r.PrevCommitNumber == 2 && r.CommitNumber == 10 {
+					found = true
+				}
+				return false, nil // don't actually update it
+			})
+
+			if skipTestIfSpannerEmulatorNotSupported(t, err) {
+				return
+			}
+			assert.Nil(t, err)
+			assert.Equal(t, tc.shouldMatch, found, "Expected overlap match: %v, but got: %v", tc.shouldMatch, found)
+		})
+	}
+}
+
 func runClusterSummaryAndTriageTestNoTraceIdField(t *testing.T, isHighRegression bool, alertsProvider alerts.ConfigProvider) {
 	store := setupStore(t, alertsProvider)
 	runClusterSummaryAndTriageTest(t, isHighRegression, alertsProvider, store)
