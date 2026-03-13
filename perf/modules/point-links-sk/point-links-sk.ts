@@ -29,10 +29,10 @@
  *
  * V8 Git Hash Range: <a href='https://chromium.googlesource.com/v8/v8/+/47f420e89ec1b33dacc048d93e0317ab7fec43dd>47f420e - 47f420e</a>
  */
-import { TemplateResult, html } from 'lit/html.js';
+import { LitElement, TemplateResult, html } from 'lit';
+import { property, state } from 'lit/decorators.js';
 import { until } from 'lit/directives/until.js';
 import { define } from '../../../elements-sk/modules/define';
-import { ElementSk } from '../../../infra-sk/modules/ElementSk';
 import { CommitDetailsRequest, CommitNumber, ingest } from '../json';
 import { jsonOrThrow } from '../../../infra-sk/modules/jsonOrThrow';
 import { errorMessage } from '../errorMessage';
@@ -47,39 +47,40 @@ export interface CommitLinks {
   fetched?: boolean;
 }
 
-export class PointLinksSk extends ElementSk {
-  constructor() {
-    super(PointLinksSk.template);
+export class PointLinksSk extends LitElement {
+  protected createRenderRoot() {
+    return this;
   }
 
   private abortController: AbortController = new AbortController();
 
   // The point links for the current commit.
+  @state()
   commitPosition: CommitNumber | null = null;
 
   // Contains the urls to be displayed.
-  _displayUrls: { [key: string]: string } = {};
+  @property({ attribute: false })
+  displayUrls: { [key: string]: string } = {};
 
   // Contains texts to be displayed.
-  _displayTexts: { [key: string]: string } = {};
+  @property({ attribute: false })
+  displayTexts: { [key: string]: string } = {};
 
   private buildLogText = 'Build Log';
 
   private fuchsiaBuildLogKey = 'Test stdio';
 
-  private static template = (ele: PointLinksSk) =>
-    html`<div class="point-links" ?hidden=${Object.keys(ele.displayUrls || {}).length === 0}>
+  render() {
+    return html`<div
+      class="point-links"
+      ?hidden=${Object.keys(this.displayUrls || {}).length === 0}>
       <ul class="table">
-        ${Object.keys(ele.displayUrls)
+        ${Object.keys(this.displayUrls)
           .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
-          .map((key) => until(ele.getHtml(key), html`<li>Loading...</li>`))}
-        ${ele.renderRevisionLink()}
+          .map((key) => until(this.getHtml(key), html`<li>Loading...</li>`))}
+        ${this.renderRevisionLink()}
       </ul>
     </div>`;
-
-  connectedCallback(): void {
-    super.connectedCallback();
-    this._render();
   }
 
   private async getHtml(key: string): Promise<TemplateResult> {
@@ -235,7 +236,6 @@ export class PointLinksSk extends ElementSk {
         // Reuse the existing links
         this.displayUrls = existingLink.displayUrls || {};
         this.displayTexts = existingLink.displayTexts || {};
-        this.render();
         return commitLinks;
       }
     }
@@ -337,7 +337,6 @@ export class PointLinksSk extends ElementSk {
       this.displayTexts = displayTexts;
       this.displayUrls = displayUrls;
 
-      this.render();
       return commitLinks;
     } catch (error: any) {
       if (error.name === 'AbortError') {
@@ -354,11 +353,6 @@ export class PointLinksSk extends ElementSk {
     this.commitPosition = null;
     this.displayUrls = {};
     this.displayTexts = {};
-    this.render();
-  }
-
-  render(): void {
-    this._render();
   }
 
   /**
@@ -477,22 +471,6 @@ export class PointLinksSk extends ElementSk {
       return match[1];
     }
     return '';
-  }
-
-  set displayTexts(val: { [key: string]: string }) {
-    this._displayTexts = val;
-  }
-
-  get displayTexts(): { [key: string]: string } {
-    return this._displayTexts;
-  }
-
-  set displayUrls(val: { [key: string]: string }) {
-    this._displayUrls = val;
-  }
-
-  get displayUrls(): { [key: string]: string } {
-    return this._displayUrls;
   }
 }
 
