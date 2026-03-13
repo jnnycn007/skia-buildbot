@@ -81,8 +81,6 @@ export class PickerFieldSk extends LitElement {
   @query('checkbox-sk#select-primary')
   private _primarySelected!: CheckOrRadio;
 
-  private _splitCheckboxDisabled: boolean = false;
-
   /**
    * Creates an instance of PickerFieldSk.
    * @param label The label for the picker field.
@@ -288,65 +286,6 @@ export class PickerFieldSk extends LitElement {
     // Using internal dispatch or just reliance on `opened` property if available?
     // Original code used `.click()`.
     this._comboBox?.click();
-  }
-
-  /**
-   * Disables the picker field and associated checkboxes.
-   */
-  disable() {
-    this.disabled = true;
-  }
-
-  /**
-   * Enables the picker field and associated checkboxes.
-   */
-  enable() {
-    this.disabled = false;
-    if (this._comboBox) {
-      this._comboBox.removeAttribute('opened');
-    }
-  }
-
-  /**
-   * Clears the selected value of the combo box and resets the selected items.
-   */
-  clear() {
-    this.focus();
-    this.setValue('');
-    this.selectedItems = [];
-  }
-
-  /**
-   * Sets the value of the internal vaadin-multi-select-combo-box element.
-   * @param val The string value to set.
-   */
-  setValue(val: string) {
-    if (this._comboBox) {
-      this._comboBox.removeAttribute('value');
-      this._comboBox.setAttribute('value', val);
-    }
-  }
-
-  /**
-   * Enables the split checkbox.
-   */
-  enableSplit() {
-    this.splitDisabled = false;
-  }
-
-  /**
-   * Disables the split checkbox and sets the split property to false.
-   */
-  disableSplit() {
-    this.split = false;
-    this.splitDisabled = true;
-  }
-
-  /**
-   * Resets the selected items of the combo box.
-   */
-  reset() {
-    this.selectedItems = [];
   }
 
   /**

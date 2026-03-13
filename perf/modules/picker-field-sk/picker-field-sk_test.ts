@@ -130,18 +130,18 @@ describe('picker-field-sk', () => {
       expect(splitCheckbox!.hasAttribute('disabled')).to.be.false;
     });
 
-    it('is disabled but visible when disableSplit() is called', async () => {
-      element.disableSplit();
+    it('is disabled but visible when splitDisabled is true', async () => {
+      element.splitDisabled = true;
       await element.updateComplete;
       const splitCheckbox = element.querySelector<CheckOrRadio>('#split-by');
       expect(splitCheckbox!.hasAttribute('hidden')).to.be.false;
       expect(splitCheckbox!.hasAttribute('disabled')).to.be.true;
     });
 
-    it('is re-enabled when enableSplit() is called', async () => {
-      element.disableSplit();
+    it('is re-enabled when splitDisabled is false', async () => {
+      element.splitDisabled = true;
       await element.updateComplete;
-      element.enableSplit();
+      element.splitDisabled = false;
       await element.updateComplete;
       const splitCheckbox = element.querySelector<CheckOrRadio>('#split-by');
       expect(splitCheckbox!.hasAttribute('disabled')).to.be.false;

@@ -1110,7 +1110,7 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
     if (this.summaryOptionsField.value && this.traceIdSummaryOptionMap.size > 1) {
       const option = this.traceIdSummaryOptionMap.get(traceName) || '';
       if (option !== '') {
-        this.summaryOptionsField.value!.setValue(option);
+        this.summaryOptionsField.value!.selectedItems = [option];
       } else {
         errorMessage(`Summary bar not properly set for this trace. Trace Name: ${traceName}`);
       }
@@ -2345,7 +2345,7 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
     // summary for the trace clicked on the graph.
     if (this.summaryOptionsField.value) {
       const option = this.traceIdSummaryOptionMap.get(detail.name) || '';
-      this.summaryOptionsField.value!.setValue(option);
+      this.summaryOptionsField.value!.selectedItems = option ? [option] : [];
     }
 
     const selected = this.selectedRange?.begin || 0;

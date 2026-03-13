@@ -14,7 +14,7 @@ describe('test-picker-sk', () => {
 
   beforeEach(async () => {
     // Mock the fetch function.
-    fetchMock = (_url: RequestInfo | URL, request: RequestInit | undefined) => {
+    fetchMock = async (_url: RequestInfo | URL, request: RequestInit | undefined) => {
       const req = JSON.parse(request!.body as string) as NextParamListHandlerRequest;
       const params = toParamSet(req.q!);
       const paramset: any = {};
@@ -27,7 +27,7 @@ describe('test-picker-sk', () => {
         paramset: paramset,
         count: 10,
       };
-      return Promise.resolve(new Response(JSON.stringify(response)));
+      return await Promise.resolve(new Response(JSON.stringify(response)));
     };
     window.fetch = fetchMock;
 
@@ -50,6 +50,7 @@ describe('test-picker-sk', () => {
       })
     );
     await new Promise((resolve) => setTimeout(resolve, 100));
+    await element.updateComplete;
     const fields = element.querySelectorAll<PickerFieldSk>('picker-field-sk');
     expect(fields.length).to.equal(2);
     expect(fields[1].label).to.equal('bot');
@@ -63,6 +64,7 @@ describe('test-picker-sk', () => {
       })
     );
     await new Promise((resolve) => setTimeout(resolve, 100));
+    await element.updateComplete;
     let fields = element.querySelectorAll<PickerFieldSk>('picker-field-sk');
     expect(fields.length).to.equal(2);
 
@@ -72,6 +74,7 @@ describe('test-picker-sk', () => {
       })
     );
     await new Promise((resolve) => setTimeout(resolve, 100));
+    await element.updateComplete;
     fields = element.querySelectorAll<PickerFieldSk>('picker-field-sk');
     expect(fields.length).to.equal(1);
   });
@@ -102,7 +105,7 @@ describe('test-picker-sk conditional defaults', () => {
     document.body.appendChild(mockExplore);
 
     // Mock fetch
-    window.fetch = (_url: RequestInfo | URL, request: RequestInit | undefined) => {
+    window.fetch = async (_url: RequestInfo | URL, request: RequestInit | undefined) => {
       const req = JSON.parse(request!.body as string) as NextParamListHandlerRequest;
       const params = toParamSet(req.q!);
       const paramset: any = {};
@@ -118,7 +121,7 @@ describe('test-picker-sk conditional defaults', () => {
         paramset: paramset,
         count: 10,
       };
-      return Promise.resolve(new Response(JSON.stringify(response)));
+      return await Promise.resolve(new Response(JSON.stringify(response)));
     };
 
     element = newInstance((_el: TestPickerSk) => {});
@@ -187,7 +190,7 @@ describe('test-picker-sk default option inference', () => {
 
   beforeEach(async () => {
     // Mock the fetch function.
-    fetchMock = (_url: RequestInfo | URL, request: RequestInit | undefined) => {
+    fetchMock = async (_url: RequestInfo | URL, request: RequestInit | undefined) => {
       const req = JSON.parse(request!.body as string) as NextParamListHandlerRequest;
       const params = toParamSet(req.q!);
       const paramset: any = {};
@@ -216,7 +219,7 @@ describe('test-picker-sk default option inference', () => {
         paramset: paramset,
         count: count,
       };
-      return Promise.resolve(new Response(JSON.stringify(response)));
+      return await Promise.resolve(new Response(JSON.stringify(response)));
     };
     window.fetch = fetchMock;
 
@@ -268,7 +271,7 @@ describe('test-picker-sk default option inference', () => {
     await new Promise((resolve) => setTimeout(resolve, 100));
 
     // Verify query
-    const query = element.createQueryFromFieldData();
+    const query = element.ctrl.createQueryFromFieldData();
     // Expect benchmark=b1&bot=__missing__
     expect(query).to.contain('benchmark=b1');
     expect(query).to.contain('bot=__missing__');
@@ -291,7 +294,7 @@ describe('test-picker-sk default option inference', () => {
     botField.dispatchEvent(new CustomEvent('value-changed', { detail: { value: [] } }));
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    const query = element.createQueryFromFieldData();
+    const query = element.ctrl.createQueryFromFieldData();
     expect(query).to.contain('benchmark=b1');
     expect(query).to.not.contain('bot=__missing__');
   });
@@ -309,7 +312,7 @@ describe('test-picker-sk default option inference', () => {
     );
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    const query = element.createQueryFromFieldData();
+    const query = element.ctrl.createQueryFromFieldData();
     expect(query).to.contain('benchmark=b1');
     expect(query).to.contain('bot=__missing__');
     expect(query).to.contain('bot=bot1');
@@ -345,14 +348,14 @@ describe('removeItemFromChart', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     // Verify it is set
-    expect(element.createParamSetFromFieldData()['benchmark']).to.deep.equal(['b1']);
+    expect(element.ctrl.createParamSetFromFieldData()['benchmark']).to.deep.equal(['b1']);
 
     element.removeItemFromChart('benchmark', ['b1']);
 
     // Wait for async update from removeItemFromChart
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    const paramSet = element.createParamSetFromFieldData();
+    const paramSet = element.ctrl.createParamSetFromFieldData();
     expect(paramSet['benchmark'] || []).to.be.empty;
   });
 });
@@ -411,7 +414,7 @@ describe('Complex Scenarios (Default, pgo, ref, subtests)', () => {
     // 2. Select 'Default'
     botField.dispatchEvent(new CustomEvent('value-changed', { detail: { value: ['Default'] } }));
     await new Promise((resolve) => setTimeout(resolve, 100));
-    let query = element.createQueryFromFieldData();
+    let query = element.ctrl.createQueryFromFieldData();
     expect(query).to.contain('bot=__missing__');
     expect(query).to.not.contain('bot=ref');
 
@@ -420,7 +423,7 @@ describe('Complex Scenarios (Default, pgo, ref, subtests)', () => {
       new CustomEvent('value-changed', { detail: { value: ['Default', 'ref'] } })
     );
     await new Promise((resolve) => setTimeout(resolve, 100));
-    query = element.createQueryFromFieldData();
+    query = element.ctrl.createQueryFromFieldData();
     expect(query).to.contain('bot=__missing__');
     expect(query).to.contain('bot=ref');
 
@@ -429,7 +432,7 @@ describe('Complex Scenarios (Default, pgo, ref, subtests)', () => {
       new CustomEvent('value-changed', { detail: { value: ['Default', 'ref', 'pgo'] } })
     );
     await new Promise((resolve) => setTimeout(resolve, 100));
-    query = element.createQueryFromFieldData();
+    query = element.ctrl.createQueryFromFieldData();
     expect(query).to.contain('bot=__missing__');
     expect(query).to.contain('bot=ref');
     expect(query).to.contain('bot=pgo');
@@ -437,7 +440,7 @@ describe('Complex Scenarios (Default, pgo, ref, subtests)', () => {
     // 5. Remove 'Default'
     botField.dispatchEvent(new CustomEvent('value-changed', { detail: { value: ['ref', 'pgo'] } }));
     await new Promise((resolve) => setTimeout(resolve, 100));
-    query = element.createQueryFromFieldData();
+    query = element.ctrl.createQueryFromFieldData();
     expect(query).to.not.contain('bot=__missing__');
     expect(query).to.contain('bot=ref');
     expect(query).to.contain('bot=pgo');
@@ -466,7 +469,7 @@ describe('Complex Scenarios (Default, pgo, ref, subtests)', () => {
     s2Field.dispatchEvent(new CustomEvent('value-changed', { detail: { value: ['s2_x'] } }));
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    const query = element.createQueryFromFieldData();
+    const query = element.ctrl.createQueryFromFieldData();
     expect(query).to.contain('benchmark=b1');
     expect(query).to.contain('bot=normal');
     expect(query).to.contain('subtest_1=s1_a');
@@ -531,8 +534,8 @@ describe('test-picker-sk graph interaction', () => {
     const subtestField = element.querySelectorAll<PickerFieldSk>('picker-field-sk')[1];
     expect(subtestField.label).to.equal('subtest_4');
 
-    // Check autoAddTrace status.
-    expect(element.autoAddTrace).to.be.true;
+    // Check ctrl.autoAddTrace status.
+    expect(element.ctrl.autoAddTrace).to.be.true;
 
     let events: CustomEvent[] = [];
     element.addEventListener('add-to-graph', (e) => {
@@ -578,7 +581,7 @@ describe('test-picker-sk graph interaction', () => {
     const subtestField = element.querySelectorAll<PickerFieldSk>('picker-field-sk')[1];
 
     // 1. Initial State: subtest_4 empty.
-    let query = element.createQueryFromFieldData();
+    let query = element.ctrl.createQueryFromFieldData();
     expect(query).to.contain('benchmark=b1');
     expect(query).to.not.contain('subtest_4');
 
@@ -588,7 +591,7 @@ describe('test-picker-sk graph interaction', () => {
     );
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    query = element.createQueryFromFieldData();
+    query = element.ctrl.createQueryFromFieldData();
     expect(query).to.contain('subtest_4=__missing__');
     expect(query).to.not.contain('subtest_4=pgo');
 
@@ -598,7 +601,7 @@ describe('test-picker-sk graph interaction', () => {
     );
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    query = element.createQueryFromFieldData();
+    query = element.ctrl.createQueryFromFieldData();
     expect(query).to.contain('subtest_4=__missing__');
     expect(query).to.contain('subtest_4=pgo');
   });
@@ -710,45 +713,55 @@ describe('Comprehensive Interaction Scenarios', () => {
   });
 
   it('rejects enabling split on a second field if one is already active', async () => {
-    // Manually setup two fields
-    const field1 = new PickerFieldSk('field1');
-    const field2 = new PickerFieldSk('field2');
+    // Inject them into the private ctrl.fieldData structure (using any to bypass private)
 
-    // Inject them into the private _fieldData structure (using any to bypass private)
-    element['_fieldData'] = [
+    // Inject them into the private ctrl.fieldData structure (using any to bypass private)
+    element.ctrl.fieldData = [
       {
         param: 'field1',
-        field: field1,
         value: ['a', 'b'],
         splitBy: [],
         index: 0,
-        onValueChanged: null,
-        onSplitByChanged: null,
+        options: [],
+        split: false,
+        disabled: false,
+        splitDisabled: false,
+        selectedItems: [],
       },
       {
         param: 'field2',
-        field: field2,
         value: ['c', 'd'],
         splitBy: [],
         index: 1,
-        onValueChanged: null,
-        onSplitByChanged: null,
+        options: [],
+        split: false,
+        disabled: false,
+        splitDisabled: false,
+        selectedItems: [],
       },
     ];
-    element['_containerDiv']?.appendChild(field1);
-    element['_containerDiv']?.appendChild(field2);
+    element.requestUpdate();
+    await element.updateComplete;
+
+    const fields = element.querySelectorAll<PickerFieldSk>('picker-field-sk');
+    expect(fields.length).to.equal(2);
+    const field1 = fields[0];
+    const field2 = fields[1];
 
     // Enable split on field1
-    element['setSplitFields']('field1', true);
+    element.ctrl.setSplitFields('field1', true);
+    await element.updateComplete;
+
     expect(field1.split).to.be.true;
-    expect(element['_fieldData'][0].splitBy).to.deep.equal(['field1']);
+    expect(element.ctrl.fieldData[0].splitBy).to.deep.equal(['field1']);
 
     // Try to enable split on field2 (simulating a programmatic or race event)
     field2.split = true; // Set UI state first (as the checkbox would)
-    element['setSplitFields']('field2', true);
+    element.ctrl.setSplitFields('field2', true);
+    await element.updateComplete;
 
     // Should be rejected
-    expect(element['_fieldData'][1].splitBy).to.deep.equal(
+    expect(element.ctrl.fieldData[1].splitBy).to.deep.equal(
       [],
       'Field2 splitBy should remain empty'
     );
@@ -776,8 +789,14 @@ describe('Auto Add Trace Logic', () => {
     }
 
     fetchMock = (_url: RequestInfo | URL, _request: RequestInit | undefined) => {
+      const urlStr = _url.toString();
+      let paramset = {};
+      if (urlStr.includes('hint=')) {
+        const hint = new URLSearchParams(urlStr.split('?')[1]).get('hint') || 'benchmark';
+        paramset = { [hint]: ['b1', 'b2'] };
+      }
       const response: NextParamListHandlerResponse = {
-        paramset: { benchmark: ['b1', 'b2'] } as any,
+        paramset: paramset as any,
         count: mockCount,
       };
       return Promise.resolve(new Response(JSON.stringify(response)));
@@ -795,8 +814,9 @@ describe('Auto Add Trace Logic', () => {
     }
   });
 
-  it('does not dispatch add-to-graph if autoAddTrace is false', async () => {
-    element.autoAddTrace = false;
+  it('does not dispatch add-to-graph if ctrl.autoAddTrace is false', async () => {
+    element.ctrl.autoAddTrace = false;
+    element.ctrl.forceManualPlot = true;
     const field = element.querySelector<PickerFieldSk>('picker-field-sk');
 
     let eventFired = false;
@@ -810,16 +830,16 @@ describe('Auto Add Trace Logic', () => {
     expect(eventFired).to.be.false;
   });
 
-  it('dispatches remove-trace even if autoAddTrace is false', async () => {
+  it('dispatches remove-trace even if ctrl.autoAddTrace is false', async () => {
     mockCount = 1000;
     // Setup initial state (select b1)
-    element.autoAddTrace = true;
+    element.ctrl.autoAddTrace = true;
     const field = element.querySelector<PickerFieldSk>('picker-field-sk');
     field!.dispatchEvent(new CustomEvent('value-changed', { detail: { value: ['b1'] } }));
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    // Now disable autoAddTrace
-    element.autoAddTrace = false;
+    // Now disable ctrl.autoAddTrace
+    element.ctrl.autoAddTrace = false;
 
     let eventFired = false;
     element.addEventListener('remove-trace', () => {

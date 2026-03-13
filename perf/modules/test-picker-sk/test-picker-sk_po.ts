@@ -29,11 +29,14 @@ export class TestPickerSkPO extends PageObject {
   }
 
   async waitForPickerField(index: number): Promise<void> {
-    const selector = `picker-field-sk:nth-of-type(${index + 1})`;
-    await this.poll(
-      async () => !(await this.bySelector(selector).isEmpty()),
-      `Waiting for ${selector}`
-    );
+    await this.poll(async () => {
+      const length = await this.pickerFields.length;
+      if (length <= index) {
+        return false;
+      }
+      const field = await this.getPickerField(index);
+      return !(await field.isDisabled());
+    }, `Waiting for picker-field-sk at index ${index} to be enabled`);
   }
 
   async waitForSpinnerInactive(): Promise<void> {
@@ -49,11 +52,11 @@ export class TestPickerSkPO extends PageObject {
       async () => !(await this.bySelector('#plot-button:not([disabled])').isEmpty()),
       'Waiting for plot button enabled'
     );
-    await this.plotButton.click();
+    await this.plotButton.applyFnToDOMNode((el) => (el as HTMLElement).click());
   }
 
   async isPlotBtnDisabled() {
-    return this.plotButton.hasAttribute('disabled');
+    return await this.plotButton.hasAttribute('disabled');
   }
 
   private async poll(

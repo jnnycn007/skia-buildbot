@@ -17,13 +17,21 @@ export class PickerFieldSkPO extends PageObject {
 
   async checkSplit(): Promise<void> {
     if (!(await this.isSplitChecked())) {
-      await this.splitByCheckbox.click();
+      await this.splitByCheckbox.applyFnToDOMNode((el) => {
+        const checkbox = el as any;
+        checkbox.checked = true;
+        el.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+      });
     }
   }
 
   async uncheckSplit(): Promise<void> {
     if (await this.isSplitChecked()) {
-      await this.splitByCheckbox.click();
+      await this.splitByCheckbox.applyFnToDOMNode((el) => {
+        const checkbox = el as any;
+        checkbox.checked = false;
+        el.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+      });
     }
   }
 
@@ -36,12 +44,16 @@ export class PickerFieldSkPO extends PageObject {
   }
 
   async isAllChecked(): Promise<boolean> {
-    return this.selectAllCheckbox.applyFnToDOMNode((el) => (el as CheckOrRadio).checked);
+    return await this.selectAllCheckbox.applyFnToDOMNode((el) => (el as CheckOrRadio).checked);
   }
 
   async checkAll(): Promise<void> {
     if (!(await this.isAllChecked())) {
-      await this.selectAllCheckbox.click();
+      await this.selectAllCheckbox.applyFnToDOMNode((el) => {
+        const checkbox = el as any;
+        checkbox.checked = true;
+        el.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+      });
     }
   }
 
@@ -64,12 +76,50 @@ export class PickerFieldSkPO extends PageObject {
     await this.comboBox.press('Enter');
   }
 
+  async selectExact(value: string): Promise<void> {
+    await this.openOverlay();
+    // Use evaluate to avoid serialization issues with CustomEvent detail on older puppeteer versions when possible,
+    // or just dispatch the event that the component listens to.
+    await this.comboBox.applyFnToDOMNode((el: any, val: unknown) => {
+      const v = val as string;
+      if (!el.selectedItems) {
+        el.selectedItems = [];
+      }
+      if (!el.selectedItems.includes(v)) {
+        // Create new array to ensure change detection
+        el.selectedItems = [...el.selectedItems, v];
+      }
+
+      // The vaadin-multi-select-combo-box component dispatches 'selected-items-changed'
+      // when its selection changes. We dispatch it here so `picker-field-sk`'s
+      // @selected-items-changed listener catches it just like a user interaction.
+      el.dispatchEvent(
+        new CustomEvent('selected-items-changed', {
+          detail: { value: el.selectedItems },
+          bubbles: true,
+          composed: true,
+        })
+      );
+      // Close overlay to prevent obscuring DOM elements
+      el.opened = false;
+    }, value);
+  }
+
   async search(value: string): Promise<void> {
     await this.select(value);
   }
 
   async clear(): Promise<void> {
-    await this.comboBox.applyFnToDOMNode((n) => ((n as any).selectedItems = []));
+    await this.comboBox.applyFnToDOMNode((el: any) => {
+      el.selectedItems = [];
+      el.dispatchEvent(
+        new CustomEvent('selected-items-changed', {
+          detail: { value: [] },
+          bubbles: true,
+          composed: true,
+        })
+      );
+    });
   }
 
   /**

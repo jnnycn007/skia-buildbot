@@ -349,11 +349,11 @@ describe('Manual Plot Mode', () => {
     // Select 'arm' in arch field.
     await testPickerPO.waitForPickerField(0);
     const archField = await testPickerPO.getPickerField(0);
-    await archField.select('arm');
+    await archField.selectExact('arm');
     await testPickerPO.waitForSpinnerInactive();
 
     // Select 'x86_64' in arch field.
-    await archField.select('x86_64');
+    await archField.selectExact('x86_64');
     await testPickerPO.waitForSpinnerInactive();
 
     // Verify 'os' field is now visible and has options.
@@ -362,11 +362,11 @@ describe('Manual Plot Mode', () => {
     expect(await osField.getLabel()).to.equal('os');
 
     // Select 'Android', 'Ubuntu', and 'Debian11' in os field.
-    await osField.select('Android');
+    await osField.selectExact('Android');
     await testPickerPO.waitForSpinnerInactive();
-    await osField.select('Ubuntu');
+    await osField.selectExact('Ubuntu');
     await testPickerPO.waitForSpinnerInactive();
-    await osField.select('Debian11');
+    await osField.selectExact('Debian11');
     await testPickerPO.waitForSpinnerInactive();
 
     // Click Plot.
@@ -907,7 +907,7 @@ describe('Split Graph Functionality', function () {
     // Select 'arm' to filter down
     await testPickerPO.waitForPickerField(0);
     const archField = await testPickerPO.getPickerField(0);
-    await archField.select('arm');
+    await archField.selectExact('arm');
     await testPickerPO.waitForSpinnerInactive();
 
     // Select All OS options
@@ -953,7 +953,7 @@ describe('Test Picker Interactions', () => {
 
     await testPickerPO.waitForPickerField(0);
     const archField = await testPickerPO.getPickerField(0);
-    await archField.select('arm');
+    await archField.selectExact('arm');
     await testPickerPO.waitForSpinnerInactive();
 
     await testPickerPO.waitForPickerField(1);
@@ -975,14 +975,14 @@ describe('Test Picker Interactions', () => {
     const testPickerPO = explorePO.testPicker;
 
     await testPickerPO.waitForPickerField(0);
-    await (await testPickerPO.getPickerField(0)).select('arm');
+    await (await testPickerPO.getPickerField(0)).selectExact('arm');
     await testPickerPO.waitForSpinnerInactive();
 
     await testPickerPO.waitForPickerField(1);
     const osField = await testPickerPO.getPickerField(1);
-    await osField.select('Android');
+    await osField.selectExact('Android');
     await testPickerPO.waitForSpinnerInactive();
-    await osField.select('Ubuntu');
+    await osField.selectExact('Ubuntu');
     await testPickerPO.waitForSpinnerInactive();
 
     await waitForElementNotHidden(osField.splitByCheckbox);

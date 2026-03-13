@@ -73,8 +73,8 @@ describe('report-page-sk', () => {
     expect(await testBed.page.$$('report-page-sk')).to.have.length(1);
   });
 
-  describe('anomalies list', () => {
-    it('loads anomalies and creates a graph', async () => {
+  describe('anomalies list and commits', () => {
+    it('loads anomalies, creates a graph, and loads commits container', async () => {
       const anomaliesTablePO = reportPageSkPO.anomaliesTable;
       const rowCount = await anomaliesTablePO.getRowCount();
       expect(rowCount).to.equal(4);
@@ -127,12 +127,16 @@ describe('report-page-sk', () => {
       // The selected anomalies should be checked by default because of selected_keys.
       const graphs = await reportPageSkPO.graphs;
       expect(await graphs.length).to.equal(1);
-      // Wait for graphs to fully render
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      await takeScreenshot(testBed.page, 'perf', 'report-page-sk');
-    });
 
-    it('loads commits container', async () => {
+      // Wait for graph to be visible instead of hardcoded sleep
+      await poll(async () => {
+        const graph = await reportPageSkPO.getGraph(0);
+        return !(await graph.element.isEmpty());
+      }, 'Graph should be visible');
+
+      await takeScreenshot(testBed.page, 'perf', 'report-page-sk');
+
+      // Verify commits container
       const commitsDiv = await reportPageSkPO.commonCommitsDiv;
       const commitLinks = await reportPageSkPO.commonCommitLinks;
       assert.isNotNull(commitsDiv);
@@ -274,8 +278,10 @@ describe('report-page-sk', () => {
   });
 
   describe('graph header', () => {
-    it('verify Load Test Picker header button in the graph', async () => {
+    it('verify graph header buttons and title', async () => {
       const graph = await reportPageSkPO.getGraph(0);
+
+      // Load Test Picker header button
       const link = await graph.bySelector('#chartHeader > a');
       expect(await link.isEmpty()).to.be.false;
       const href = await link.getAttribute('href');
@@ -286,41 +292,32 @@ describe('report-page-sk', () => {
       expect(await exploreButton.isEmpty()).to.be.false;
       const title = await exploreButton.getAttribute('title');
       expect(title?.toLowerCase()).to.equal('open in multigraph');
-    });
 
-    it('verify Show Zero on Axis header button in the graph', async () => {
-      const graph = await reportPageSkPO.getGraph(0);
+      // Show Zero on Axis header button
       const showZeroButton = await graph.bySelector(
         '#chartHeader md-icon-button[title="Show Zero on Axis"]'
       );
       expect(await showZeroButton.isEmpty()).to.be.false;
       const icon = await showZeroButton.bySelector('md-icon');
       expect(await icon.innerText).to.equal('hide_source');
-    });
 
-    it('verify Add Chart to Favorites header button in the graph', async () => {
-      const graph = await reportPageSkPO.getGraph(0);
+      // Add Chart to Favorites header button
       const favButton = await graph.bySelector(
         '#chartHeader md-icon-button[title="Add Chart to Favorites"]'
       );
       expect(await favButton.isEmpty()).to.be.false;
-      const icon = await favButton.bySelector('md-icon');
-      expect(await icon.innerText).to.equal('favorite');
-    });
+      const favIcon = await favButton.bySelector('md-icon');
+      expect(await favIcon.innerText).to.equal('favorite');
 
-    it('verify Show Settings Dialog header button in the graph', async () => {
-      const graph = await reportPageSkPO.getGraph(0);
+      // Show Settings Dialog header button
       const settingsButton = await graph.bySelector(
         '#chartHeader md-icon-button[title="Show Settings Dialog"]'
       );
       expect(await settingsButton.isEmpty()).to.be.false;
-      const icon = await settingsButton.bySelector('md-icon');
-      expect(await icon.innerText).to.equal('settings');
-    });
+      const settingsIcon = await settingsButton.bySelector('md-icon');
+      expect(await settingsIcon.innerText).to.equal('settings');
 
-    it('verify graph title content', async () => {
-      // https://screenshot.googleplex.com/6JP5sC9Pnu8cJn8
-      const graph = await reportPageSkPO.getGraph(0);
+      // Graph title content
       const graphTitle = await graph.bySelector('#graphTitle');
       expect(await graphTitle.isEmpty()).to.be.false;
 
@@ -346,10 +343,11 @@ describe('report-page-sk', () => {
   });
 
   describe('tooltip actions', () => {
-    it('verify Anomaly Regression in the tooltip', async () => {
+    it('verify Anomaly Regression, Nudge, and Bisect buttons in the tooltip', async () => {
       const tooltipPO = await openTooltip(0);
       await tooltipPO.getTriageMenu;
 
+      // Verify Anomaly Regression
       await poll(async () => {
         return !(await tooltipPO.container.bySelector('#anomaly-details').isEmpty());
       }, 'Anomaly details should be visible');
@@ -367,12 +365,48 @@ describe('report-page-sk', () => {
         'Regression',
         'Anomaly type should be Regression'
       );
+
+      // Verify Nudge label is visible
+      await poll(async () => {
+        const keys = await tooltipPO.container.bySelectorAll('#tooltip-key');
+        const keyTexts = await keys.map((el) => el.innerText);
+        return keyTexts.includes('Nudge');
+      }, 'Nudge label should be visible');
+
+      // Verify Nudge buttons presence
+      const nudgeValues = ['-2', '-1', '0', '1', '2'];
+      for (const val of nudgeValues) {
+        const btn = await tooltipPO.container.bySelector(`button[value="${val}"]`);
+        expect(await btn.isEmpty(), 'Nudge button should be visible').to.be.false;
+
+        const expectedText = val === '0' ? '0' : parseInt(val) > 0 ? `+${val}` : val;
+        expect((await btn.innerText).trim()).to.equal(expectedText);
+      }
+
+      // Verify Bisect button in the tooltip
+      const bisectBtn = await tooltipPO.container.bySelector('#bisect');
+      expect(await bisectBtn.isEmpty()).to.be.false;
+      expect((await bisectBtn.innerText).trim()).to.equal('Bisect');
+
+      await bisectBtn.click();
+      const bisectDialog = await testBed.page.$('bisect-dialog-sk');
+      expect(bisectDialog).to.not.be.null;
     });
 
     it('verify new bug button', async () => {
       // https://screenshot.googleplex.com/577QkbXf2BVShas
       const tooltipPO = await openTooltip(0);
       const triageMenuSkPO = await tooltipPO.getTriageMenu;
+
+      // Wait for button to be clickable
+      await poll(async () => {
+        if (await triageMenuSkPO.newBugButton.isEmpty()) return false;
+        return await triageMenuSkPO.newBugButton.applyFnToDOMNode((el) => {
+          const rect = el.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0;
+        });
+      }, 'New bug button should be visible and have non-zero size');
+
       await triageMenuSkPO.newBugButton.click();
       await testBed.page.$('new-bug-dialog-sk');
 

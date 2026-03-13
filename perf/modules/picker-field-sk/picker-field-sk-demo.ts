@@ -35,7 +35,6 @@ $$('#demo-fill')?.addEventListener('click', () => {
   ele.label = NEW_LABEL;
   ele.options = NEW_OPTIONS;
   ele.selectedItems = NEW_SELECTED_ITEMS;
-  ele.setValue('speedometer3');
 });
 
 $$('#demo-open')?.addEventListener('click', () => {
@@ -45,10 +44,10 @@ $$('#demo-open')?.addEventListener('click', () => {
 
 $$('#demo-disable')?.addEventListener('click', () => {
   const ele = document.querySelector('#focus-and-fill') as PickerFieldSk;
-  ele.disable();
+  ele.disabled = true;
 });
 
 $$('#demo-enable')?.addEventListener('click', () => {
   const ele = document.querySelector('#focus-and-fill') as PickerFieldSk;
-  ele.enable();
+  ele.disabled = false;
 });
