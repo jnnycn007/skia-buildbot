@@ -22,7 +22,7 @@ import { customElement, property, state, query } from 'lit/decorators.js';
 import { live } from 'lit/directives/live.js';
 import { Task, TaskStatus } from '@lit/task';
 import { jsonOrThrow } from '../../../infra-sk/modules/jsonOrThrow';
-import { BisectJobCreateRequest } from '../json';
+import { BisectJobCreateRequest, CreatePinpointResponse } from '../json';
 import { errorMessage } from '../../../elements-sk/modules/errorMessage';
 
 import '@material/web/icon/icon.js';
@@ -71,16 +71,13 @@ export class BisectDialogSk extends LitElement {
   private _dialog!: HTMLDialogElement;
 
   @state()
-  private jobId: string = '';
-
-  @state()
   private patch: string = '';
 
   @state()
   private _opened: boolean = false;
 
   @state()
-  private jobUrl: string = '';
+  private _request: BisectJobCreateRequest | null = null;
 
   createRenderRoot() {
     return this;
@@ -108,7 +105,7 @@ export class BisectDialogSk extends LitElement {
   open(): void {
     this._opened = true;
     this.patch = '';
-    this.jobUrl = '';
+    this._request = null;
     this._dialog?.showModal();
   }
 
@@ -118,28 +115,25 @@ export class BisectDialogSk extends LitElement {
   }
 
   private _postBisectTask = new Task(this, {
-    task: async ([req]: readonly [BisectJobCreateRequest], { signal }: { signal: AbortSignal }) => {
-      try {
-        const response = await fetch('/_/bisect/create', {
-          method: 'POST',
-          signal,
-          body: JSON.stringify(req),
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-        const json = await jsonOrThrow(response);
-        this.jobId = json.jobId;
-        this.jobUrl = json.jobUrl;
-      } catch (msg: any) {
-        if (msg.name === 'AbortError') {
-          throw msg;
-        }
-        errorMessage(msg);
-        throw msg;
+    task: async (
+      [req]: [BisectJobCreateRequest | null | undefined],
+      { signal }: { signal: AbortSignal }
+    ) => {
+      if (!req) {
+        return null;
       }
+      const response = await fetch('/_/bisect/create', {
+        method: 'POST',
+        signal,
+        body: JSON.stringify(req),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      const json = await jsonOrThrow(response);
+      return json as CreatePinpointResponse;
     },
-    autoRun: false,
+    args: (): [BisectJobCreateRequest | null] => [this._request],
   });
 
   get opened() {
@@ -206,7 +200,7 @@ export class BisectDialogSk extends LitElement {
       }
     }
 
-    this._postBisectTask.run([req]);
+    this._request = req;
   }
 
   /** Clear Bisect Dialog fields */
@@ -217,7 +211,7 @@ export class BisectDialogSk extends LitElement {
     this.testPath = '';
     this.anomalyId = '';
     this.patch = '';
-    this.jobUrl = '';
+    this._request = null;
   }
 
   render() {
@@ -286,14 +280,27 @@ export class BisectDialogSk extends LitElement {
               Bisect
             </button>
             <spinner-sk id="dialog-spinner" ?active=${isLoading}></spinner-sk>
-            ${this.jobUrl
-              ? html`<a id="pinpoint-job-url" href="${this.jobUrl}" target="_blank">
-                  Pinpoint Job Created<md-icon id="icon">open_in_new</md-icon>
-                </a>`
-              : ''}
+            ${this._renderTaskStatus()}
           </div>
         </form>
       </dialog>
     `;
+  }
+
+  private _renderTaskStatus() {
+    return this._postBisectTask.render({
+      complete: (json) => {
+        if (!json) return html``;
+        const url = json.jobUrl;
+        if (!url) return html``;
+        return html`<a id="pinpoint-job-url" href="${url}" target="_blank">
+          Pinpoint Job Created<md-icon id="icon">open_in_new</md-icon>
+        </a>`;
+      },
+      error: (e: any) => {
+        errorMessage(e);
+        return html``;
+      },
+    });
   }
 }

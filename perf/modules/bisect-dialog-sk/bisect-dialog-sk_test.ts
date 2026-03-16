@@ -191,7 +191,7 @@ describe('bisect-dialog-sk', () => {
       assert.isNotNull(errMessage);
     });
 
-    it('displays a link to the pinpoint job after creation', async () => {
+    it('displays a link to the pinpoint job after creation (camelCase)', async () => {
       const params: BisectPreloadParams = {
         testPath: 'ChromiumPerf/MacM1/Blazor/test_suite/test/subtest',
         startCommit: '12345',
@@ -210,6 +210,34 @@ describe('bisect-dialog-sk', () => {
 
       await element.postBisect();
       await fetchMock.flush(true);
+      await element.updateComplete;
+
+      const link = element.querySelector('#pinpoint-job-url') as HTMLAnchorElement;
+      assert.isNotNull(link);
+      assert.equal(link!.href, jobUrl);
+      assert.include(link!.textContent, 'Pinpoint Job Created');
+    });
+
+    it('displays a link to the pinpoint job after creation (snake_case)', async () => {
+      const params: BisectPreloadParams = {
+        testPath: 'ChromiumPerf/MacM1/Blazor/test_suite/test/subtest',
+        startCommit: '12345',
+        endCommit: '12346',
+        bugId: '123',
+        story: 'story',
+        anomalyId: 'a1',
+      };
+      await element.setBisectInputParams(params);
+      element.user = 'test@example.com';
+      element.open();
+      await element.updateComplete;
+
+      const jobUrl = 'https://pinpoint-dot-chromeperf.appspot.com/job/12345';
+      fetchMock.post('/_/bisect/create', { job_id: '12345', jobUrl: jobUrl });
+
+      await element.postBisect();
+      await fetchMock.flush(true);
+      await element.updateComplete;
 
       const link = element.querySelector('#pinpoint-job-url') as HTMLAnchorElement;
       assert.isNotNull(link);
