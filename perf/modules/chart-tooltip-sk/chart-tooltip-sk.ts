@@ -8,11 +8,9 @@
  *
  * @example
  */
-import { html } from 'lit';
+import { html, LitElement } from 'lit';
+import { property, state, query, customElement } from 'lit/decorators.js';
 import { createRef, ref } from 'lit/directives/ref.js';
-import { define } from '../../../elements-sk/modules/define';
-import { ElementSk } from '../../../infra-sk/modules/ElementSk';
-import { upgradeProperty } from '../../../elements-sk/modules/upgradeProperty';
 import { Anomaly, ColumnHeader, CommitNumber } from '../json';
 import { formatBug, formatNumber, formatPercentage, getPercentChange } from '../common/anomaly';
 import '../commit-range-sk/commit-range-sk';
@@ -35,189 +33,174 @@ import {
   TryJobPreloadParams,
 } from '../pinpoint-try-job-dialog-sk/pinpoint-try-job-dialog-sk';
 import { defaultColors } from '../common/plot-builder';
+import '../json-source-sk/json-source-sk';
 import { JSONSourceSk } from '../json-source-sk/json-source-sk';
 
-export class ChartTooltipSk extends ElementSk {
-  constructor() {
-    super(ChartTooltipSk.template);
-  }
+@customElement('chart-tooltip-sk')
+export class ChartTooltipSk extends LitElement {
+  @property({ type: Number })
+  index: number = -1;
 
-  // Index of the trace in the dataframe.
-  private _index: number = -1;
+  @property({ type: String })
+  color: string = '';
 
-  // The color of the trace.
-  private _color: string = '';
+  @property({ type: String })
+  test_name: string = '';
 
-  // Full name (id) of the point in question (e.detail.name)
-  private _test_name: string = '';
-
-  // Trace Name to pass to NewBugDialog.
+  @state()
   private _trace_name: string = '';
 
-  // Unit of measurement for trace.
-  private _unit_type: string = '';
+  @property({ type: String })
+  unit_type: string = '';
 
-  // The y value of the selected point on the chart.
-  private _y_value: number = -1;
+  @property({ type: Number })
+  y_value: number = -1;
 
-  // The timestamp converted to Date of the selected point on the chart.
-  private _date_value: Date = new Date();
+  @property({ attribute: false })
+  date_value: Date = new Date();
 
-  // Commit position of the selected point on the chart,
-  // usually curated through explore-simple-sk._dataframe.header[x].
-  private _commit_position: CommitNumber | null = null;
+  @property({ attribute: false })
+  commit_position: CommitNumber | null = null;
 
-  private _commit_info: ColumnHeader | null = null;
+  @property({ attribute: false })
+  commit_info: ColumnHeader | null = null;
 
-  // Anomaly information, set only when the data point is an anomaly.
-  // Usually determined by content in anomaly map referenced against the result
-  // of POST /_/cid.
-  private _anomaly: Anomaly | null = null;
+  @property({ attribute: false })
+  anomaly: Anomaly | null = null;
 
+  @state()
   private _nudgeList: NudgeEntry[] | null = null;
 
-  // Host bug url, usually from window.perf.bug_host_url.
-  private _bug_host_url: string = window.perf ? window.perf.bug_host_url : '';
+  @property({ type: String })
+  bug_host_url: string = window.perf ? window.perf.bug_host_url : '';
 
-  // bug_id = 0 signifies no buganizer issue available in the database for the
-  // data point. bug_id > 0 means we have an existing buganizer issue.
-  private _bug_id: number = 0;
+  @property({ type: Number })
+  bug_id: number = 0;
 
+  @state()
   _show_pinpoint_buttons =
     window.perf?.git_repo_url?.includes('https://chromium.googlesource.com/chromium/src') || false;
 
+  @state()
   show_bisect_button = !!window.perf?.show_bisect_btn;
 
-  private triageMenu: TriageMenuSk | null = null;
+  @query('#triage-menu')
+  private triageMenu!: TriageMenuSk | null;
 
-  private _is_tooltip_fixed: boolean = false;
+  @property({ type: Boolean })
+  tooltip_fixed: boolean = false;
 
+  @state()
   _is_range: boolean | null = null;
 
+  @state()
   _close_button_action: () => void = () => {};
 
-  // Commit range element. Values usually set by explore-simple-sk when a point
-  // is selected.
-  commitRangeSk: CommitRangeSk | null = null;
+  @query('#tooltip-commit-range-link')
+  commitRangeSk!: CommitRangeSk | null;
 
-  // Shows any buganizer issue associated with a data point.
-  userIssueSk: UserIssueSk | null = null;
+  @query('#tooltip-user-issue-sk')
+  userIssueSk!: UserIssueSk | null;
 
-  // Cached margin to compute once.
+  @state()
   private margin: { left?: number; right?: number; bottom?: number; top?: number } = {};
 
   private containerDiv = createRef<HTMLDivElement>();
 
-  // Point links display commit ranges for points (ie/ V8, WebRTC) if configured
-  // for the instance. See "data_point_config" in chrome-perf-non-public.json
-  // for an example of the configuration.
-  pointLinks: PointLinksSk | null = null;
+  @query('#tooltip-point-links')
+  pointLinks!: PointLinksSk | null;
 
-  // dialog for displaying JSON source if configured for the instance.
-  // See "data_point_config" in chrome-perf-non-public.json
-  // for an example of the configuration.
-  jsonSourceDialog: JSONSourceSk | null = null;
+  @query('#json-source-sk')
+  jsonSourceDialog!: JSONSourceSk | null;
 
-  // Whether to display of json source dialog.
-  private _show_json_source: boolean = window.perf ? window.perf.show_json_file_display : false;
+  @property({ type: Boolean })
+  json_source: boolean = window.perf ? window.perf.show_json_file_display : false;
 
+  @state()
   private _always_show_commit_info: boolean = window.perf
     ? window.perf.always_show_commit_info
     : false;
 
-  // Bisect Dialog.
-  bisectDialog: BisectDialogSk | null = null;
+  @query('#bisect-dialog-sk')
+  bisectDialog!: BisectDialogSk | null;
 
-  // Request debug trace dialog. This dialog creates a try job on legacy Pinpoint
-  // TODO(b/391784563): hide request debug trace when no tracing links have surfaced
-  tryJobDialog: PinpointTryJobDialogSk | null = null;
+  @query('#pinpoint-try-job-dialog-sk')
+  tryJobDialog!: PinpointTryJobDialogSk | null;
 
-  // The overall html template for outlining the contents needed in
-  // chart-tooltip.
-  //
-  // Notes:
-  // * The "More details" button is currently set to fetch commit information
-  //   via the POST /_/cid api call. Usually, the response details from that api
-  //   call can also be used to determine if the given point is an anomaly, but
-  //   chart tooltip is unaware of the AnomalyMap.
-  //   "More details" should be updated to trigger an event to explore-simple-sk
-  //   that can set commit and anoamly information to the chart-tooltip at the
-  //   time the two elements are integrated.
-  // * commit range information is not present because explore-simple-sk's
-  //   dataframe, and the (x, y) coordinates of the selected point on the chart
-  //   are needed to calculate both the trace and header for commit-range.
-  //
-  // TODO(b/338440689) - make commit number a link to gitiles
-  // TODO(b/408558084) - remove div when adding a new field to determine
-  // displaying json moodule or not
-  private static template = (ele: ChartTooltipSk) => html`
-    <div class="container" ${ref(ele.containerDiv)}>
-      <md-elevation></md-elevation>
-      <button id="closeIcon" @click=${ele._close_button_action} ?hidden=${!ele.tooltip_fixed}>
-        <close-icon-sk></close-icon-sk>
-      </button>
-      <h3>
-        <span style="color:${ele.color}">
-          ${ele.test_name || `Default`}
-          <span ?hidden=${!ele.anomaly}> [Anomaly] </span>
-        </span>
-      </h3>
-      <ul class="table">
-        <li>
-          <span id="tooltip-key">Date</span>
-          <span id="tooltip-text">${ele.date_value.toUTCString()}</span>
-        </li>
-        <li>
-          <span id="tooltip-key">Value</span>
-          <span id="tooltip-text">${ele.y_value} ${ele.unit_type}</span>
-        </li>
-        <li>
-          <span id="tooltip-key">Point Range</span>
-          <commit-range-sk id="tooltip-commit-range-link"></commit-range-sk>
-        </li>
-      </ul>
-      <point-links-sk id="tooltip-point-links"></point-links-sk>
-      ${ele.getCommitInfo()} ${ele.anomalyTemplate()}
-      <triage-menu-sk id="triage-menu" ?hidden=${!(ele.anomaly && ele.anomaly!.bug_id === 0)}>
-      </triage-menu-sk>
-      <ul class="table" ?hidden=${!ele.show_bisect_button && !ele._show_pinpoint_buttons}>
-        <li>
-          <span id="tooltip-key">Pinpoint</span>
-          <div class="buttons">
-            <button id="bisect" @click=${ele.openBisectDialog} ?hidden=${!ele.show_bisect_button}>
-              Bisect
-            </button>
-            <button
-              id="try-job"
-              @click=${ele.openTryJobDialog}
-              ?hidden=${!ele._show_pinpoint_buttons}>
-              Request Trace
-            </button>
-          </div>
-        </li>
-      </ul>
-      <ul class="table" ?hidden=${!!ele.anomaly}>
-        <li>
-          <span id="tooltip-key">User Issues</span>
-          <div class="buttons">
-            <user-issue-sk id="tooltip-user-issue-sk"></user-issue-sk>
-          </div>
-        </li>
-      </ul>
-      <div id="json-source-dialog" ?hidden=${!ele._show_json_source}>
-        <json-source-sk id="json-source-sk"></json-source-sk>
+  protected createRenderRoot() {
+    return this;
+  }
+
+  protected render() {
+    return html`
+      <div class="container" ${ref(this.containerDiv)}>
+        <md-elevation></md-elevation>
+        <button id="closeIcon" @click=${this._close_button_action} ?hidden=${!this.tooltip_fixed}>
+          <close-icon-sk></close-icon-sk>
+        </button>
+        <h3>
+          <span style="color:${this.color}">
+            ${this.test_name || `Default`}
+            <span ?hidden=${!this.anomaly}> [Anomaly] </span>
+          </span>
+        </h3>
+        <ul class="table">
+          <li>
+            <span id="tooltip-key">Date</span>
+            <span id="tooltip-text">${this.date_value.toUTCString()}</span>
+          </li>
+          <li>
+            <span id="tooltip-key">Value</span>
+            <span id="tooltip-text">${this.y_value} ${this.unit_type}</span>
+          </li>
+          <li>
+            <span id="tooltip-key">Point Range</span>
+            <commit-range-sk id="tooltip-commit-range-link"></commit-range-sk>
+          </li>
+        </ul>
+        <point-links-sk id="tooltip-point-links"></point-links-sk>
+        ${this.getCommitInfo()} ${this.anomalyTemplate()}
+        <triage-menu-sk id="triage-menu" ?hidden=${!(this.anomaly && this.anomaly!.bug_id === 0)}>
+        </triage-menu-sk>
+
+        <ul class="table" ?hidden=${!this.show_bisect_button && !this._show_pinpoint_buttons}>
+          <li>
+            <span id="tooltip-key">Pinpoint</span>
+            <div class="buttons">
+              <button
+                id="bisect"
+                @click=${this.openBisectDialog}
+                ?hidden=${!this.show_bisect_button}>
+                Bisect
+              </button>
+              <button
+                id="try-job"
+                @click=${this.openTryJobDialog}
+                ?hidden=${!this._show_pinpoint_buttons}>
+                Request Trace
+              </button>
+            </div>
+          </li>
+        </ul>
+
+        <ul class="table" ?hidden=${!!this.anomaly}>
+          <li>
+            <span id="tooltip-key">User Issues</span>
+            <div class="buttons">
+              <user-issue-sk id="tooltip-user-issue-sk"></user-issue-sk>
+            </div>
+          </li>
+        </ul>
+
+        <div id="json-source-dialog" ?hidden=${!this.json_source}>
+          <json-source-sk id="json-source-sk"></json-source-sk>
+        </div>
+        <bisect-dialog-sk id="bisect-dialog-sk"></bisect-dialog-sk>
+        <pinpoint-try-job-dialog-sk id="pinpoint-try-job-dialog-sk"></pinpoint-try-job-dialog-sk>
       </div>
-      <bisect-dialog-sk id="bisect-dialog-sk"></bisect-dialog-sk>
-      <pinpoint-try-job-dialog-sk id="pinpoint-try-job-dialog-sk"></pinpoint-try-job-dialog-sk>
-    </div>
-  `;
+    `;
+  }
 
-  /**
-   * Move the tooltip to the given position. Width uses viewport while
-   * height ensures the tooltip tries to stay within the confines of
-   * the chart.
-   * @param position The position relative to its parent; hidden if null.
-   */
   moveTo(position: { x: number; y: number } | null): void {
     const div = this.containerDiv.value;
     if (!div) {
@@ -227,8 +210,6 @@ export class ChartTooltipSk extends ElementSk {
       div!.style.display = 'none';
       return;
     }
-    // displaying the element here allows us to fetch the correct
-    // rectangle dimensions for the tooltip
     div!.style.display = 'block';
 
     const viewportWidth = Math.max(
@@ -251,16 +232,11 @@ export class ChartTooltipSk extends ElementSk {
     const left = parentLeft + position.x + this.margin.left! + rect.width;
     const top = parentTop + position.y + this.margin.top! + rect.height;
 
-    // Shift to the left if the element exceeds the viewport.
     const adjustedX =
       left > viewportWidth
         ? position.x - (rect.width + this.margin.left! + this.margin.right!)
         : position.x;
 
-    // Shift to the top if the element exceeds the chart height.
-    // Rather than show the tooltip directly above or directly below the
-    // data point, shift it by how much the the tooltip exceeds the viewport.
-    // This prevents the tooltip from appearing out of the viewport.
     const adjustedY = top > viewportHeight ? position.y - (top - viewportHeight) : position.y;
 
     div!.style.left = `${adjustedX}px`;
@@ -268,8 +244,6 @@ export class ChartTooltipSk extends ElementSk {
   }
 
   private getCommitInfo() {
-    // If commit info is a range and config is not set to always show,
-    // then do not show the commit info.
     if (
       this.commit_info === null ||
       ((this._is_range || this._is_range === null) && !this._always_show_commit_info)
@@ -296,16 +270,12 @@ export class ChartTooltipSk extends ElementSk {
     </ul>`;
   }
 
-  // HTML template for Anomaly information, only shown when the data
-  // point is an anomaly. Usually set by the results of POST /_/cid
-  // correlated against anomaly map.
   private anomalyTemplate() {
     if (this.anomaly === null) {
       this.triageMenu?.toggleButtons(true);
       return html``;
     }
 
-    // Nullify nudgelist to ensure nudging is not available.
     if (this.anomaly.is_improvement) {
       this._nudgeList = null;
     }
@@ -314,7 +284,6 @@ export class ChartTooltipSk extends ElementSk {
       this.triageMenu!.setAnomalies([this.anomaly!], [this._trace_name], this._nudgeList);
     }
 
-    // TOOD(jeffyoon@) - add revision range formatting
     return html`
       <ul class="table" id="anomaly-details">
         <li>
@@ -338,9 +307,7 @@ export class ChartTooltipSk extends ElementSk {
           </span>
         </li>
         ${this.anomaly!.multiplicity
-          ? // multiplicity is only populated in perf/anomalies/impl/sql_impl.go,
-            // so only when we fetch anomalies from sql.
-            html` <li>
+          ? html` <li>
               <span id="tooltip-key">Multiplicity</span>
               <span id="tooltip-text"> ${this.anomaly!.multiplicity} </span>
             </li>`
@@ -363,43 +330,14 @@ export class ChartTooltipSk extends ElementSk {
 
   connectedCallback(): void {
     super.connectedCallback();
-    upgradeProperty(this, 'test_name');
-    upgradeProperty(this, 'y_value');
-    upgradeProperty(this, 'commit_position');
-    upgradeProperty(this, 'anomaly');
-    upgradeProperty(this, 'bug_host_url');
-    upgradeProperty(this, 'bug_id');
-    upgradeProperty(this, 'color');
-    this._render();
-
-    this.commitRangeSk = this.querySelector('#tooltip-commit-range-link');
-    this.userIssueSk = this.querySelector('#tooltip-user-issue-sk');
-    this.triageMenu = this.querySelector('#triage-menu');
-    this.pointLinks = this.querySelector('#tooltip-point-links');
-    this.bisectDialog = this.querySelector('#bisect-dialog-sk');
-    this.tryJobDialog = this.querySelector('#pinpoint-try-job-dialog-sk');
-    this.jsonSourceDialog = this.querySelector('#json-source-sk');
 
     this.addEventListener('anomaly-changed', () => {
-      this._render();
+      this.requestUpdate();
     });
 
     this.addEventListener('user-issue-changed', (e) => {
       this.bug_id = (e as CustomEvent).detail.bug_id;
-      this._render();
     });
-
-    if (this.commitRangeSk) {
-      this.commitRangeSk.addEventListener('commit-range-changed', this.handleCommitRangeChanged);
-    }
-  }
-
-  disconnectedCallback(): void {
-    super.disconnectedCallback();
-    // Clean up listeners when the element is removed from the DOM
-    if (this.commitRangeSk) {
-      this.commitRangeSk.removeEventListener('commit-range-changed', this.handleCommitRangeChanged);
-    }
   }
 
   private anomalyType() {
@@ -437,8 +375,6 @@ export class ChartTooltipSk extends ElementSk {
       </span>`;
   }
 
-  // load function sets the value of the fields minimally required to display
-  // this chart on hover.
   load(
     index: number,
     test_name: string,
@@ -457,23 +393,23 @@ export class ChartTooltipSk extends ElementSk {
     color?: string,
     user_id?: string
   ): void {
-    this._index = index;
-    this._test_name = test_name;
+    this.index = index;
+    this.test_name = test_name;
     this._trace_name = trace_name;
-    this._unit_type = unit_type.replace('_', ' ');
-    this._y_value = y_value;
-    this._date_value = date_value;
-    this._commit_position = commit_position;
-    this._bug_id = bug_id;
-    this._anomaly = anomaly;
+    this.unit_type = unit_type.replace('_', ' ');
+    this.y_value = y_value;
+    this.date_value = date_value;
+    this.commit_position = commit_position;
+    this.bug_id = bug_id;
+    this.anomaly = anomaly;
     this._nudgeList = nudgeList;
     this._close_button_action = closeButtonAction;
     this.tooltip_fixed = tooltipFixed;
     this.commit_info = commit;
-    this.color = color || defaultColors[this._index % defaultColors.length];
+    this.color = color || defaultColors[this.index % defaultColors.length];
 
     if (commitRange && this.commitRangeSk) {
-      this._is_range = this.commitRangeSk.isRange();
+      this._is_range = commitRange.isRange();
       this.commitRangeSk.hashes = commitRange.hashes;
       this.commitRangeSk.trace = commitRange.trace;
       this.commitRangeSk.header = commitRange.header;
@@ -487,15 +423,15 @@ export class ChartTooltipSk extends ElementSk {
       const commitPos = this.commit_position?.toString() || '';
       this.userIssueSk.commit_position = parseInt(commitPos);
     }
+  }
 
-    this._render();
-
-    // Needs to be after _render().
-    if (this._anomaly) {
+  protected updated(changedProperties: Map<string | number | symbol, unknown>) {
+    super.updated(changedProperties);
+    if (changedProperties.has('anomaly') && this.anomaly) {
       const anomalyRangeSk = this.querySelector('#anomaly-commit-range-link') as CommitRangeSk;
       if (anomalyRangeSk) {
-        const prev_commit = (this._anomaly.start_revision - 1) as CommitNumber;
-        const commit = this._anomaly.end_revision as CommitNumber;
+        const prev_commit = (this.anomaly.start_revision - 1) as CommitNumber;
+        const commit = this.anomaly.end_revision as CommitNumber;
         anomalyRangeSk.setRange(prev_commit, commit);
       }
     }
@@ -527,12 +463,11 @@ export class ChartTooltipSk extends ElementSk {
     this.jsonSourceDialog!.traceid = trace_id;
   }
 
-  // Handles the event from commit-range-sk when its link is updated.
   private handleCommitRangeChanged = () => {
-    this._render();
+    // handled by properties changes in Lit
+    this.requestUpdate();
   };
 
-  /** Clear Point Links */
   reset(): void {
     this.bug_id = 0;
     this.index = -1;
@@ -540,11 +475,10 @@ export class ChartTooltipSk extends ElementSk {
     this.commitRangeSk?.reset();
     this.pointLinks?.reset();
     this.bisectDialog?.reset();
-    this._render();
   }
 
   private unassociateBug() {
-    this.triageMenu!.makeEditAnomalyRequest([this._anomaly!], [this._trace_name], 'RESET');
+    this.triageMenu!.makeEditAnomalyRequest([this.anomaly!], [this._trace_name], 'RESET');
   }
 
   private openBisectDialog() {
@@ -557,132 +491,10 @@ export class ChartTooltipSk extends ElementSk {
 
   setBisectInputParams(preloadInputs: BisectPreloadParams): void {
     this.bisectDialog!.setBisectInputParams(preloadInputs);
-    this._render();
   }
 
   setTryJobInputParams(preloadInputs: TryJobPreloadParams): void {
     this.tryJobDialog!.setTryJobInputParams(preloadInputs);
-    this._render();
-  }
-
-  get index(): number {
-    return this._index;
-  }
-
-  set index(val: number) {
-    this._index = val;
-    this._render();
-  }
-
-  get color(): string {
-    return this._color;
-  }
-
-  set color(val: string) {
-    this._color = val;
-    this._render();
-  }
-
-  get test_name(): string {
-    // TODO(seawardt): Separate long paths.
-    return this._test_name;
-  }
-
-  set test_name(val: string) {
-    this._test_name = val;
-    this._render();
-  }
-
-  get unit_type(): string {
-    return this._unit_type;
-  }
-
-  set unit_type(val: string) {
-    this._unit_type = val;
-    this._render();
-  }
-
-  get y_value(): number {
-    return this._y_value;
-  }
-
-  set y_value(val: number) {
-    this._y_value = val;
-    this._render();
-  }
-
-  get date_value(): Date {
-    return this._date_value;
-  }
-
-  set date_value(val: Date) {
-    this._date_value = val;
-    this._render();
-  }
-
-  get anomaly(): Anomaly | null {
-    return this._anomaly;
-  }
-
-  set anomaly(val: Anomaly | null) {
-    this._anomaly = val;
-    // TODO(jeffyoon@) - include revision formatting and URL
-    // generation
-    this._render();
-  }
-
-  get commit_position(): CommitNumber | null {
-    return this._commit_position;
-  }
-
-  set commit_position(val: CommitNumber | null) {
-    this._commit_position = val;
-    this._render();
-  }
-
-  get bug_host_url(): string {
-    return this._bug_host_url;
-  }
-
-  set bug_host_url(val: string) {
-    this._bug_host_url = val;
-    this._render();
-  }
-
-  get bug_id(): number {
-    return this._bug_id;
-  }
-
-  set bug_id(val: number) {
-    this._bug_id = val;
-    this._render();
-  }
-
-  get commit_info(): ColumnHeader | null {
-    return this._commit_info;
-  }
-
-  set commit_info(val: ColumnHeader | null) {
-    this._commit_info = val;
-    this._render();
-  }
-
-  get tooltip_fixed(): boolean {
-    return this._is_tooltip_fixed;
-  }
-
-  set tooltip_fixed(val: boolean) {
-    this._is_tooltip_fixed = val;
-    this._render();
-  }
-
-  get json_source(): boolean {
-    return this._show_json_source;
-  }
-
-  set json_source(val: boolean) {
-    this._show_json_source = val;
-    this._render();
   }
 
   openNewBug(): void {
@@ -703,5 +515,3 @@ export class ChartTooltipSk extends ElementSk {
     }
   }
 }
-
-define('chart-tooltip-sk', ChartTooltipSk);

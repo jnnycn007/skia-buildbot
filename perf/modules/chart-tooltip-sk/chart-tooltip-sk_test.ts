@@ -91,7 +91,7 @@ describe('chart-tooltip-sk', () => {
   });
 
   describe('set fields', () => {
-    it('anomalies should be set', () => {
+    it('anomalies should be set', async () => {
       element.load(
         1,
         test_name,
@@ -109,13 +109,14 @@ describe('chart-tooltip-sk', () => {
         () => {},
         undefined
       );
+      await element.updateComplete;
       assert.equal(element.test_name, test_name);
       assert.equal(element.y_value, y_value);
       assert.equal(element.commit_position, commit_position);
       assert.isNotNull(element.anomaly);
     });
 
-    it('user issue should be set', () => {
+    it('user issue should be set', async () => {
       element.load(
         1,
         test_name,
@@ -133,6 +134,7 @@ describe('chart-tooltip-sk', () => {
         () => {},
         undefined
       );
+      await element.updateComplete;
       assert.equal(element.test_name, test_name);
       assert.equal(element.y_value, y_value);
       assert.equal(element.commit_position, commit_position);
@@ -140,7 +142,7 @@ describe('chart-tooltip-sk', () => {
       assert.isNotNull(element.anomaly);
     });
 
-    it('should be true when show_json_file_display is true', () => {
+    it('should be true when show_json_file_display is true', async () => {
       window.perf.show_json_file_display = true;
       element = newInstance();
       element.load(
@@ -160,6 +162,7 @@ describe('chart-tooltip-sk', () => {
         () => {},
         undefined
       );
+      await element.updateComplete;
       element.loadJsonResource(commit_position, test_name);
 
       assert.isTrue(element.json_source);
@@ -167,7 +170,7 @@ describe('chart-tooltip-sk', () => {
       assert.equal(element.jsonSourceDialog!.traceid, test_name);
     });
 
-    it('should hide pinpoint buttons when show_bisect_btn is false', () => {
+    it('should hide pinpoint buttons when show_bisect_btn is false', async () => {
       window.perf.show_bisect_btn = false;
       element = newInstance();
       element.load(
@@ -187,6 +190,7 @@ describe('chart-tooltip-sk', () => {
         () => {},
         undefined
       );
+      await element.updateComplete;
 
       const bisectButton = element.querySelector('#bisect') as HTMLButtonElement;
       assert.isTrue(bisectButton.hidden);
@@ -195,7 +199,7 @@ describe('chart-tooltip-sk', () => {
       assert.isTrue(tryJobButton.hidden);
     });
 
-    it('should hide Pinpoint text when no pinpoint buttons are shown', () => {
+    it('should hide Pinpoint text when no pinpoint buttons are shown', async () => {
       window.perf.show_bisect_btn = false;
       window.perf.git_repo_url = ''; // to ensure _show_pinpoint_buttons is false
       element = newInstance();
@@ -217,6 +221,7 @@ describe('chart-tooltip-sk', () => {
         () => {},
         undefined
       );
+      await element.updateComplete;
 
       const tooltipKeys = element.querySelectorAll('#tooltip-key');
       let pinpointKey: HTMLElement | null = null;
@@ -229,7 +234,7 @@ describe('chart-tooltip-sk', () => {
       assert.isTrue(pinpointKey!.parentElement!.parentElement!.hidden);
     });
 
-    it('should hide User Issues text when anomaly is present', () => {
+    it('should hide User Issues text when anomaly is present', async () => {
       element = newInstance();
       element.load(
         1,
@@ -248,6 +253,7 @@ describe('chart-tooltip-sk', () => {
         () => {},
         undefined
       );
+      await element.updateComplete;
 
       const tooltipKeys = element.querySelectorAll('#tooltip-key');
       let userIssuesKey: HTMLElement | null = null;

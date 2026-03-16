@@ -33,10 +33,6 @@ sk_element(
         "//perf/modules/common:anomaly_ts_lib",
         "//:node_modules/@material/web",
         "//:node_modules/lit",
-        "//:node_modules/lit-html",  # keep
-        "//elements-sk/modules:define_ts_lib",
-        "//elements-sk/modules:upgradeproperty_ts_lib",
-        "//infra-sk/modules/ElementSk:index_ts_lib",
         "//perf/modules/common:plot-builder_ts_lib",
         "//perf/modules/json:index_ts_lib",
         "//perf/modules/paramtools:index_ts_lib",
