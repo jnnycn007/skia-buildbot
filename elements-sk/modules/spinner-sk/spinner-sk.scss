@@ -5,7 +5,9 @@ spinner-sk {
   display: none;
   border-radius: 50%;
   width: 32px;
-  height: 32px;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  flex-shrink: 0;
   border: 8px solid var(--primary);
   border-left: 8px solid var(--primary-variant);
   animation: spinner-sk-spin 1.5s infinite linear;
