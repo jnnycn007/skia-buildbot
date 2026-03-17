@@ -1523,8 +1523,7 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
           ? `/m/?begin=${currentState.begin}` +
             `&end=${currentState.end}` +
             `&request_type=${currentState.requestType}` +
-            `&shortcut=${shortcut}` +
-            `&totalGraphs=1`
+            `&shortcut=${shortcut}`
           : '#';
 
         if (newUrl !== '#' && window.perf.default_to_manual_plot_mode) {
@@ -3424,7 +3423,6 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
       window.open(
         `/m/?begin=${this._state.begin}&end=${this._state.end}` +
           `&pageSize=${chartsPerPage}&shortcut=${newShortcut}` +
-          `&totalGraphs=${graphConfigs.length}` +
           `&show_google_plot=true`,
         '_self'
       );

@@ -827,7 +827,7 @@ describe('anomalies-table-sk', () => {
       const weekInSeconds = 604800; // 7 * 24 * 60 * 60
       const expectedBegin = 100 - weekInSeconds;
       const expectedEnd = 200 + weekInSeconds;
-      const expectedUrl = `/m/?begin=${expectedBegin}&end=${expectedEnd}&request_type=0&shortcut=test_shortcut&totalGraphs=1`;
+      const expectedUrl = `/m/?begin=${expectedBegin}&end=${expectedEnd}&request_type=0&shortcut=test_shortcut`;
       assert.include(mockTab.location.href, expectedUrl);
     });
   });

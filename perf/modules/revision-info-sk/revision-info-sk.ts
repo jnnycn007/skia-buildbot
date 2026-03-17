@@ -110,11 +110,7 @@ export class RevisionInfoSk extends ElementSk {
       highlightAnomalies += `&highlight_anomalies=${anomalyId}`;
     });
 
-    const url =
-      `/m/?begin=${begin}&end=${end}` +
-      `&shortcut=${newShortcut}` +
-      `&totalGraphs=${graphConfigs.length}` +
-      `${highlightAnomalies}`;
+    const url = `/m/?begin=${begin}&end=${end}&shortcut=${newShortcut}${highlightAnomalies}`;
 
     return url;
   }

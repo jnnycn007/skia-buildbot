@@ -127,7 +127,7 @@ $$('#open-multi-graph')?.addEventListener('click', () => {
     table.openMultiGraphUrl(
       anomaly_table[0],
       window.open(
-        'http://localhost:46723/m/?begin=1729042589&end=11739042589&request_type=0&shortcut=1&totalGraphs=1',
+        'http://localhost:46723/m/?begin=1729042589&end=11739042589&request_type=0&shortcut=1',
         '_blank'
       )
     );

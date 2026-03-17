@@ -130,7 +130,6 @@ describe('ReportNavigationController', () => {
         'newTab.close() should not be called'
       );
       assert.include(newTab.location.href, 'shortcut=shortcut_id');
-      assert.include(newTab.location.href, 'totalGraphs=1');
       assert.include(newTab.location.href, '/m/?begin=');
     });
 

@@ -642,7 +642,7 @@ describe('updateTestPickerUrl', () => {
     setTimeout(() => {
       assert.equal(
         explore['testPickerUrl'],
-        '/m/?begin=123&end=456&request_type=0&shortcut=shortcut123&totalGraphs=1'
+        '/m/?begin=123&end=456&request_type=0&shortcut=shortcut123'
       );
       done();
     });

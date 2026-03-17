@@ -91,8 +91,6 @@ export class State {
 
   pageOffset: number = 0;
 
-  totalGraphs: number = 0;
-
   plotSummary: boolean = false;
 
   useTestPicker: boolean = false;
@@ -141,6 +139,16 @@ export class ExploreMultiSk extends ElementSk {
   private stateHasChanged: (() => void) | null = null;
 
   private _state: State = new State();
+
+  private _totalGraphs: number = 0;
+
+  public get totalGraphs(): number {
+    return this._totalGraphs;
+  }
+
+  public set totalGraphs(v: number) {
+    this._totalGraphs = v;
+  }
 
   private graphDiv: Element | null = null;
 
@@ -561,7 +569,7 @@ export class ExploreMultiSk extends ElementSk {
       this.allGraphConfigs.splice(1);
       this.allFrameRequests.splice(1);
       this.allFrameResponses.splice(1);
-      this.state.totalGraphs = this.exploreElements.length;
+      this.totalGraphs = this.exploreElements.length;
 
       // Ensure the main graph is in the DOM so it can process data.
       await this.renderCurrentPage(false);
@@ -947,11 +955,11 @@ export class ExploreMultiSk extends ElementSk {
       <pagination-sk
         offset=${ele.state.pageOffset}
         page_size=${ele.state.pageSize}
-        total=${ele.state.totalGraphs}
+        total=${ele.totalGraphs}
         @page-changed=${ele.pageChanged}>
       </pagination-sk>
 
-      ${ele.state.totalGraphs < 10
+      ${ele.totalGraphs < 10
         ? ''
         : html`
             <label>
@@ -976,7 +984,7 @@ export class ExploreMultiSk extends ElementSk {
       <pagination-sk
         offset=${ele.state.pageOffset}
         page_size=${ele.state.pageSize}
-        total=${ele.state.totalGraphs}
+        total=${ele.totalGraphs}
         @page-changed=${ele.pageChanged}>
       </pagination-sk>
       <div id="bottom-spacer"></div>
@@ -1238,7 +1246,7 @@ export class ExploreMultiSk extends ElementSk {
       return;
     }
 
-    if (this.state.totalGraphs === 1) {
+    if (this.totalGraphs === 1) {
       // If there is only one graph with no split or only one trace, then do nothing.
       const groupedLength = Array.from(groupedTraces.values()).reduce(
         (sum, v) => sum + v.length,
@@ -1445,7 +1453,7 @@ export class ExploreMultiSk extends ElementSk {
       // Adjust pagination: if there are no graphs left, reset page offset to 0.
       if (this.exploreElements.length === 0) {
         this.state.pageOffset = 0;
-        this.state.totalGraphs = 0;
+        this.totalGraphs = 0;
         this.testPicker!.autoAddTrace = false;
         this.resetGraphs();
         this.emptyCurrentPage();
@@ -1493,10 +1501,10 @@ export class ExploreMultiSk extends ElementSk {
     const isSummaryView = !this.state.manual_plot_mode && this.allGraphConfigs.length > 1;
 
     if (isSummaryView) {
-      this.state.totalGraphs = this.allGraphConfigs.length - 1;
+      this.totalGraphs = this.allGraphConfigs.length - 1;
     } else {
       // In manual mode, or if there is only 1 graph, we count everything.
-      this.state.totalGraphs = this.allGraphConfigs.length || 1;
+      this.totalGraphs = this.allGraphConfigs.length || 1;
     }
 
     this.emptyCurrentPage();
@@ -1874,7 +1882,7 @@ export class ExploreMultiSk extends ElementSk {
           );
           telemetry.increaseCounter(CountMetric.MultiGraphVisit, {
             trigger: this.loadTrigger,
-            total_graphs: this.state.totalGraphs.toString(),
+            total_graphs: this.totalGraphs.toString(),
           });
           this.initialLoadStartTime = 0;
           this.loadTrigger = '';

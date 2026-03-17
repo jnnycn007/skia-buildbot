@@ -141,7 +141,7 @@ export class ReportNavigationController implements ReactiveController {
       const url =
         `${window.location.protocol}//${window.location.host}` +
         `/m/?begin=${timerange[0]}&end=${timerange[1]}` +
-        `&request_type=0&shortcut=${this.shortcutUrl}&totalGraphs=1`;
+        `&request_type=0&shortcut=${this.shortcutUrl}`;
       shortcutUrlList.push(url);
     }
 

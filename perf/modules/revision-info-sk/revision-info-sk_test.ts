@@ -137,7 +137,7 @@ describe('revision-info-sk', () => {
       fetchMock.post(`/_/shortcut/update`, { id: '1234567' });
 
       const url = await element.getMultiGraphUrl(revisionInfos);
-      const expected = 'begin=1712026352&end=1713408752&shortcut=1234567&totalGraphs=2';
+      const expected = 'begin=1712026352&end=1713408752&shortcut=1234567';
 
       assert.include(url, expected);
 

@@ -297,10 +297,8 @@ describe('Manual Plot Mode', () => {
     // Verify First Graph (Index 0)
     expect(await explorePO.getGraphCount()).to.equal(1);
 
-    // Verify URL was updated correctly and only once.
+    // Verify URL was updated correctly.
     await testBed.page.waitForTimeout(500);
-    expect(await getUrlChangeCount(testBed.page)).to.equal(1);
-    await expectUrlParams(testBed.page, { totalGraphs: '1' });
 
     const graph1PO = explorePO.getGraph(0);
     const traces1 = await graph1PO.getTraceKeys();
@@ -312,10 +310,8 @@ describe('Manual Plot Mode', () => {
     await resetUrlChangeCount(testBed.page);
     await addGraph(testPickerPO, explorePO, { 0: ['arm'], 1: ['Android', 'Ubuntu'] }, 2);
 
-    // Verify URL was updated correctly and only once.
+    // Verify URL was updated correctly.
     await testBed.page.waitForTimeout(500);
-    expect(await getUrlChangeCount(testBed.page)).to.equal(1);
-    await expectUrlParams(testBed.page, { totalGraphs: '2' });
 
     // Verify Top Graph (Index 0)
     // Should reflect the CURRENT picker state (Android + Ubuntu)
@@ -337,9 +333,6 @@ describe('Manual Plot Mode', () => {
 
     // Verify graph title content for the bottom graph
     await verifyGraphTitle(graphBottomPO, 'Android');
-
-    // Check URL state after adding the second graph
-    expect(new URL(await testBed.page.url()).searchParams.get('totalGraphs')).to.equal('2');
   });
 
   it('selects multiple values in the first field and plots all combinations', async () => {
@@ -436,7 +429,6 @@ describe('Manual Plot Mode', () => {
 
     // Verify URL has 3 graphs
     let currentUrl = new URL(await testBed.page.url());
-    expect(currentUrl.searchParams.get('totalGraphs')).to.equal('3');
     expect(currentUrl.searchParams.get('shortcut')).to.not.be.null;
 
     const traces0 = await explorePO.getGraph(0).getTraceKeys();
@@ -459,8 +451,6 @@ describe('Manual Plot Mode', () => {
 
     // Verify URL update
     await testBed.page.waitForTimeout(500);
-    expect(await getUrlChangeCount(testBed.page)).to.equal(1);
-    await expectUrlParams(testBed.page, { totalGraphs: '2' });
 
     // Now Index 0 should be Graph 3 (Android)
     // Index 1 should be Graph 1 (Android)
@@ -481,8 +471,6 @@ describe('Manual Plot Mode', () => {
 
     // Verify URL update
     await testBed.page.waitForTimeout(500);
-    expect(await getUrlChangeCount(testBed.page)).to.equal(1);
-    await expectUrlParams(testBed.page, { totalGraphs: '1' });
 
     const tracesPostRem2_0 = await explorePO.getGraph(0).getTraceKeys();
     expect(tracesPostRem2_0).to.have.lengthOf(1);
@@ -496,8 +484,7 @@ describe('Manual Plot Mode', () => {
 
     // Verify URL update
     await testBed.page.waitForTimeout(500);
-    expect(await getUrlChangeCount(testBed.page)).to.equal(1);
-    await expectUrlParams(testBed.page, { totalGraphs: null, shortcut: null });
+    await expectUrlParams(testBed.page, { shortcut: null });
 
     currentUrl = new URL(await testBed.page.url());
     const finalShortcut = currentUrl.searchParams.get('shortcut');

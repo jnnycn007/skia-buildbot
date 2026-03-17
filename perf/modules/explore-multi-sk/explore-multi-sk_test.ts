@@ -412,7 +412,7 @@ describe('ExploreMultiSk', () => {
     it('resets pagination when the last graph is removed', async () => {
       await element['initializeTestPicker']();
       const graph1 = element['addEmptyGraph']()!;
-      element.state.totalGraphs = 1;
+      element.totalGraphs = 1;
       element.state.pageOffset = 30; // Pretend we are on page 2.
 
       const event = new CustomEvent('remove-explore', {
@@ -424,7 +424,7 @@ describe('ExploreMultiSk', () => {
       assert.equal(element['exploreElements'].length, 0);
       assert.equal(element['allGraphConfigs'].length, 0);
 
-      assert.equal(element.state.totalGraphs, 0);
+      assert.equal(element.totalGraphs, 0);
       // However, the page offset is correctly reset to 0 by a different
       // part of the logic that recalculates the max valid offset.
       assert.equal(element.state.pageOffset, 0, 'Page offset should be reset to 0');
@@ -813,7 +813,7 @@ describe('ExploreMultiSk', () => {
       sinon.stub(element, 'checkDataLoaded' as any);
 
       // Force totalGraphs to > 1 so splitGraphs doesn't return early
-      element.state.totalGraphs = 2;
+      element.totalGraphs = 2;
       element.state.splitByKeys = ['key'];
 
       await element['splitGraphs'](false, true);
@@ -1234,7 +1234,7 @@ describe('ExploreMultiSk', () => {
         new ExploreSimpleSk(),
         new ExploreSimpleSk(),
       ];
-      element.state.totalGraphs = 2;
+      element.totalGraphs = 2;
       element.state.splitByKeys = ['config'];
 
       await element['loadAllCharts']();
@@ -1453,7 +1453,7 @@ describe('ExploreMultiSk', () => {
 
       // Now, simulate clicking "Load All Charts".
       // The button only appears when totalGraphs > 10.
-      element.state.totalGraphs = 11;
+      element.totalGraphs = 11;
       element['_render']();
       const loadAllButton = element.querySelector<HTMLButtonElement>('div#pagination > button');
       assert.isNotNull(loadAllButton, 'Load All Charts button should be visible');
@@ -1563,7 +1563,7 @@ describe('ExploreMultiSk', () => {
 
       const pageSize = 5;
 
-      element.state.totalGraphs = totalGraphs;
+      element.totalGraphs = totalGraphs;
 
       element.state.pageSize = pageSize;
 
