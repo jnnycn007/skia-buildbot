@@ -911,7 +911,8 @@ export class ExploreMultiSk extends ElementSk {
     await this.initializeDefaults();
     this.stateHasChanged = stateReflector(
       () => this.state as unknown as HintableObject,
-      this._onStateChangedInUrl
+      this._onStateChangedInUrl,
+      /*replaceState=*/ true
     );
 
     LoggedIn()

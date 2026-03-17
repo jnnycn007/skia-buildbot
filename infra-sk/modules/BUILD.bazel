@@ -181,3 +181,15 @@ ts_library(
     visibility = ["//visibility:public"],
     deps = ["//:node_modules/@material/material-color-utilities"],
 )
+
+karma_test(
+    name = "statereflector_test",
+    src = "stateReflector_test.ts",
+    deps = [
+        ":statereflector_ts_lib",
+        "//:node_modules/@types/chai",
+        "//:node_modules/@types/sinon",
+        "//:node_modules/chai",
+        "//:node_modules/sinon",
+    ],
+)

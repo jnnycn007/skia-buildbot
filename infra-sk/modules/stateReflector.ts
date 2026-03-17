@@ -44,12 +44,16 @@ import { HintableObject } from './hintable';
  *     object needs to be updated. The object 'o' doesn't need to be copied
  *     as it is a fresh object.
  *
+ * @param replaceState - If true, use history.replaceState() instead of
+ *     history.pushState(). Defaults to false.
+ *
  * @returns A function to call when state has changed and needs to be reflected
  *   to the URL.
  */
 export function stateReflector(
   getState: () => HintableObject,
-  setState: (o: HintableObject) => void
+  setState: (o: HintableObject) => void,
+  replaceState: boolean = false
 ): () => void {
   // The default state of the stateHolder. Used to calculate diffs to state.
   const defaultState = object.deepCopy(getState());
@@ -87,11 +91,12 @@ export function stateReflector(
     // Don't push to state if the current URL and the URL to be pushed are equivalent.
     if (Object.keys(new_delta).length > 0 || Object.keys(old_delta).length > 0) {
       const q = query.fromObject(new_state);
-      window.history.pushState(
-        null,
-        '',
-        `${window.location.origin + window.location.pathname}?${q}`
-      );
+      const url = `${window.location.origin + window.location.pathname}?${q}`;
+      if (replaceState) {
+        window.history.replaceState(null, '', url);
+      } else {
+        window.history.pushState(null, '', url);
+      }
     }
   };
 }
