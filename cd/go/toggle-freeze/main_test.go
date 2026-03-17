@@ -133,8 +133,9 @@ func TestRun_ActionFreeze_FileDoesNotExist_CreatesFileAndPushesCL(t *testing.T) 
 			if len(cmd.Args) >= 3 && cmd.Args[0] == "commit" {
 				// The commit message has a random Change-Id at the end, so we ignore it
 				// by checking its prefix and setting it to a fixed string.
-				require.True(t, strings.HasPrefix(cmd.Args[2], "Toggle freeze perf/FREEZELOCK\n\nChange-Id: I"))
-				cmd.Args[2] = "Toggle freeze perf/FREEZELOCK"
+				t.Logf("Commit message: %q", cmd.Args[2])
+				require.True(t, strings.HasPrefix(cmd.Args[2], "Toggle Perfserver Freeze - on - perf/FREEZELOCK\n\nChange-Id: I"))
+				cmd.Args[2] = "Toggle Perfserver Freeze - on - perf/FREEZELOCK"
 			}
 		}
 
@@ -146,7 +147,7 @@ func TestRun_ActionFreeze_FileDoesNotExist_CreatesFileAndPushesCL(t *testing.T) 
 			{"/usr/bin/git", "config", "--list", "--show-origin"},
 			{"/usr/bin/git", "--version"},
 			{"/usr/bin/git", "add", "perf/FREEZELOCK"},
-			{"/usr/bin/git", "commit", "-m", "Toggle freeze perf/FREEZELOCK"},
+			{"/usr/bin/git", "commit", "-m", "Toggle Perfserver Freeze - on - perf/FREEZELOCK"},
 			{"/usr/bin/git", "push", "origin", "HEAD:refs/for/main%ready,notify=OWNER_REVIEWERS,l=Auto-Submit+1,r=rubber-stamper@appspot.gserviceaccount.com"},
 		}, executedCommands)
 
@@ -183,8 +184,9 @@ func TestRun_ActionUnfreeze_FileExists_DeletesFileAndPushesCL(t *testing.T) {
 		executedCommands := mock.Commands()
 		for _, cmd := range executedCommands {
 			if len(cmd.Args) >= 3 && cmd.Args[0] == "commit" {
-				require.True(t, strings.HasPrefix(cmd.Args[2], "Toggle freeze perf/FREEZELOCK\n\nChange-Id: I"))
-				cmd.Args[2] = "Toggle freeze perf/FREEZELOCK"
+				t.Logf("Commit message: %q", cmd.Args[2])
+				require.True(t, strings.HasPrefix(cmd.Args[2], "Toggle Perfserver Freeze - off - perf/FREEZELOCK\n\nChange-Id: I"))
+				cmd.Args[2] = "Toggle Perfserver Freeze - off - perf/FREEZELOCK"
 			}
 		}
 
@@ -196,7 +198,7 @@ func TestRun_ActionUnfreeze_FileExists_DeletesFileAndPushesCL(t *testing.T) {
 			{"/usr/bin/git", "config", "--list", "--show-origin"},
 			{"/usr/bin/git", "--version"},
 			{"/usr/bin/git", "add", "perf/FREEZELOCK"},
-			{"/usr/bin/git", "commit", "-m", "Toggle freeze perf/FREEZELOCK"},
+			{"/usr/bin/git", "commit", "-m", "Toggle Perfserver Freeze - off - perf/FREEZELOCK"},
 			{"/usr/bin/git", "push", "origin", "HEAD:refs/for/main%ready,notify=OWNER_REVIEWERS,l=Auto-Submit+1,r=rubber-stamper@appspot.gserviceaccount.com"},
 		}, executedCommands)
 
