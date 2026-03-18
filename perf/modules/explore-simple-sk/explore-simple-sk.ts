@@ -2778,7 +2778,7 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
         errorCode: StatusCodes.BAD_REQUEST.toString(),
       });
       logErrorMessage(
-        `No data found for the given query: ${frameResponse.dataframe.traceset}`,
+        `No data found for the given query: ${JSON.stringify(frameResponse.dataframe.traceset)}`,
         EXPLORE_SIMPLE_PAGE_SOURCE
       );
       return;
