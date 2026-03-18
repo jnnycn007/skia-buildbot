@@ -159,29 +159,54 @@ func setupBrowser(cbb *CbbRunnerParams, bi *browserInfo) string {
 
 // Generate Pinpoint job ID. Uses abbreviations to keep the job ID short.
 func genJobId(bi *browserInfo, cbb *CbbRunnerParams, benchmark string) string {
-	// Shorten browser/channel name.
-	// * Browser name is shortened to 3 characters.
-	// * Channel name is omitted if it is "stable".
-	// * Special case: safari technology-preview is abbreviated as "stp".
-	browser := bi.Browser[:3]
-	if bi.Channel != "stable" {
-		if bi.Browser == "safari" && bi.Channel == "technology-preview" {
-			browser = "stp"
-		} else {
-			browser += " " + bi.Channel
-		}
-	}
+	browser := getShortBrowserName(bi.Browser, bi.Channel)
 
 	if cbb.SkipFinch {
 		browser += " sf"
 	}
 
+	version := getShortBrowserVersion(bi.Version, bi.Browser, bi.Channel)
+	bot := getShortBotName(cbb.BotConfig)
+
+	// Shorten benchmark name.
+	if strings.HasPrefix(benchmark, "speedometer") {
+		benchmark = "SP"
+	} else if strings.HasPrefix(benchmark, "jetstream2") {
+		benchmark = "JS2"
+	} else if strings.HasPrefix(benchmark, "jetstream3") {
+		benchmark = "JS3"
+	} else if strings.HasPrefix(benchmark, "loadline2") {
+		benchmark = "LL2"
+	} else if strings.HasPrefix(benchmark, "motionmark") {
+		benchmark = "MM"
+	}
+
+	return fmt.Sprintf("CBB %s %s %s %s", browser, version, bot, benchmark)
+}
+
+// getShortBrowserName returns a shortened version of the browser name,
+// together with the channel name if it is not Stable.
+func getShortBrowserName(browser, channel string) string {
+	// * Browser name is shortened to 3 characters.
+	// * Channel name is omitted if it is "stable".
+	// * Special case: safari technology-preview is abbreviated as "stp".
+	if browser == "safari" && channel == "technology-preview" {
+		return "stp"
+	}
+	browser = browser[:3]
+	if channel != "stable" {
+		browser += " " + channel
+	}
+	return browser
+}
+
+// getShortBrowserVersion returns a shortened browser version number, when appropriate.
+func getShortBrowserVersion(version, browser, channel string) string {
 	// Chrome and Edge versions are used as-is, but Safari versions are too long.
 	// * Safari Stable version looks like "1.2.3 (12345.6.7.8)". Truncate at the space.
 	// * STP version looks like "1.2.3 (Release 123, 12345.6.7.8)". Keep only the release number.
-	version := bi.Version
-	if bi.Browser == "safari" {
-		if bi.Channel == "stable" {
+	if browser == "safari" {
+		if channel == "stable" {
 			space := strings.Index(version, " ")
 			if space != -1 {
 				version = version[:space]
@@ -198,33 +223,22 @@ func genJobId(bi *browserInfo, cbb *CbbRunnerParams, benchmark string) string {
 		}
 	}
 
-	// Shorten bot name.
-	bot := cbb.BotConfig
+	return version
+}
+
+// getShortBotName returns a shortened version of the bot name.
+func getShortBotName(bot string) string {
 	switch bot {
 	case "android-pixel-tangor-perf-cbb":
-		bot = "tang"
+		return "tang"
 	case "mac-m3-pro-perf-cbb":
-		bot = "m3"
+		return "m3"
 	case "win-victus-perf-cbb":
-		bot = "vic"
+		return "vic"
 	case "win-arm64-snapdragon-elite-perf-cbb":
-		bot = "elite"
+		return "elite"
 	}
-
-	// Shorten benchmark name.
-	if strings.HasPrefix(benchmark, "speedometer") {
-		benchmark = "SP"
-	} else if strings.HasPrefix(benchmark, "jetstream2") {
-		benchmark = "JS2"
-	} else if strings.HasPrefix(benchmark, "jetstream3") {
-		benchmark = "JS3"
-	} else if strings.HasPrefix(benchmark, "loadline2") {
-		benchmark = "LL2"
-	} else if strings.HasPrefix(benchmark, "motionmark") {
-		benchmark = "MM"
-	}
-
-	return fmt.Sprintf("CBB %s %s %s %s", browser, version, bot, benchmark)
+	return bot
 }
 
 // Workflow to run all CBB benchmarks on a particular browser / bot config and upload the results.

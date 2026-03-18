@@ -119,7 +119,6 @@ func CbbNewReleaseDetectorWorkflow(ctx workflow.Context) (*ChromeReleaseInfo, er
 
 	if len(commitInfo.Builds) > 0 {
 		// Trigger CBB benchmark runs.
-		ctx = workflow.WithChildOptions(ctx, runBenchmarkWorkflowOptions)
 		commit := common.NewCombinedCommit(common.NewChromiumCommit(commitInfo.CommitHash))
 		cp, err := strconv.ParseInt(commitInfo.CommitPosition, 10, 32)
 		if err != nil {
@@ -130,7 +129,7 @@ func CbbNewReleaseDetectorWorkflow(ctx workflow.Context) (*ChromeReleaseInfo, er
 		for _, build := range commitInfo.Builds {
 			for _, bot := range platformBots[build.Platform] {
 				wg.Add(1)
-				workflow.Go(ctx, func(gCtx workflow.Context) {
+				workflow.Go(ctx, func(ctx workflow.Context) {
 					defer wg.Done()
 					p := &CbbRunnerParams{
 						BotConfig:  bot,
@@ -141,15 +140,24 @@ func CbbNewReleaseDetectorWorkflow(ctx workflow.Context) (*ChromeReleaseInfo, er
 						Benchmarks: nil, // nil means run the standard set of benchmarks
 						Bucket:     bucket,
 					}
+					options := runBenchmarkWorkflowOptions
+					options.WorkflowID = fmt.Sprintf(
+						"cbb_runner-%s-%s-%s",
+						strings.ReplaceAll(getShortBrowserName(build.Browser, build.Channel), " ", "-"),
+						getShortBrowserVersion(build.Version, build.Browser, build.Channel),
+						getShortBotName(bot))
+					ctx = workflow.WithChildOptions(ctx, options)
 					var cr *CommitRun
-					if err := workflow.ExecuteChildWorkflow(ctx, workflows.CbbRunner, p).Get(gCtx, &cr); err != nil {
+					if err := workflow.ExecuteChildWorkflow(ctx, workflows.CbbRunner, p).Get(ctx, &cr); err != nil {
 						sklog.Errorf("Error in CBB runner %#v: %v", p, err)
 					}
 
 					if build.Browser == "chrome" && build.Platform != "android" {
 						// With Chrome on desktop, re-run all benchmarks with Finch control disabled.
 						p.SkipFinch = true
-						if err = workflow.ExecuteChildWorkflow(ctx, workflows.CbbRunner, p).Get(gCtx, &cr); err != nil {
+						options.WorkflowID += "-no-finch"
+						ctx = workflow.WithChildOptions(ctx, options)
+						if err = workflow.ExecuteChildWorkflow(ctx, workflows.CbbRunner, p).Get(ctx, &cr); err != nil {
 							sklog.Errorf("Error in CBB runner %#v: %v", p, err)
 						}
 					}
