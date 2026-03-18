@@ -32,8 +32,9 @@ func TestComputeCQCabeAnalysisResults(t *testing.T) {
 			},
 		}
 		criticalValues := []float64{0.05}
+		threshold := 0.05
 
-		results := computeCQCabeAnalysisResults(res, criticalValues)
+		results := computeCQCabeAnalysisResults(res, criticalValues, threshold)
 
 		assert.Empty(t, results.Results, "Should not find any regressions when T=C")
 	})
@@ -61,8 +62,9 @@ func TestComputeCQCabeAnalysisResults(t *testing.T) {
 			},
 		}
 		criticalValues := []float64{0.05}
+		threshold := 0.05
 
-		results := computeCQCabeAnalysisResults(res, criticalValues)
+		results := computeCQCabeAnalysisResults(res, criticalValues, threshold)
 
 		assert.Len(t, results.Results, 1)
 		assert.NotNil(t, results.Results["Basic.First"])
@@ -91,10 +93,72 @@ func TestComputeCQCabeAnalysisResults(t *testing.T) {
 			},
 		}
 		criticalValues := []float64{0.05}
+		threshold := 0.05
 
-		results := computeCQCabeAnalysisResults(res, criticalValues)
+		results := computeCQCabeAnalysisResults(res, criticalValues, threshold)
 
 		assert.Len(t, results.Results, 1)
+	})
+
+	t.Run("Regression less than threshold should not be significant", func(t *testing.T) {
+		res := []*cpb.AnalysisResult{
+			{
+				ExperimentSpec: &cpb.ExperimentSpec{
+					Analysis: &cpb.AnalysisSpec{
+						Benchmark: []*cpb.Benchmark{
+							{
+								Name:     "jetstream2",
+								Workload: []string{"Basic.First"},
+							},
+						},
+					},
+				},
+				Statistic: &cpb.Statistic{
+					ControlMedian:   100.0,
+					TreatmentMedian: 96.0, // 4% change
+					PValue:          0.01,
+					Lower:           -10.0,
+					Upper:           -2.0,
+				},
+			},
+		}
+		criticalValues := []float64{0.05}
+		threshold := 0.05 // 5% threshold
+
+		results := computeCQCabeAnalysisResults(res, criticalValues, threshold)
+
+		assert.Empty(t, results.Results, "Should not be significant because 4% < 5%")
+	})
+
+	t.Run("NaN PValue with small change but significant CI is still significant", func(t *testing.T) {
+		res := []*cpb.AnalysisResult{
+			{
+				ExperimentSpec: &cpb.ExperimentSpec{
+					Analysis: &cpb.AnalysisSpec{
+						Benchmark: []*cpb.Benchmark{
+							{
+								Name:     "jetstream2",
+								Workload: []string{"Basic.First"},
+							},
+						},
+					},
+				},
+				Statistic: &cpb.Statistic{
+					ControlMedian:   100.0,
+					TreatmentMedian: 99.0, // 1% change
+					PValue:          math.NaN(),
+					Lower:           -1.1,
+					Upper:           -0.9,
+				},
+			},
+		}
+		criticalValues := []float64{0.05}
+		threshold := 0.05 // 5% threshold
+
+		results := computeCQCabeAnalysisResults(res, criticalValues, threshold)
+
+		// This is the current behavior: NaN PValue ignores threshold if CI is significant.
+		assert.Len(t, results.Results, 1, "NaN PValue currently ignores threshold")
 	})
 }
 
@@ -197,4 +261,13 @@ func TestPickAlpha(t *testing.T) {
 	// alpha not provided, use_fdr_control is false
 	assert.Equal(t, defaultAlpha, pickAlpha("", false))
 	assert.Equal(t, defaultAlpha, pickAlpha("not-a-float", false))
+}
+
+func TestPickThreshold(t *testing.T) {
+	// threshold provided
+	assert.Equal(t, 0.1, pickThreshold("0.1"))
+
+	// threshold not provided, use default
+	assert.Equal(t, defaultThreshold, pickThreshold(""))
+	assert.Equal(t, defaultThreshold, pickThreshold("not-a-float"))
 }

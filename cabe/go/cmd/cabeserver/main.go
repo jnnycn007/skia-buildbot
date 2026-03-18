@@ -51,6 +51,9 @@ const (
 	// Based on b/478243891#comment12, we consider 0.075 is a good starting point.
 	// Users can override it via the "alpha" query parameter.
 	defaultFDRAlpha = 0.075
+	// Default threshold for reporting is 5%.
+	// This is only used by perf-on-cq.
+	defaultThreshold = 0.05
 )
 
 func init() {
@@ -232,6 +235,14 @@ func pickAlpha(alphaVal string, useFDR bool) float64 {
 	return alpha
 }
 
+func pickThreshold(thresholdVal string) float64 {
+	threshold, err := strconv.ParseFloat(thresholdVal, 64)
+	if err != nil {
+		return defaultThreshold
+	}
+	return threshold
+}
+
 func (a *App) getCQCabeAnalysisHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
@@ -240,6 +251,8 @@ func (a *App) getCQCabeAnalysisHandler(w http.ResponseWriter, r *http.Request) {
 	sklog.Debugf("[POC] FDR procedure in use? %v", use_fdr_control)
 	alpha := pickAlpha(r.URL.Query().Get("alpha"), use_fdr_control)
 	sklog.Debugf("[POC] Alpha value override? %f", alpha)
+	threshold := pickThreshold(r.URL.Query().Get("threshold"))
+	sklog.Debugf("[POC] Threshold value override? %f", threshold)
 
 	analy := analyzer.New(
 		job_id,
@@ -266,7 +279,7 @@ func (a *App) getCQCabeAnalysisHandler(w http.ResponseWriter, r *http.Request) {
 	// generate the critical values for comparison. Note that the res will be sorted by each p-value.
 	criticalValues := generateCriticalValues(res, use_fdr_control, alpha)
 
-	analysis_results := computeCQCabeAnalysisResults(res, criticalValues)
+	analysis_results := computeCQCabeAnalysisResults(res, criticalValues, threshold)
 
 	if err := json.NewEncoder(w).Encode(analysis_results); err != nil {
 		httputils.ReportError(w, err, "[POC] Failed to write results to response. Error: "+err.Error(),
@@ -276,7 +289,7 @@ func (a *App) getCQCabeAnalysisHandler(w http.ResponseWriter, r *http.Request) {
 	sklog.Debugf("[POC] getCQCabeAnalysisHandle returning respose: %v", analysis_results)
 }
 
-func computeCQCabeAnalysisResults(res []*cpb.AnalysisResult, criticalValues []float64) *CQGetCabeAnalysisResults {
+func computeCQCabeAnalysisResults(res []*cpb.AnalysisResult, criticalValues []float64, threshold float64) *CQGetCabeAnalysisResults {
 	analysis_results := &CQGetCabeAnalysisResults{}
 	analysis_results.Results = make(map[string]*cpb.Statistic)
 	benchmark := ""
@@ -297,6 +310,7 @@ func computeCQCabeAnalysisResults(res []*cpb.AnalysisResult, criticalValues []fl
 		} else {
 			is_improvement = stat.TreatmentMedian <= stat.ControlMedian
 		}
+		median_changed_abs := math.Abs((stat.TreatmentMedian - stat.ControlMedian) / stat.ControlMedian)
 		// Using the same logic as in legacy cabe service.
 		// https://source.chromium.org/chromium/chromium/src/+/main:third_party/catapult/dashboard/sandwich_verification/main.py;l=224
 		if math.IsNaN(stat.PValue) {
@@ -308,7 +322,8 @@ func computeCQCabeAnalysisResults(res []*cpb.AnalysisResult, criticalValues []fl
 				is_significant = true
 			}
 		} else if stat.Lower*stat.Upper > 0 && stat.PValue < criticalValues[i] {
-			is_significant = true
+			// consider significant only when the absolute change is larger than the threshold (default 5%)
+			is_significant = (median_changed_abs > threshold)
 		}
 		if is_significant && !is_improvement {
 			analysis_results.Results[workload] = stat
