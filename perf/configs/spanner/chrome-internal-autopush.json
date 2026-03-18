@@ -4,7 +4,7 @@
     "header_image_url": "/dist/images/chrome-logo.svg",
     "ga_measurement_id": "G-PFC9BX9411",
     "allowed_hosts": [],
-    "backend_host_url": "perf-be-chrome-non-public.perf.svc.cluster.local:8000",
+    "backend_host_url": "perf-be-chrome-non-public-autopush.perf.svc.cluster.local:8000",
     "contact": "browser-perf-engprod@google.com",
     "instance_name": "chrome-internal (Autopush)",
     "trace_sample_proportion": 0.1,
