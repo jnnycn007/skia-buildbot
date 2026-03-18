@@ -18,7 +18,9 @@
     "connection_string": "postgresql://root@localhost:5432/skia?sslmode=disable",
     "tile_size": 256,
     "enable_follower_reads": true,
-    "min_db_connections": 5
+    "min_db_connections": 5,
+    "query_traces_pool_size": 10,
+    "query_traces_chunk_size": 500
   },
   "experiments": {
   },

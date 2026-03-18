@@ -410,6 +410,12 @@ type SQLTraceStore struct {
 	// tileSize is the number of commits per Tile.
 	tileSize int32
 
+	// queryTracesPoolSize is the number of parallel requests when querying trace values (default 10)
+	queryTracesPoolSize int
+
+	// queryTracesChunkSize is the size of traces chunk per request (default 5)
+	queryTracesChunkSize int
+
 	traceParamStore tracestore.TraceParamStore
 
 	// metrics
@@ -456,12 +462,23 @@ func New(db pool.Pool, datastoreConfig config.DataStoreConfig, traceParamStore t
 		return nil, skerr.Fmt("inMemoryTraceParams cannot be nil")
 	}
 
+	poolSize := int(datastoreConfig.QueryTracesPoolSize)
+	if poolSize <= 0 {
+		poolSize = 10
+	}
+	chunkSize := int(datastoreConfig.QueryTracesChunkSize)
+	if chunkSize <= 0 {
+		chunkSize = 5
+	}
+
 	ret := &SQLTraceStore{
 		db:                                     db,
 		inMemoryTraceParams:                    inMemoryTraceParams,
 		unpreparedStatements:                   unpreparedStatements,
 		statements:                             statements,
 		tileSize:                               datastoreConfig.TileSize,
+		queryTracesPoolSize:                    poolSize,
+		queryTracesChunkSize:                   chunkSize,
 		cache:                                  cache,
 		orderedParamSetCache:                   paramSetCache,
 		traceParamStore:                        traceParamStore,
@@ -889,7 +906,7 @@ func (s *SQLTraceStore) readTracesByChannelForCommitRange(ctx context.Context, t
 	sourceFileMap := map[string]*types.TraceSourceInfo{}
 
 	// Iterate over the traceIDs in chunks and query the database in parallel.
-	err = util.ChunkIterParallelPool(ctx, len(traceIDsForQuery), 5, 10, func(ctx context.Context, startIdx, endIdx int) error {
+	err = util.ChunkIterParallelPool(ctx, len(traceIDsForQuery), s.queryTracesChunkSize, s.queryTracesPoolSize, func(ctx context.Context, startIdx, endIdx int) error {
 		chunk := traceIDsForQuery[startIdx:endIdx]
 		if err := s.readTracesChunk(ctx, beginCommit, endCommit, commits, chunk, &mutex, traceNameMap, &ret, sourceFileMap); err != nil {
 			return skerr.Wrap(err)

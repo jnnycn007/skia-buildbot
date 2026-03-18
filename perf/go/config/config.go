@@ -179,6 +179,12 @@ type DataStoreConfig struct {
 	// connections to be maintained in the connection pool.
 	MinimumConnectionsInDBPool int32 `json:"min_db_connections,omitempty"`
 
+	// QueryTracesPoolSize is the number of parallel requests when querying trace values (default 5).
+	QueryTracesPoolSize int32 `json:"query_traces_pool_size,omitempty"`
+
+	// QueryTracesChunkSize is the number of traces to query in a single request (default 10).
+	QueryTracesChunkSize int32 `json:"query_traces_chunk_size,omitempty"`
+
 	// Extra (generated) columns to index in TraceParams table
 	TraceParamsParamIndexes []string `json:"traceparams_param_indexes,omitempty"`
 }

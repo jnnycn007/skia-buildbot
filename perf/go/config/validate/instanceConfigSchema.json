@@ -144,6 +144,12 @@
         "min_db_connections": {
           "type": "integer"
         },
+        "query_traces_pool_size": {
+          "type": "integer"
+        },
+        "query_traces_chunk_size": {
+          "type": "integer"
+        },
         "traceparams_param_indexes": {
           "items": {
             "type": "string"
