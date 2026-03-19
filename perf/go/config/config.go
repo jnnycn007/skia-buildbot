@@ -509,6 +509,7 @@ type FrontendFlags struct {
 	FeedbackURL                string
 	DisableMetricsUpdate       bool
 	VersionFile                string
+	BuildDateFile              string
 	DisableShortcutUpdate      bool
 }
 
@@ -694,6 +695,12 @@ show up as a query option in the UI for the "test" key.
 			Name:        "version_file",
 			Value:       "",
 			Usage:       "Path to the file containing the application build version (git hash).",
+		},
+		&cli.StringFlag{
+			Destination: &flags.BuildDateFile,
+			Name:        "build_date_file",
+			Value:       "",
+			Usage:       "Path to the file containing the application build date.",
 		},
 	}
 }

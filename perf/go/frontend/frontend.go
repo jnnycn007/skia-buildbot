@@ -195,6 +195,7 @@ type Frontend struct {
 	issuetracker issuetracker.IssueTracker
 
 	appVersion string
+	buildDate  string
 }
 
 // New returns a new Frontend instance.
@@ -305,6 +306,7 @@ type SkPerfConfig struct {
 	ShowHashRangesInTooltip     bool               `json:"show_hash_ranges_in_tooltip,omitempty"` // Boolean to display hash ranges instead of commit positions in tooltip.
 	AlwaysShowCommitInfo        bool               `json:"always_show_commit_info"`               // Boolean to display commit author and hash.
 	AppVersion                  string             `json:"app_version"`                           // The git revision of the buildbot repo this instance was built from.
+	BuildDate                   string             `json:"build_date,omitempty"`                  // The date the build was created.
 	EnableV2UI                  bool               `json:"enable_v2_ui"`                          // True if V2 UI can be toggled.
 	DevMode                     bool               `json:"dev_mode"`
 	ExtraLinks                  *config.ExtraLinks `json:"extra_links"` // Extra links to be display on a dedicated page.
@@ -358,6 +360,7 @@ func (f *Frontend) getPageContext() (template.JS, error) {
 		ShowBisectBtn:               config.Config.ShowBisectBtn,
 		ShowHashRangesInTooltip:     config.Config.ShowHashRangesInTooltip,
 		AppVersion:                  f.appVersion,
+		BuildDate:                   f.buildDate,
 		EnableV2UI:                  config.Config.EnableV2UI,
 		DevMode:                     f.flags.DevMode,
 		ExtraLinks:                  config.Config.ExtraLinks,
@@ -420,6 +423,22 @@ func (f *Frontend) loadAppVersion() {
 	sklog.Infof("Application version: %s", f.appVersion)
 }
 
+func (f *Frontend) loadBuildDate() {
+	// Read the build date file.
+	if f.flags.BuildDateFile == "" {
+		f.buildDate = "-"
+	} else {
+		dateData, err := os.ReadFile(f.flags.BuildDateFile)
+		if err != nil {
+			sklog.Errorf("Failed to read build date file at %s: %s", f.flags.BuildDateFile, err)
+			f.buildDate = ""
+		} else {
+			f.buildDate = strings.TrimSpace(string(dateData))
+		}
+	}
+	sklog.Infof("Build date: %s", f.buildDate)
+}
+
 // initialize the application.
 func (f *Frontend) initialize() {
 	rand.Seed(time.Now().UnixNano())
@@ -435,6 +454,7 @@ func (f *Frontend) initialize() {
 	_ = metrics2.NewLiveness("uptime", nil)
 
 	f.loadAppVersion()
+	f.loadBuildDate()
 
 	// Add tracker for long running requests.
 	var err error

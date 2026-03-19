@@ -36,6 +36,7 @@ window.perf = Object.assign(
     show_triage_link: true,
     show_bisect_btn: true,
     app_version: '33f07b6a266149a5355120d8b082880b2e98b73e',
+    build_date: '2026-03-18',
     enable_v2_ui: false,
   },
   window.perf || {}

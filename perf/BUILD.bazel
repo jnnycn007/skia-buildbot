@@ -9,6 +9,13 @@ genrule(
     stamp = 1,
 )
 
+genrule(
+    name = "gen_date",
+    outs = ["DATE.txt"],
+    cmd = "date -u +'%Y-%m-%d' > $@",
+    stamp = 1,
+)
+
 filegroup(
     name = "configs",
     srcs = glob(["configs/*.json"]),
@@ -130,6 +137,10 @@ skia_app_container(
                 ":gen_version",
                 "0644",
             ],
+            [
+                ":gen_date",
+                "0644",
+            ],
         ],
     },
     entrypoint = ["/usr/local/bin/perfserver"],
@@ -193,7 +204,10 @@ skia_app_container(
 sh_test(
     name = "gen_version_test",
     srcs = ["gen_version_test.sh"],
-    data = [":gen_version"],
+    data = [
+        ":gen_date",
+        ":gen_version",
+    ],
 )
 
 ts_library(

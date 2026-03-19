@@ -263,16 +263,17 @@ export class PerfScaffoldSk extends ElementSk {
 
   private appVersionTemplate() {
     const appVersion = window.perf.app_version || `dev-${new Date().toISOString()}`;
-
-    // 1. Try to parse as a dev date (with or without 'dev-' prefix)
+    const buildDate = window.perf.build_date;
 
     const dateStr = appVersion.startsWith('dev-') ? appVersion.substring(4) : appVersion;
-
     const date = new Date(dateStr);
 
-    // Check if it's a valid date and looks like a timestamp (e.g. has '-' and ':')
-
-    // to avoid false positives with some hash-like strings that might parse as dates.
+    let buildDateTemplate = html``;
+    if (buildDate) {
+      buildDateTemplate = html`<div class="build-date" title="Build Date">
+        Build: ${buildDate}
+      </div>`;
+    }
 
     if (!isNaN(date.getTime()) && dateStr.includes('-') && dateStr.includes(':')) {
       const pad = (n: number) => n.toString().padStart(2, '0');
@@ -281,22 +282,31 @@ export class PerfScaffoldSk extends ElementSk {
         date.getUTCDate()
       )} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())} UTC`;
 
-      return html`<a class="version" title="${appVersion}"
-        ><span>dev-build (${formattedDate})</span></a
-      >`;
+      return html`
+        <div class="version-container">
+          <a class="version" title="${appVersion}">
+            <span>dev-build (${formattedDate})</span>
+          </a>
+        </div>
+      `;
     }
 
     // 2. Treat as git hash (long or short)
 
     const shortHash = appVersion.length >= 7 ? appVersion.substring(0, 7) : appVersion;
 
-    return html`<a
-      class="version"
-      href="${SKIA_INFRA_REPO}/+/${appVersion}"
-      target="_blank"
-      title="${appVersion}">
-      <span>Ver: ${shortHash}</span>
-    </a>`;
+    return html`
+      <div class="version-container">
+        <a
+          class="version"
+          href="${SKIA_INFRA_REPO}/+/${appVersion}"
+          target="_blank"
+          title="${appVersion}">
+          <span>Ver: ${shortHash}</span>
+        </a>
+        ${buildDateTemplate}
+      </div>
+    `;
   }
 
   private chatLinkTemplate() {

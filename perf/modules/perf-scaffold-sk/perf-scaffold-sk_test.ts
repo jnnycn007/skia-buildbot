@@ -48,6 +48,7 @@ describe('perf-scaffold-sk', () => {
       show_triage_link: true,
       show_bisect_btn: true,
       app_version: 'test-version',
+      build_date: '2026-03-18',
       enable_v2_ui: false,
       dev_mode: false,
     } as unknown as SkPerfConfig;
@@ -157,6 +158,25 @@ describe('perf-scaffold-sk', () => {
     });
     const title = element.querySelector('.name');
     assert.equal(title?.textContent, 'Bar');
+  });
+
+  it('renders build date', async () => {
+    window.perf.build_date = '2026-03-18';
+    element = newInstance((_) => {
+      localStorage.removeItem('v2_ui');
+    });
+    const buildDate = element.querySelector('.build-date');
+    assert.equal(buildDate?.textContent?.trim(), 'Build: 2026-03-18');
+  });
+
+  it('does not render build date for dev-build', async () => {
+    window.perf.app_version = 'dev-2025-11-10T21:55:47Z';
+    window.perf.build_date = '2025-11-10';
+    element = newInstance((_) => {
+      localStorage.removeItem('v2_ui');
+    });
+    const buildDate = element.querySelector('.build-date');
+    assert.isNull(buildDate);
   });
 
   it('renders gemini-side-panel-sk in V2 UI', async () => {

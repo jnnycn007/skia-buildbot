@@ -67,6 +67,35 @@ describe('perf-scaffold-sk', () => {
     );
   });
 
+  it('renders build date', async () => {
+    await testBed.page.evaluateOnNewDocument(() => {
+      (window as any).perf = {
+        app_version: '83cd5d7049b8b69435b93c4778235f5ce8816ac3',
+        build_date: '2026-03-18',
+        enable_v2_ui: false,
+      };
+    });
+    await testBed.page.goto(testBed.baseUrl);
+    const buildDateDiv = await testBed.page.$('#links .build-date');
+    expect(buildDateDiv).to.not.equal(null);
+    const text = await testBed.page.evaluate((el) => el!.textContent, buildDateDiv);
+    // https://screenshot.googleplex.com/3q9JcBR5rKsTSH4
+    expect(text).to.contain('Build: 2026-03-18');
+  });
+
+  it('does not render build date for dev-build', async () => {
+    await testBed.page.evaluateOnNewDocument(() => {
+      (window as any).perf = {
+        app_version: 'dev-2025-11-10T21:55:47Z',
+        build_date: '2025-11-10',
+        enable_v2_ui: false,
+      };
+    });
+    await testBed.page.goto(testBed.baseUrl);
+    const buildDateDiv = await testBed.page.$('#links .build-date');
+    expect(buildDateDiv).to.equal(null);
+  });
+
   it('renders dev timestamp version', async () => {
     await testBed.page.evaluateOnNewDocument(() => {
       (window as any).perf = {
