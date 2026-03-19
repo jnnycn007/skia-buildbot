@@ -41,13 +41,13 @@ import (
 // DO NOT DROP TABLES IN VAR BELOW.
 // FOR MODIFYING COLUMNS USE ADD/DROP COLUMN INSTEAD.
 var FromLiveToNextSpanner = `
-	ALTER TABLE Regressions2 ADD COLUMN trace_id BYTEA;
+	CREATE INDEX by_trace_id_and_commit ON Regressions2(trace_id, commit_number);
 `
 
 // ONLY DROP TABLE IF YOU JUST CREATED A NEW TABLE.
 // FOR MODIFYING COLUMNS USE ADD/DROP COLUMN INSTEAD.
 var FromNextToLiveSpanner = `
-	ALTER TABLE Regressions2 DROP COLUMN trace_id;
+	DROP INDEX by_trace_id_and_commit;
 `
 
 // This function will check whether there's a new schema checked-in,

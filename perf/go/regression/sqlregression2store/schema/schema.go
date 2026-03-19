@@ -69,4 +69,7 @@ type Regression2Schema struct {
 
 	// Index used to query regressions by revision number. Tailored for GetByRevision query.
 	byCommitAndPrevCommitIndex struct{} `sql:"INDEX by_commit_and_prev_commit (commit_number, prev_commit_number)"`
+
+	// Tailored for ReadRangeFiltered - by TraceId.
+	byTraceIdAndCommit struct{} `sql:"INDEX by_trace_id_and_commit (trace_id, commit_number)"`
 }

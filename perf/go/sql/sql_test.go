@@ -49,6 +49,7 @@ const DropSpannerIndices = `
   DROP INDEX IF EXISTS by_source_file_id;
   DROP INDEX IF EXISTS by_trace_id_tv2;
   DROP INDEX IF EXISTS by_commit_and_prev_commit;
+	DROP INDEX IF EXISTS by_trace_id_and_commit;
   DROP INDEX IF EXISTS idx_alerts_subname;
   DROP INDEX IF EXISTS by_sub_name_creation_time;
 `
@@ -158,6 +159,7 @@ CREATE TABLE IF NOT EXISTS Regressions2 (
   cluster_summary JSONB,
   frame JSONB,
   sub_name TEXT,
+	trace_id BYTEA,
   triage_status TEXT,
   triage_message TEXT,
   createdat TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
