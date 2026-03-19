@@ -138,6 +138,7 @@ func main() {
 	w.RegisterWorkflowWithOptions(internal.PostBugCommentWorkflow, workflow.RegisterOptions{Name: workflows.BugUpdate})
 
 	// CBB workflows and activities registration.
+	w.RegisterActivity(internal.SendEmailActivity)
 	w.RegisterActivity(internal.ReadGitFileActivity)
 	w.RegisterActivity(internal.GetChromeReleasesInfoActivity)
 	w.RegisterActivity(internal.CollectBrowserVersionsActivity)

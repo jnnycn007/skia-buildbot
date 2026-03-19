@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
 	"log"
 	"net/http"
 	"strconv"
@@ -67,6 +68,10 @@ const (
 	// https://source.chromium.org/chromium/chromium/src/+/main:testing/scripts/run_performance_tests.py.
 	browserVersionsBenchmark = "browser_versions"
 	browserVersionsFilename  = "browser_versions.json"
+
+	// Email address to send notification when a CBB job fails.
+	// TODO(b/485974383): Change to "chrome-cbb@google.com" when ready.
+	errorNotificationEmail = "zhanliang@google.com"
 )
 
 // All Mac bot config names, with the number of devices in each config.
@@ -140,26 +145,18 @@ func CbbNewReleaseDetectorWorkflow(ctx workflow.Context) (*ChromeReleaseInfo, er
 						Benchmarks: nil, // nil means run the standard set of benchmarks
 						Bucket:     bucket,
 					}
-					options := runBenchmarkWorkflowOptions
-					options.WorkflowID = fmt.Sprintf(
+					workflowID := fmt.Sprintf(
 						"cbb_runner-%s-%s-%s",
 						strings.ReplaceAll(getShortBrowserName(build.Browser, build.Channel), " ", "-"),
 						getShortBrowserVersion(build.Version, build.Browser, build.Channel),
 						getShortBotName(bot))
-					ctx = workflow.WithChildOptions(ctx, options)
-					var cr *CommitRun
-					if err := workflow.ExecuteChildWorkflow(ctx, workflows.CbbRunner, p).Get(ctx, &cr); err != nil {
-						sklog.Errorf("Error in CBB runner %#v: %v", p, err)
-					}
+					callCbbRunner(ctx, p, workflowID)
 
 					if build.Browser == "chrome" && build.Platform != "android" {
 						// With Chrome on desktop, re-run all benchmarks with Finch control disabled.
 						p.SkipFinch = true
-						options.WorkflowID += "-no-finch"
-						ctx = workflow.WithChildOptions(ctx, options)
-						if err = workflow.ExecuteChildWorkflow(ctx, workflows.CbbRunner, p).Get(ctx, &cr); err != nil {
-							sklog.Errorf("Error in CBB runner %#v: %v", p, err)
-						}
+						workflowID += "-no-finch"
+						callCbbRunner(ctx, p, workflowID)
 					}
 				})
 			}
@@ -309,4 +306,42 @@ func CollectBrowserVersionsActivity(ctx context.Context, browser string, platfor
 	}
 
 	return results, nil
+}
+
+func callCbbRunner(ctx workflow.Context, p *CbbRunnerParams, workflowID string) {
+	options := runBenchmarkWorkflowOptions
+	options.WorkflowID = workflowID
+	ctx = workflow.WithChildOptions(ctx, options)
+	var cr *CommitRun
+	if err := workflow.ExecuteChildWorkflow(ctx, workflows.CbbRunner, p).Get(ctx, &cr); err != nil {
+		sklog.Errorf("Error in CBB runner %#v: %v", p, err)
+		sendCbbRunnerErrorEmail(ctx, options.WorkflowID, p, err)
+	}
+}
+
+func sendCbbRunnerErrorEmail(ctx workflow.Context, id string, p *CbbRunnerParams, err error) {
+	subject := fmt.Sprintf("CBB runner \"%s\" failed", id)
+	body := fmt.Sprintf(`CBB runner "%s" failed:
+<ul>
+<li> Bot: %s</li>
+<li> Browser: %s</li>
+<li> Channel: %s</li>
+<li> Commit: %s</li>
+<li> Skip Finch: %v</li>
+<li> Error: %v</li>
+</ul>`,
+		html.EscapeString(id),
+		html.EscapeString(p.BotConfig),
+		html.EscapeString(p.Browser),
+		html.EscapeString(p.Channel),
+		html.EscapeString(p.Commit.GetMainGitHash()),
+		p.SkipFinch,
+		html.EscapeString(err.Error()))
+	ctx = workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
+		StartToCloseTimeout: 1 * time.Minute,
+		RetryPolicy: &temporal.RetryPolicy{
+			MaximumAttempts: 1,
+		},
+	})
+	_ = workflow.ExecuteActivity(ctx, SendEmailActivity, []string{errorNotificationEmail}, subject, body).Get(ctx, nil)
 }
