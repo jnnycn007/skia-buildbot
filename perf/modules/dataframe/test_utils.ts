@@ -64,28 +64,28 @@ export const generateFullDataFrame = (
   traceValues: (number[] | null)[] = [],
   keys?: string[]
 ): DataFrame => {
-  const offsets = Array(range.end - range.begin).fill(0);
+  const numOffsets = range.end - range.begin;
+  const offsets = Array(numOffsets).fill(0);
   const traces = Array(tracesCount).fill(0);
   const traceKeys = keys ?? traces.map((_, v) => `,key=${v}`);
-  // A helper function to generate the timestamp at index.
-  // The timeSpans are accumulated one by one.
-  const timeSpan = (idx: number) =>
-    Array(idx)
-      .fill(0)
-      .reduce((pre, _, idx) => pre + timeSpans[idx % timeSpans.length], 0);
+
+  const header: ColumnHeader[] = [];
+  let currentTime = time;
+  for (let i = 0; i < numOffsets; i++) {
+    header.push({
+      offset: range.begin + i,
+      timestamp: currentTime,
+    } as ColumnHeader);
+    currentTime += timeSpans[i % timeSpans.length];
+  }
+
   return {
-    header: offsets.map(
-      (_, v) =>
-        ({
-          offset: range.begin + v,
-          timestamp: time + timeSpan(v),
-        }) as ColumnHeader
-    ),
+    header: header,
     traceset: Object.fromEntries(
       traces.map((_, v) => [
         traceKeys[v],
         containsAtLeastOneNumber(traceValues[v])
-          ? generateTraceFromTemplate(traceValues[v]!, offsets.length)
+          ? generateTraceFromTemplate(traceValues[v]!, numOffsets)
           : (offsets.map(() => Math.random()) as Trace),
       ])
     ) as TraceSet,

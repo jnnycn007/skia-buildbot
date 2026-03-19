@@ -130,7 +130,7 @@ export const dataframeRepoContext = createContext<DataFrameRepository>(
 
 const emptyResolver = (_1: number) => {};
 
-const MAX_DATAPOINTS = 5000;
+const MAX_DATAPOINTS = 20000;
 
 @customElement('dataframe-repository-sk')
 export class DataFrameRepository extends LitElement {

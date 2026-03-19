@@ -245,7 +245,7 @@ export class PlotSummarySk extends LitElement {
           })
         );
       } else {
-        await this.dfRepo?.extendRange(chunk * direction);
+        await this.dfRepo?.extendRange(chunk * direction, false);
       }
       btn.selected = false;
     };
