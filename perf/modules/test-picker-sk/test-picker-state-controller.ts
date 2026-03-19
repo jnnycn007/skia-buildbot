@@ -55,6 +55,8 @@ export class TestPickerStateController implements ReactiveController {
 
   forceManualPlot: boolean = false;
 
+  initialParams: string[] = [];
+
   constructor(host: TestPickerStateControllerHost) {
     (this.host = host).addController(this);
   }
@@ -70,6 +72,7 @@ export class TestPickerStateController implements ReactiveController {
     readOnly: boolean,
     forceManualPlot: boolean = false
   ): Promise<void> {
+    this.initialParams = params;
     this.forceManualPlot = forceManualPlot;
     this.defaultParams = defaultParams;
     this.initializeFieldData(params);
@@ -460,7 +463,8 @@ export class TestPickerStateController implements ReactiveController {
     hasGraphLoaded: boolean = false
   ): Promise<void> {
     const uniqueParamKeys = [...new Set([...Object.keys(paramSets), ...Object.keys(paramSet)])];
-    this.initializeFieldData(uniqueParamKeys);
+    const filteredKeys = this.initialParams.filter((key) => uniqueParamKeys.includes(key));
+    this.initializeFieldData(filteredKeys);
     this.currentIndex = 0;
     if (Object.keys(paramSet).length === 0 && !this.forceManualPlot) {
       this.autoAddTrace = true;

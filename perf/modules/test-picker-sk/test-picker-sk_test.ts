@@ -852,4 +852,28 @@ describe('Auto Add Trace Logic', () => {
 
     expect(eventFired).to.be.true;
   });
+
+  describe('populateFieldDataFromParamSet', () => {
+    it('should only populate fields defined in initialParams and ignore extra paramSets data', async () => {
+      // Simulate explore-multi-sk initializing with a strict set of include_params
+      await element.initializeTestPicker(['benchmark', 'bot'], {}, false);
+      await element.updateComplete;
+
+      // Simulate a graph with an unexpected/extra trace parameter
+      const paramSet = {
+        benchmark: ['benchmark1'],
+        bot: ['bot1'],
+        unexpected_field: ['value1'], // This should be ignored
+      };
+
+      await element.populateFieldDataFromParamSet(paramSet, paramSet, []);
+      await element.updateComplete;
+
+      const fields = element.querySelectorAll('picker-field-sk');
+      // Should strictly equal 2 fields based on initializeTestPicker, NOT 3.
+      expect(fields.length).to.equal(2);
+      expect(fields[0].getAttribute('label')).to.equal('benchmark');
+      expect(fields[1].getAttribute('label')).to.equal('bot');
+    });
+  });
 });
