@@ -89,5 +89,6 @@
     "fetch_anomalies_from_sql": true,
     "use_regression2_schema": true,
     "trace_format": "chrome",
-    "default_to_manual_plot_mode": true
+    "default_to_manual_plot_mode": true,
+    "allow_multiple_regressions_per_alert_id": true
   }
