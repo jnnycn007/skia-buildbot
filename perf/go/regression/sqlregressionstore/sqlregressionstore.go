@@ -384,6 +384,11 @@ func (s *SQLRegressionStore) GetIdsByManualTriageBugID(ctx context.Context, bugI
 	return nil, skerr.Fmt("GetIdsByManualTriageBugID are not implemented in old version of regression store.")
 }
 
+// Not implemented, old regressions will not be developed.
+func (s *SQLRegressionStore) GetByRegressionShortcut(ctx context.Context, sid string) ([]*regression.Regression, error) {
+	return nil, skerr.Fmt("GetByRegressionShortcut is not implemented in old version of regression store.")
+}
+
 // Not implemented, old regression will not be developed
 func (s *SQLRegressionStore) GetByRevision(ctx context.Context, revision string) ([]*regression.Regression, error) {
 	return nil, skerr.Fmt("GetByRev is not implemented in old version of regression store.")

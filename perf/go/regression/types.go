@@ -50,6 +50,9 @@ type Store interface {
 	// GetIdsByManualTriageBugID returns a list of distinct regression ids with given manual triage bug id.
 	GetIdsByManualTriageBugID(ctx context.Context, bugID int) ([]string, error)
 
+	// GetByRegressionShortcut selects according to RegressionsShortcut table
+	GetByRegressionShortcut(ctx context.Context, sid string) ([]*Regression, error)
+
 	// Return a list of regressions satisfying: previous_commit < rev <= commit.
 	GetByRevision(ctx context.Context, rev string) ([]*Regression, error)
 

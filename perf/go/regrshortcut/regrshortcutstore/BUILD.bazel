@@ -1,0 +1,32 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "regressionsshortcutstore",
+    srcs = [
+        "store.go",
+        "types.go",
+    ],
+    importpath = "go.skia.org/infra/perf/go/regressionsshortcut/regressionsshortcutstore",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//go/skerr",
+        "//go/sql/pool",
+        "//perf/go/config",
+        "//perf/go/types",
+    ],
+)
+
+go_library(
+    name = "regrshortcutstore",
+    srcs = [
+        "store.go",
+        "types.go",
+    ],
+    importpath = "go.skia.org/infra/perf/go/regrshortcut/regrshortcutstore",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//go/skerr",
+        "//go/sql/pool",
+        "//perf/go/types",
+    ],
+)

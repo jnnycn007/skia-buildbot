@@ -567,6 +567,10 @@ func (s *SQLRegression2Store) GetIdsByManualTriageBugID(ctx context.Context, bug
 	return regIDs, nil
 }
 
+func (s *SQLRegression2Store) GetByRegressionShortcut(ctx context.Context, sid string) ([]*regression.Regression, error) {
+	return nil, skerr.Fmt("UNIMPLEMENTED")
+}
+
 // Get a list of regressions given a revision.
 func (s *SQLRegression2Store) GetByRevision(ctx context.Context, rev string) ([]*regression.Regression, error) {
 	revInt, err := strconv.ParseInt(rev, 10, 64)
