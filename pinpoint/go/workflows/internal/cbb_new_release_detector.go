@@ -131,32 +131,47 @@ func CbbNewReleaseDetectorWorkflow(ctx workflow.Context) (*ChromeReleaseInfo, er
 		}
 		commit.Main.CommitPosition = int32(cp)
 		wg := workflow.NewWaitGroup(ctx)
+
+		// Runs can be triggered in parallel on different platforms (Mac, Windows, etc),
+		// and also on different bot configs in the same platform (e.g., Intel Windows
+		// and ARM Windows), but runs on the same bot config should not be triggered in
+		// parallel, to avoid unnecessary comptition of bot resources. To make this
+		// possible, we first group the builds based on their platforms.
+		platformBuilds := make(map[string][]BuildInfo)
 		for _, build := range commitInfo.Builds {
-			for _, bot := range platformBots[build.Platform] {
+			platformBuilds[build.Platform] = append(platformBuilds[build.Platform], build)
+		}
+		for platform, builds := range platformBuilds {
+			for _, bot := range platformBots[platform] {
 				wg.Add(1)
+				// Starting of the parallelism boundary. We kick off the following code
+				// block in parallel on all bot configs, but the logic inside the code
+				// block runs sequentially on a particular bot config.
 				workflow.Go(ctx, func(ctx workflow.Context) {
 					defer wg.Done()
-					p := &CbbRunnerParams{
-						BotConfig:  bot,
-						Commit:     commit,
-						Browser:    build.Browser,
-						Channel:    build.Channel,
-						SkipFinch:  false,
-						Benchmarks: nil, // nil means run the standard set of benchmarks
-						Bucket:     bucket,
-					}
-					workflowID := fmt.Sprintf(
-						"cbb_runner-%s-%s-%s",
-						strings.ReplaceAll(getShortBrowserName(build.Browser, build.Channel), " ", "-"),
-						getShortBrowserVersion(build.Version, build.Browser, build.Channel),
-						getShortBotName(bot))
-					callCbbRunner(ctx, p, workflowID)
-
-					if build.Browser == "chrome" && build.Platform != "android" {
-						// With Chrome on desktop, re-run all benchmarks with Finch control disabled.
-						p.SkipFinch = true
-						workflowID += "-no-finch"
+					for _, build := range builds {
+						p := &CbbRunnerParams{
+							BotConfig:  bot,
+							Commit:     commit,
+							Browser:    build.Browser,
+							Channel:    build.Channel,
+							SkipFinch:  false,
+							Benchmarks: nil, // nil means run the standard set of benchmarks
+							Bucket:     bucket,
+						}
+						workflowID := fmt.Sprintf(
+							"cbb_runner-%s-%s-%s",
+							strings.ReplaceAll(getShortBrowserName(build.Browser, build.Channel), " ", "-"),
+							getShortBrowserVersion(build.Version, build.Browser, build.Channel),
+							getShortBotName(bot))
 						callCbbRunner(ctx, p, workflowID)
+
+						if build.Browser == "chrome" && build.Platform != "android" {
+							// With Chrome on desktop, re-run all benchmarks with Finch control disabled.
+							p.SkipFinch = true
+							workflowID += "-no-finch"
+							callCbbRunner(ctx, p, workflowID)
+						}
 					}
 				})
 			}
