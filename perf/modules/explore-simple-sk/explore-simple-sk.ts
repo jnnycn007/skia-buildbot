@@ -2728,7 +2728,6 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
     const body = this.requestFrameBodyDeltaFromState();
 
     if (body.begin === body.end) {
-      console.log('skipped fetching this dataframe because it would be empty anyways');
       return;
     }
     if (this.commitTime) {

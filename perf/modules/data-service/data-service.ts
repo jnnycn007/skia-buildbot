@@ -69,7 +69,6 @@ export class DataService {
   async updateShortcut(graphConfigs: GraphConfig[]): Promise<string> {
     // Skip this call when running locally to avoid 500 errors from the proxy/backend.
     if ((window as any).perf && (window as any).perf.disable_shortcut_update) {
-      console.log('Skipping updateShortcut due to configuration');
       return '';
     }
 

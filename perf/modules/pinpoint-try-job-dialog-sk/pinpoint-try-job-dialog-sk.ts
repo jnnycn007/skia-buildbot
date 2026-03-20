@@ -222,7 +222,6 @@ export class PinpointTryJobDialogSk extends LitElement {
     return this._tryJobTask.render({
       pending: () => html``,
       complete: (json) => {
-        console.log('Task completed with:', json);
         if (!json) return html``;
         const url = (json as CreatePinpointResponse).jobUrl;
         return html`<a href="${url}" target="_blank">

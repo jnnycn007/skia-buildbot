@@ -303,11 +303,8 @@ export class ExistingBugDialogSk extends LitElement {
       .then((json) => {
         const issueList: Issue[] = json.issues;
         const newMap: { [key: number]: string } = {};
-        console.info('Issue list length ' + issueList.length);
         issueList.forEach((issue) => {
           const issueid = issue.issueId ? Number(issue.issueId) : 0;
-          console.info('Issue id: ' + issueid);
-          console.log('issue title: ' + issue.issueState?.title);
           if (this._associatedBugIds.has(issueid)) {
             newMap[issueid] = issue.issueState?.title ? issue.issueState!.title : '';
           }

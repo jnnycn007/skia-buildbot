@@ -1223,8 +1223,6 @@ describe('updateTestPickerUrl', () => {
       let pushStateStub: sinon.SinonStub;
 
       beforeEach(() => {
-        const desc = Object.getOwnPropertyDescriptor(window.history, 'pushState');
-        console.log('DEBUG: pushState descriptor', desc);
         pushStateStub = sinon.stub(window.history, 'pushState');
       });
 

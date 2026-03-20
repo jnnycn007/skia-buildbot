@@ -209,7 +209,6 @@ describe('getLegend', () => {
     const dt = google.visualization.arrayToDataTable(convertFromDataframe(df, 'both')!);
 
     const legend = getLegend(dt);
-    console.log(legend);
     assert.equal(legend.length, keys.length);
     assert.deepEqual(legend, [
       {
@@ -441,7 +440,6 @@ describe('find and return matched label from Google chart', () => {
     const dt = google.visualization.arrayToDataTable(convertFromDataframe(df, 'both')!);
 
     const actualValue = findTraceByLabel(dt, label[0]);
-    console.log(actualValue);
     assert.deepEqual(actualValue, label[0]);
   });
 
@@ -468,7 +466,6 @@ describe('find and return matched label from Google chart', () => {
       dt,
       ',benchmark=JetStream2,bot=MacM1,ref_mode=head,subtest_1=fencedframe,test=Total,v8_mode=pgo,'
     );
-    console.log(actualValue);
     assert.deepEqual(actualValue, null);
   });
 });

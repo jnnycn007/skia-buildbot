@@ -727,7 +727,6 @@ export class AnomaliesTableSk extends LitElement implements KeyboardShortcutHand
   }
 
   public async openMultiGraphUrl(anomaly: Anomaly, newTab: Window | null) {
-    console.log('AnomaliesTableSk.openMultiGraphUrl called');
     await this.reportNavigationController.openMultiGraphUrl(anomaly, newTab);
   }
 
