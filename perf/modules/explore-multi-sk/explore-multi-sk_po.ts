@@ -1,11 +1,16 @@
 import { PageObject } from '../../../infra-sk/modules/page_object/page_object';
 import { TestPickerSkPO } from '../test-picker-sk/test-picker-sk_po';
 import { ExploreSimpleSkPO } from '../explore-simple-sk/explore-simple-sk_po';
+import { PaginationSkPO } from '../../../golden/modules/pagination-sk/pagination-sk_po';
 import { poll } from '../common/puppeteer-test-util';
 
 export class ExploreMultiSkPO extends PageObject {
   get testPicker(): TestPickerSkPO {
     return new TestPickerSkPO(this.bySelector('test-picker-sk'));
+  }
+
+  get pagination(): PaginationSkPO {
+    return new PaginationSkPO(this.bySelector('pagination-sk'));
   }
 
   /**

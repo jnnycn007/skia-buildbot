@@ -920,6 +920,94 @@ describe('Split Graph Functionality', function () {
     const traces = await lastGraph.getTraceKeys();
     expect(traces.length).to.be.greaterThan(0);
   });
+
+  it('preserves zoomed range across pagination when navigating pages', async () => {
+    // Navigate with plotSummary=true
+    const queryParams = '?begin=1687855198&end=1687961973&plotSummary=true';
+    await testBed.page.goto(testBed.baseUrl + queryParams);
+    await testBed.page.setViewport(STANDARD_LAPTOP_VIEWPORT);
+
+    const explorePO = new ExploreMultiSkPO((await testBed.page.$('explore-multi-sk'))!);
+    const testPickerPO = explorePO.testPicker;
+
+    // Set page size to 2 to force pagination quickly
+    await testBed.page.evaluate(() => {
+      const exploreMulti = document.querySelector('explore-multi-sk');
+      if (exploreMulti) {
+        (exploreMulti as any).state.pageSize = 2;
+        (exploreMulti as any).stateHasChanged!();
+      }
+    });
+
+    // Select 'arm'
+    await testPickerPO.waitForPickerField(0);
+    const archField = await testPickerPO.getPickerField(0);
+    await archField.select('arm');
+    await testPickerPO.waitForSpinnerInactive();
+
+    // Select All OS options
+    await testPickerPO.waitForPickerField(1);
+    const osField = await testPickerPO.getPickerField(1);
+    await waitForElementNotHidden(osField.selectAllCheckbox);
+    await osField.checkAll();
+    await testPickerPO.waitForSpinnerInactive();
+
+    // Check Split by OS
+    await waitForElementNotHidden(osField.splitByCheckbox);
+    await osField.checkSplit();
+
+    // Click Plot
+    await testPickerPO.clickPlotButton();
+
+    // Wait for the graphs to load on the first page (Summary + 2 graphs)
+    await explorePO.waitForGraphCount(3, LONG_TIMEOUT_MS);
+    await explorePO.waitForGraph(0, GRAPH_LOAD_TIMEOUT_MS);
+    await explorePO.waitForGraph(1, GRAPH_LOAD_TIMEOUT_MS);
+    await explorePO.waitForGraph(2, GRAPH_LOAD_TIMEOUT_MS);
+
+    // Get initial range
+    const graph1 = explorePO.getGraph(1);
+    const initialRange = await graph1.getVisibleXAxisRange();
+    expect(initialRange).to.not.be.null;
+
+    // Simulate a zoom event by setting state and navigating
+    const zoomedRange = {
+      min: initialRange!.min + (initialRange!.max - initialRange!.min) * 0.25,
+      max: initialRange!.min + (initialRange!.max - initialRange!.min) * 0.75,
+    };
+
+    await testBed.page.evaluate(
+      (begin: number, end: number) => {
+        const exploreMulti = document.querySelector('explore-multi-sk') as any;
+        exploreMulti.mainGraphSelectedRange = { begin, end };
+      },
+      zoomedRange.min,
+      zoomedRange.max
+    );
+
+    // Navigate to next page
+    const paginationPO = explorePO.pagination;
+    await paginationPO.clickNextBtn();
+
+    // Wait for the next page to load by checking the pagination counter
+    await poll(
+      async () => (await paginationPO.getCurrentPage()) === 2,
+      'Waiting for pagination to update to page 2',
+      LONG_TIMEOUT_MS
+    );
+
+    await explorePO.waitForGraphCount(3, LONG_TIMEOUT_MS);
+    await explorePO.waitForGraph(1, GRAPH_LOAD_TIMEOUT_MS);
+    await explorePO.waitForGraph(2, GRAPH_LOAD_TIMEOUT_MS);
+
+    // Get the range of the newly loaded graphs on page 2
+    const graph1Page2 = explorePO.getGraph(1);
+    const zoomedRange1Page2 = await graph1Page2.getVisibleXAxisRange();
+
+    // Verify the newly loaded graphs inherited the zoomed range
+    expect(zoomedRange1Page2!.min).to.be.closeTo(zoomedRange.min, 1);
+    expect(zoomedRange1Page2!.max).to.be.closeTo(zoomedRange.max, 1);
+  });
 });
 
 describe('Test Picker Interactions', () => {

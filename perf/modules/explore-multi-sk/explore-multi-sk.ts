@@ -1576,6 +1576,7 @@ export class ExploreMultiSk extends ElementSk {
     this.graphDiv!.appendChild(fragment);
     this.updateChartHeights();
     this._render();
+    this.checkDataLoaded();
 
     if (this.state.manual_plot_mode && doNotQueryData) {
       return;
@@ -1652,6 +1653,7 @@ export class ExploreMultiSk extends ElementSk {
         } catch (error) {
           console.error('Error updating charts:', error);
         } finally {
+          this.checkDataLoaded();
           resolve();
         }
       });
@@ -1705,6 +1707,8 @@ export class ExploreMultiSk extends ElementSk {
     if (!e.detail.value) {
       return;
     }
+
+    this.mainGraphSelectedRange = e.detail.value;
 
     if (graphs.length > 1 && e.detail.offsetInSeconds !== undefined) {
       await graphs[0].extendRange(e.detail.value, e.detail.offsetInSeconds);
