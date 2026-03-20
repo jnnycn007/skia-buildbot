@@ -502,8 +502,6 @@ func TestFileUserIssue_Success(t *testing.T) {
 	s, _, userIssueStore, ts, receivedReq, receivedCommentReq := createIssueTrackerForTestInterceptRequests(t)
 	defer ts.Close()
 
-	userIssueStore.On("Save", mock.Anything, mock.Anything).Return(nil)
-
 	req := &CreateUserIssueRequest{
 		TraceKey:       "test-trace",
 		CommitPosition: 100,

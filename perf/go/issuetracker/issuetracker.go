@@ -366,18 +366,6 @@ func (s *issueTrackerImpl) FileUserIssue(ctx context.Context, req *CreateUserIss
 	}
 
 	issueId := resp.IssueId
-
-	userIssueObj := &userissue.UserIssue{
-		UserId:         req.Assignee,
-		TraceKey:       req.TraceKey,
-		CommitPosition: req.CommitPosition,
-		IssueId:        issueId,
-	}
-	err = s.userIssueStore.Save(ctx, userIssueObj)
-	if err != nil {
-		return 0, skerr.Wrapf(err, "failed to save user issue to store: %s", err)
-	}
-
 	_, err = s.client.Issues.Comments.Create(issueId, &issuetracker.IssueComment{
 		Comment:        fmt.Sprintf("Link to trace by bugID: %s/u?bugID=%d", s.urlBase, issueId),
 		FormattingMode: "MARKDOWN",
