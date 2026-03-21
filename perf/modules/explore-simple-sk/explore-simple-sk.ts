@@ -280,12 +280,6 @@ export class State {
 
   showZero: boolean = false;
 
-  dots: boolean = true;
-
-  autoRefresh: boolean = false;
-
-  show_google_plot: boolean = false;
-
   numCommits: number = 250;
 
   requestType: RequestType = 1; // 0 to use begin/end, 1 to use numCommits.
@@ -293,8 +287,6 @@ export class State {
   pivotRequest: pivot.Request = defaultPivotRequest();
 
   sort: string = ''; // Pivot table sort order.
-
-  summary: boolean = false; // Whether to show the zoom/summary area.
 
   selected: PointSelected = defaultPointSelected(); // The point on a trace that was clicked on.
 
@@ -3303,9 +3295,6 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
       if (this._userSpecifiedCustomizationParams.has(urlKey) === false) {
         const paramValue = stringToBool(this._defaults!.default_url_values![urlKey]);
         switch (urlKey) {
-          case 'summary':
-            this._state.summary = paramValue;
-            break;
           case 'plotSummary':
             this._state.plotSummary = paramValue;
             break;
@@ -3421,8 +3410,7 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
 
       window.open(
         `/m/?begin=${this._state.begin}&end=${this._state.end}` +
-          `&pageSize=${chartsPerPage}&shortcut=${newShortcut}` +
-          `&show_google_plot=true`,
+          `&pageSize=${chartsPerPage}&shortcut=${newShortcut}`,
         '_self'
       );
     } catch (msg) {

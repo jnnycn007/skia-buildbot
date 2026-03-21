@@ -499,26 +499,6 @@ describe('Default values', () => {
     const newState = explore.state;
     assert.deepEqual(newState, originalState);
   });
-
-  it('Checks for default summary value', async () => {
-    const defaultConfig: QueryConfig = {
-      default_param_selections: null,
-      default_url_values: {
-        summary: 'true',
-      },
-      include_params: null,
-    };
-
-    const explore = setUpElementUnderTest<ExploreSimpleSk>('explore-simple-sk')();
-    explore['_defaults'] = defaultConfig;
-
-    const originalState = deepCopy(explore.state);
-    await explore['applyQueryDefaultsIfMissing']();
-
-    const newState = explore.state;
-    assert.notDeepEqual(newState, originalState, 'new state should not equal original state');
-    assert.isTrue(newState.summary);
-  });
 });
 
 describe('plotSummary', () => {

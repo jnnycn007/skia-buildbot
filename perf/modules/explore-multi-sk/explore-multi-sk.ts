@@ -7,8 +7,8 @@
  * User is able to add multiple ExploreSimpleSk instances. The state reflector will
  * only keep track of those properties necessary to add traces to each graph. All
  * other settings, such as the point selected or the beginning and ending range,
- * will be the same for all graphs. For example, passing ?dots=true as a URI
- * parameter will enable dots for all graphs to be loaded. This is to prevent the
+ * will be the same for all graphs. For example, passing ?plotSummary=true as a URI
+ * parameter will enable the mini-map summary for all graphs to be loaded. This is to prevent the
  * URL from becoming too long and keeping the logic simple.
  *
  */
@@ -75,17 +75,11 @@ export class State {
 
   showZero: boolean = false;
 
-  dots: boolean = true;
-
-  autoRefresh: boolean = false;
-
   numCommits: number = 250;
 
   request_type: RequestType = 1;
 
   domain: 'commit' | 'date' = 'commit'; // The domain of the x-axis, either commit or date.
-
-  summary: boolean = false;
 
   pageSize: number = 30;
 
@@ -102,8 +96,6 @@ export class State {
   show_remove_all: boolean = true;
 
   use_titles: boolean = false;
-
-  show_google_plot = false;
 
   xbaroffset: number = -1;
 
@@ -1785,7 +1777,6 @@ export class ExploreMultiSk extends ElementSk {
       end: this.state.end,
       showZero: this.state.showZero,
       numCommits: this.state.numCommits,
-      summary: this.state.summary,
       xbaroffset: explore.state.xbaroffset,
       requestType: this.state.request_type,
       pivotRequest: explore.state.pivotRequest,
@@ -1811,9 +1802,6 @@ export class ExploreMultiSk extends ElementSk {
         this.state.evenXAxisSpacing !== 'use_cache'
           ? this.state.evenXAxisSpacing === 'true'
           : localStorage.getItem(CACHE_KEY_EVEN_X_AXIS_SPACING) === 'true',
-      dots: this.state.dots,
-      autoRefresh: this.state.autoRefresh,
-      show_google_plot: this.state.show_google_plot,
     };
     explore.state = newState;
   }

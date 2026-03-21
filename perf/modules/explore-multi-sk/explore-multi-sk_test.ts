@@ -82,9 +82,7 @@ describe('ExploreMultiSk', () => {
 
     const defaultsResponse = mockDefaults || {
       default_param_selections: {},
-      default_url_values: {
-        summary: 'true',
-      },
+      default_url_values: {},
       include_params: ['config'],
     };
     fetchMock.get('/_/defaults/', defaultsResponse);
@@ -545,7 +543,6 @@ describe('ExploreMultiSk', () => {
       await setupElement({
         default_param_selections: {},
         default_url_values: {
-          summary: 'true',
           useTestPicker: 'true',
           manual_plot_mode: 'true',
         },
@@ -1189,7 +1186,6 @@ describe('ExploreMultiSk', () => {
         requestType: 1,
         pivotRequest: { group_by: [], operation: 'avg', summary: [] },
         sort: '',
-        summary: false,
         selected: { commit: 0 as CommitNumber, name: '', tableRow: -1, tableCol: -1 },
         domain: 'commit',
         labelMode: 0,
@@ -1208,9 +1204,6 @@ describe('ExploreMultiSk', () => {
         graph_index: 0,
         doNotQueryData: false,
         evenXAxisSpacing: false,
-        dots: true,
-        autoRefresh: false,
-        show_google_plot: false,
       };
 
       element['addStateToExplore'](simpleSk, new GraphConfig(), false, 0);
