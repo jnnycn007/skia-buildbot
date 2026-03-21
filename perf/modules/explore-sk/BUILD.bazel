@@ -8,6 +8,7 @@ sk_element(
         "//perf/modules/favorites-dialog-sk",
         "//infra-sk/modules/alogin-sk",
         "//perf/modules/test-picker-sk",
+        "//perf/modules/plot-google-chart-sk",
     ],
     ts_deps = [
         "//:node_modules/@material/web",

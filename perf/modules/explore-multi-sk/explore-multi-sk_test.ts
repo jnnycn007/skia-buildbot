@@ -876,7 +876,7 @@ describe('ExploreMultiSk', () => {
         end: 1, // index in header
       };
 
-      const event = new CustomEvent('selection-changing-in-multi', {
+      const event = new CustomEvent('selection-range-changed', {
         detail: detail,
         bubbles: true,
       });
@@ -1005,7 +1005,7 @@ describe('ExploreMultiSk', () => {
         start: 100,
         end: 200,
       };
-      const event = new CustomEvent('selection-changing-in-multi', {
+      const event = new CustomEvent('selection-range-changed', {
         detail,
         bubbles: true,
       });

@@ -15075,7 +15075,7 @@ The module utilizes `stateReflector` to persist the exploration state in the URL
 
 The module ensures a unified experience across multiple internal elements through event-driven synchronization:
 
-- **Time Range Sync:** When a user zooms or pans on one graph, the `range-changing-in-multi` and `selection-changing-in-multi` events trigger an update across all other graphs.
+- **Time Range Sync:** When a user zooms or pans on one graph, the `range-changing-in-multi` and `selection-range-changed` events trigger an update across all other graphs.
 - **X-Axis Consistency:** Toggling between "Commit" and "Date" domains on one chart updates the `domain` state for all instances, ensuring the X-axis remains comparable.
 - **Even X-Axis Spacing:** Users can toggle discrete spacing (ignoring time gaps between points). This preference is synced across charts and persisted in `localStorage`.
 

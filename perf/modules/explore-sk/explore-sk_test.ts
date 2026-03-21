@@ -207,6 +207,58 @@ describe('ExploreSk', () => {
     assert.isTrue(resetSpy.calledOnce);
   });
 
+  it('updates state with correct timestamps and calls stateHasChanged on selection-range-changed event', async () => {
+    const exploreSimpleSk = element.querySelector<ExploreSimpleSk>('explore-simple-sk')!;
+    (element as any).stateHasChanged = sinon.spy();
+
+    // Mock getHeader to return specific timestamps for our offsets.
+    sinon
+      .stub(exploreSimpleSk, 'getHeader')
+      .returns([
+        { timestamp: 1687855198, offset: 67125 } as any,
+        { timestamp: 1687857789, offset: 67126 } as any,
+        { timestamp: 1687868015, offset: 67127 } as any,
+      ]);
+
+    // Scenario 1: Commit domain selection.
+    // We select offsets 67125 and 67127 (indices 0 and 2 in our mock header).
+    const commitDetail = {
+      domain: 'commit',
+      value: { begin: 67125, end: 67127 },
+      start: 0,
+      end: 2,
+    };
+
+    element.dispatchEvent(
+      new CustomEvent('selection-range-changed', {
+        detail: commitDetail,
+      })
+    );
+
+    // Verify the state was updated with timestamps from the header, not the raw offsets.
+    assert.equal(exploreSimpleSk.state.begin, 1687855198);
+    assert.equal(exploreSimpleSk.state.end, 1687868015);
+    assert.isTrue((element as any).stateHasChanged.calledOnce);
+
+    // Scenario 2: Date domain selection.
+    // Timestamps should be passed through directly.
+    (element as any).stateHasChanged.resetHistory();
+    const dateDetail = {
+      domain: 'date',
+      value: { begin: 123456789, end: 987654321 },
+    };
+
+    element.dispatchEvent(
+      new CustomEvent('selection-range-changed', {
+        detail: dateDetail,
+      })
+    );
+
+    assert.equal(exploreSimpleSk.state.begin, 123456789);
+    assert.equal(exploreSimpleSk.state.end, 987654321);
+    assert.isTrue((element as any).stateHasChanged.calledOnce);
+  });
+
   it('passes keydown events to explore-simple-sk', async () => {
     const exploreSimpleSk = element.querySelector<ExploreSimpleSk>('explore-simple-sk')!;
     const keyDownSpy = sinon.spy(exploreSimpleSk, 'keyDown');

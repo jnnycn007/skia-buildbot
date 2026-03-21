@@ -970,7 +970,7 @@ export class ExploreMultiSk extends ElementSk {
       <div
         id="graphContainer"
         @range-changing-in-multi=${ele.syncExtendRange}
-        @selection-changing-in-multi=${ele.syncChartSelection}
+        @selection-range-changed=${ele.syncChartSelection}
         @x-axis-toggled=${ele.syncXAxisLabel}
         @even-x-axis-spacing-changed=${ele._onEvenXAxisSpacingChanged}></div>
       <pagination-sk

@@ -2007,7 +2007,7 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
     // This event listener will not work on the alerts page
     detail.graphNumber = this.state.graph_index;
     this.dispatchEvent(
-      new CustomEvent<PlotSelectionEventDetails>('selection-changing-in-multi', {
+      new CustomEvent<PlotSelectionEventDetails>('selection-range-changed', {
         bubbles: true,
         detail: detail,
       })
@@ -2057,7 +2057,7 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
     // This event listener will not work on the alerts page
     detail.graphNumber = this.state.graph_index;
     this.dispatchEvent(
-      new CustomEvent<PlotSelectionEventDetails>('selection-changing-in-multi', {
+      new CustomEvent<PlotSelectionEventDetails>('selection-range-changed', {
         bubbles: true,
         detail: detail,
       })
@@ -3799,7 +3799,7 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
     };
 
     this.dispatchEvent(
-      new CustomEvent('selection-changing-in-multi', {
+      new CustomEvent('selection-range-changed', {
         detail: detail,
         bubbles: true,
         composed: true,

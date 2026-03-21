@@ -26,6 +26,7 @@ import { Status as LoginStatus } from '../../../infra-sk/modules/json';
 import { errorMessage } from '../errorMessage';
 import { TestPickerSk } from '../test-picker-sk/test-picker-sk';
 import { queryFromKey } from '../paramtools';
+import { PlotSelectionEventDetails } from '../plot-google-chart-sk/plot-google-chart-sk';
 
 import '@material/web/button/outlined-button.js';
 
@@ -65,6 +66,35 @@ export class ExploreSk extends ElementSk {
     // Event listener for when the Remove All button is clicked.
     this.addEventListener('remove-explore', () => {
       this.exploreSimpleSk!.reset();
+    });
+
+    this.addEventListener('selection-range-changed', (e) => {
+      const detail = (e as CustomEvent<PlotSelectionEventDetails>).detail;
+      const state = this.exploreSimpleSk!.state;
+      if (!detail.value) {
+        return;
+      }
+
+      let newBegin = detail.value.begin;
+      let newEnd = detail.value.end;
+
+      if (detail.domain === 'commit') {
+        const header = this.exploreSimpleSk!.getHeader();
+        if (header) {
+          if (detail.start !== undefined && header[detail.start]) {
+            newBegin = header[detail.start]!.timestamp;
+          }
+          if (detail.end !== undefined && header[detail.end]) {
+            newEnd = header[detail.end]!.timestamp;
+          }
+        }
+      }
+
+      state.begin = newBegin;
+      state.end = newEnd;
+      if (this.stateHasChanged) {
+        this.stateHasChanged();
+      }
     });
 
     LoggedIn()

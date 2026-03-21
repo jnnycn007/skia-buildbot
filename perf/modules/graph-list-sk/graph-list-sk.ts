@@ -69,7 +69,7 @@ export class GraphListSk extends LitElement {
         id="graph-container"
         @x-axis-toggled=${this.syncXAxisLabel}
         @range-changing-in-multi=${this.syncExtendRangeOnSummaryBar}
-        @selection-changing-in-multi=${this.syncChartSelection}
+        @selection-range-changed=${this.syncChartSelection}
         @even-x-axis-spacing-changed=${this.syncEvenXAxisSpacing}></div>
       ${this.renderControls()}
     `;
