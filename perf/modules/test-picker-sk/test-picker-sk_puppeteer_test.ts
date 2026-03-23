@@ -164,4 +164,63 @@ describe('test-picker-sk', () => {
     ].join('');
     expect(query).to.equal(expectedQuery);
   });
+
+  it('does not overlap elements on small screens', async () => {
+    // Set to a small viewport to force wrapping.
+    await testBed.page.setViewport({ width: 300, height: 800 });
+
+    const testPickerPO = new TestPickerSkPO((await testBed.page.$('test-picker-sk'))!);
+
+    // Populate multiple fields so they wrap.
+    await testPickerPO.waitForPickerField(0);
+    const benchmarkField = await testPickerPO.getPickerField(0);
+    await benchmarkField.selectExact(BENCHMARK);
+    await testPickerPO.waitForSpinnerInactive();
+
+    await testPickerPO.waitForPickerField(1);
+    const botField = await testPickerPO.getPickerField(1);
+    await botField.selectExact(BOT);
+    await testPickerPO.waitForSpinnerInactive();
+
+    await testPickerPO.waitForPickerField(2);
+    const testField = await testPickerPO.getPickerField(2);
+    await testField.clear();
+    await testField.selectExact(TEST);
+    await testPickerPO.waitForSpinnerInactive();
+
+    // Give it a moment to render fully.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    // Retrieve the bounding boxes of the fields.
+    const fields = await testBed.page.$$('test-picker-sk picker-field-sk');
+    expect(fields.length).to.be.greaterThan(1);
+
+    const boxes = [];
+    for (const field of fields) {
+      const box = await field.boundingBox();
+      if (box) {
+        boxes.push(box);
+      }
+    }
+
+    // Check vertical gaps between elements on different rows.
+    for (let i = 0; i < boxes.length; i++) {
+      for (let j = i + 1; j < boxes.length; j++) {
+        const box1 = boxes[i];
+        const box2 = boxes[j];
+
+        // If box2 is on a new row below box1
+        if (box2.y > box1.y + box1.height - 1) {
+          // -1 for floating point safety
+          const verticalGap = box2.y - (box1.y + box1.height);
+          // Gap should be at least 28px to accommodate the top:-25px absolute split-by container
+          expect(verticalGap).to.be.at.least(27);
+        }
+      }
+    }
+
+    // Take a screenshot to capture the layout.
+    // https://screenshot.googleplex.com/3LbUEdH7pmpD4k7
+    await takeScreenshot(testBed.page, 'perf', 'test-picker-sk-small-viewport');
+  });
 });
