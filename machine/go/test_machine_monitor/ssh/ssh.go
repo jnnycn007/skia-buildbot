@@ -25,6 +25,7 @@ func (e ExeImpl) Run(ctx context.Context, userIP, cmd string, args ...string) (s
 	defer cancel()
 	xargs := append([]string{"-oConnectTimeout=15", "-oBatchMode=yes",
 		"-t", "-t", // These might not work on Windows
+		"--",
 		userIP, cmd}, args...)
 	cc := executil.CommandContext(ctx, "ssh", xargs...)
 	b, err := cc.Output()

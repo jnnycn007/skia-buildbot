@@ -2,6 +2,7 @@ package machine
 
 import (
 	"context"
+	"regexp"
 	"strings"
 	"time"
 
@@ -240,6 +241,14 @@ type Description struct {
 // IsRecovering returns true if the machine is recoving, i.e. has a non-empty Recovering message.
 func (d Description) IsRecovering() bool {
 	return d.Recovering != ""
+}
+
+// sshUserIPRegex matches a valid SSH user and IP/hostname.
+var sshUserIPRegex = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9\.\-\@\_]*$`)
+
+// ValidateSSHUserIP returns true if the given string is a valid SSH user and IP/hostname.
+func ValidateSSHUserIP(s string) bool {
+	return sshUserIPRegex.MatchString(s)
 }
 
 // InMaintenanceMode returns true if the machine is in maintenance mode, i.e. has a non-empty MaintenanceMode message.

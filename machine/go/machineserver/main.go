@@ -529,6 +529,10 @@ func (s *server) machineSupplyChromeOSInfoHandler(w http.ResponseWriter, r *http
 		http.Error(w, "Missing fields.", http.StatusBadRequest)
 		return
 	}
+	if !machine.ValidateSSHUserIP(req.SSHUserIP) {
+		http.Error(w, "Invalid SSHUserIP format.", http.StatusBadRequest)
+		return
+	}
 
 	s.audit(w, r, "supply-dimensions", req)
 

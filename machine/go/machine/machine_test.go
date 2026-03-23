@@ -137,3 +137,29 @@ func TestDescription_InMaintenanceMode_ReturnsTrueIfHasMaintenanceModeMessage(t 
 func TestDescription_InMaintenanceMode_ReturnsFalseIfMaintenanceModeMessageIsEmpty(t *testing.T) {
 	require.False(t, machine.Description{}.InMaintenanceMode())
 }
+
+func TestValidateSSHUserIP_ValidStrings_ReturnsTrue(t *testing.T) {
+	valid := []string{
+		"chrome-bot@1.2.3.4",
+		"1.2.3.4",
+		"skia-sparky360-03",
+		"chrome-bot@skia-sparky360-03",
+		"user_with_underscore@1.2.3.4",
+	}
+	for _, s := range valid {
+		assert.True(t, machine.ValidateSSHUserIP(s), s)
+	}
+}
+
+func TestValidateSSHUserIP_InvalidStrings_ReturnsFalse(t *testing.T) {
+	invalid := []string{
+		"-oSomeOption=value",
+		" -oSomeOption=value",
+		"; ls",
+		"chrome-bot@1.2.3.4;ls",
+		"",
+	}
+	for _, s := range invalid {
+		assert.False(t, machine.ValidateSSHUserIP(s), s)
+	}
+}

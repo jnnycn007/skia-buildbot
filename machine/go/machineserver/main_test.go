@@ -374,6 +374,21 @@ func TestMachineSupplyChromeOSInfoHandler_SSHUserIPMissing_ReturnsStatusBadReque
 	require.Equal(t, http.StatusBadRequest, w.Code)
 }
 
+func TestMachineSupplyChromeOSInfoHandler_InvalidSSHUserIP_ReturnsStatusBadRequest(t *testing.T) {
+	_, _, _, router, w := setupForTest(t)
+	body := testutils.MarshalJSONReader(t,
+		rpc.SupplyChromeOSRequest{
+			SSHUserIP:          "-oSomeOption=value",
+			SuppliedDimensions: suppliedDimensions2,
+		})
+	r := newAuthorizedRequest("POST", fmt.Sprintf("/_/machine/supply_chromeos/%s", machineID), body)
+
+	router.ServeHTTP(w, r)
+
+	require.Equal(t, http.StatusBadRequest, w.Code)
+	require.Equal(t, "Invalid SSHUserIP format.\n", w.Body.String())
+}
+
 func TestMachineSupplyChromeOSInfoHandler_MissingMachineID_ReturnsStatusNotFound(t *testing.T) {
 	_, _, _, router, w := setupForTest(t)
 	r := newAuthorizedRequest("POST", "/_/machine/supply_chromeos/", nil)
