@@ -1163,8 +1163,13 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
     }, HOVER_DEBOUNCE_MS);
   }
 
+  private _onAnomaliesSourceChanged = (_e: Event) => {
+    this.rangeChangeImpl();
+  };
+
   connectedCallback(): void {
     super.connectedCallback();
+    window.addEventListener('anomalies-source-changed', this._onAnomaliesSourceChanged);
     if (this._initialized) {
       return;
     }
@@ -3674,6 +3679,11 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
     if (!state.doNotQueryData) {
       this.rangeChangeImpl();
     }
+  }
+
+  disconnectedCallback(): void {
+    super.disconnectedCallback();
+    window.removeEventListener('anomalies-source-changed', this._onAnomaliesSourceChanged);
   }
 
   get openQueryByDefault(): boolean {

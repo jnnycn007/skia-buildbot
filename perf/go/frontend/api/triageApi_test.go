@@ -41,7 +41,7 @@ func (m *MockTriageBackend) AssociateAlerts(ctx context.Context, req *SkiaAssoci
 }
 
 func newTestTriageApi(login alogin.Login, backend TriageBackend) triageApi {
-	return NewTriageApi(login, backend, nil)
+	return NewTriageApi(login, backend, nil, nil)
 }
 
 func TestFileNewBug_NotLoggedIn(t *testing.T) {
@@ -50,7 +50,7 @@ func TestFileNewBug_NotLoggedIn(t *testing.T) {
 	login := &aloginMocks.Login{}
 	login.On("LoggedInAs", mock.Anything).Return(alogin.EMail(""))
 
-	api := NewTriageApi(login, nil, nil)
+	api := NewTriageApi(login, nil, nil, nil)
 
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodPost, "/_/triage/file_bug", nil)
@@ -68,7 +68,7 @@ func TestFileNewBug_InvalidJson(t *testing.T) {
 	login := &aloginMocks.Login{}
 	login.On("LoggedInAs", mock.Anything).Return(alogin.EMail("testuser@example.com"))
 
-	api := NewTriageApi(login, nil, nil)
+	api := NewTriageApi(login, nil, nil, nil)
 
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodPost, "/_/triage/file_bug", bytes.NewBufferString("invalid json"))
@@ -89,7 +89,7 @@ func TestFileNewBug_BackendError(t *testing.T) {
 	mockBackend := &MockTriageBackend{}
 	mockBackend.On("FileBug", testutils.AnyContext, mock.AnythingOfType("*issuetracker.FileBugRequest")).Return(&SkiaFileBugResponse{}, errors.New("backend error"))
 
-	api := NewTriageApi(login, mockBackend, nil)
+	api := NewTriageApi(login, mockBackend, nil, nil)
 
 	fileBugRequest := perf_issuetracker.FileBugRequest{
 		Title:       "Test Bug",
@@ -121,7 +121,7 @@ func TestFileNewBug_Success(t *testing.T) {
 	expectedBugID := 12345
 	mockBackend.On("FileBug", testutils.AnyContext, mock.AnythingOfType("*issuetracker.FileBugRequest")).Return(&SkiaFileBugResponse{BugId: expectedBugID}, nil)
 
-	api := NewTriageApi(login, mockBackend, nil)
+	api := NewTriageApi(login, mockBackend, nil, nil)
 
 	fileBugRequest := perf_issuetracker.FileBugRequest{
 		Title:       "Test Bug",
@@ -391,7 +391,7 @@ func TestListIssues_NotLoggedIn(t *testing.T) {
 	login := &aloginMocks.Login{}
 	login.On("LoggedInAs", mock.Anything).Return(alogin.EMail(""))
 
-	api := NewTriageApi(login, nil, &issueTrackerMock.IssueTracker{})
+	api := NewTriageApi(login, nil, nil, &issueTrackerMock.IssueTracker{})
 
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodPost, "/_/triage/list_issues", nil)
@@ -409,7 +409,7 @@ func TestListIssues_IssueTrackerNotAvailable(t *testing.T) {
 	login := &aloginMocks.Login{}
 	login.On("LoggedInAs", mock.Anything).Return(alogin.EMail("testuser@example.com"))
 
-	api := NewTriageApi(login, nil, nil)
+	api := NewTriageApi(login, nil, nil, nil)
 
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodPost, "/_/triage/list_issues", nil)
@@ -427,7 +427,7 @@ func TestListIssues_InvalidJson(t *testing.T) {
 	login := &aloginMocks.Login{}
 	login.On("LoggedInAs", mock.Anything).Return(alogin.EMail("testuser@example.com"))
 
-	api := NewTriageApi(login, nil, &issueTrackerMock.IssueTracker{})
+	api := NewTriageApi(login, nil, nil, &issueTrackerMock.IssueTracker{})
 
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodPost, "/_/triage/list_issues", bytes.NewBufferString("invalid json"))
@@ -448,7 +448,7 @@ func TestListIssues_BackendError(t *testing.T) {
 	mockIssueTracker := &issueTrackerMock.IssueTracker{}
 	mockIssueTracker.On("ListIssues", testutils.AnyContext, mock.AnythingOfType("issuetracker.ListIssuesRequest")).Return(nil, errors.New("backend error"))
 
-	api := NewTriageApi(login, nil, mockIssueTracker)
+	api := NewTriageApi(login, nil, nil, mockIssueTracker)
 
 	listIssuesRequest := perf_issuetracker.ListIssuesRequest{
 		IssueIds: []int{12345},
@@ -485,7 +485,7 @@ func TestListIssues_Success(t *testing.T) {
 	mockIssueTracker := &issueTrackerMock.IssueTracker{}
 	mockIssueTracker.On("ListIssues", testutils.AnyContext, mock.AnythingOfType("issuetracker.ListIssuesRequest")).Return(expectedIssues, nil)
 
-	api := NewTriageApi(login, nil, mockIssueTracker)
+	api := NewTriageApi(login, nil, nil, mockIssueTracker)
 
 	listIssuesRequest := perf_issuetracker.ListIssuesRequest{
 		IssueIds: []int{12345},

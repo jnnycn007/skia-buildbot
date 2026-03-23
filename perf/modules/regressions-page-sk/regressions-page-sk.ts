@@ -33,11 +33,8 @@ interface State {
   useSkia: boolean;
 }
 
-const SHERIFF_LIST_ENDPOINT_LEGACY = '/_/anomalies/sheriff_list';
-const ANOMALY_LIST_ENDPOINT_LEGACY = '/_/anomalies/anomaly_list';
-
-const SHERIFF_LIST_ENDPOINT = '/_/anomalies/sheriff_list_skia';
-const ANOMALY_LIST_ENDPOINT = '/_/anomalies/anomaly_list_skia';
+const SHERIFF_LIST_ENDPOINT = '/_/anomalies/sheriff_list';
+const ANOMALY_LIST_ENDPOINT = '/_/anomalies/anomaly_list';
 
 const LAST_SELECTED_SHERIFF_KEY = 'perf-last-selected-sheriff';
 
@@ -90,6 +87,7 @@ export class RegressionsPageSk extends LitElement {
     super.connectedCallback();
 
     window.addEventListener('popstate', this._popstate);
+    window.addEventListener('anomalies-source-changed', this._onAnomaliesSourceChanged);
 
     // Initial fetch from URL
     this._popstate();
@@ -99,7 +97,18 @@ export class RegressionsPageSk extends LitElement {
   disconnectedCallback(): void {
     super.disconnectedCallback();
     window.removeEventListener('popstate', this._popstate);
+    window.removeEventListener('anomalies-source-changed', this._onAnomaliesSourceChanged);
   }
+
+  private _onAnomaliesSourceChanged = async (_e: Event) => {
+    this.state.useSkia = (window as any).perf.fetch_anomalies_from_sql;
+    await this.init();
+    if (this.state.selectedSubscription !== '') {
+      this.cpAnomalies = [];
+      this.anomalyCursor = null;
+      await this.fetchRegressions();
+    }
+  };
 
   private _popstate = async () => {
     const defaultState: State = {
@@ -179,12 +188,7 @@ export class RegressionsPageSk extends LitElement {
       queryStr = '?' + queryPairs.join('&');
     }
 
-    let url = '';
-    if (this.state.useSkia) {
-      url = ANOMALY_LIST_ENDPOINT + queryStr;
-    } else {
-      url = ANOMALY_LIST_ENDPOINT_LEGACY + queryStr;
-    }
+    const url = ANOMALY_LIST_ENDPOINT + queryStr;
 
     this.anomaliesLoadingSpinner = true;
     try {
@@ -222,7 +226,7 @@ export class RegressionsPageSk extends LitElement {
   }
 
   private async init() {
-    const url = this.state.useSkia ? SHERIFF_LIST_ENDPOINT : SHERIFF_LIST_ENDPOINT_LEGACY;
+    const url = SHERIFF_LIST_ENDPOINT;
     const response = await fetch(url, {
       method: 'GET',
       headers: {

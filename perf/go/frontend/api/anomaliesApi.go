@@ -45,7 +45,6 @@ type anomaliesApi struct {
 	culpritStore      culprit.Store
 	regStore          regression.Store
 	anomalygroupStore anomalygroup.Store
-	preferLegacy      bool
 }
 
 // Response object for the request from sheriff list UI.
@@ -124,7 +123,7 @@ func (api anomaliesApi) RegisterHandlers(router *chi.Mux) {
 	router.Get("/_/anomalies/anomaly_list_skia", api.GetAnomalyList)
 }
 
-func NewAnomaliesApi(loginProvider alogin.Login, chromeperfClient chromeperf.ChromePerfClient, perfGit perfgit.Git, subStore subscription.Store, alertStore alerts.Store, culpritStore culprit.Store, regStore regression.Store, anomalygroupStore anomalygroup.Store, preferLegacy bool) anomaliesApi {
+func NewAnomaliesApi(loginProvider alogin.Login, chromeperfClient chromeperf.ChromePerfClient, perfGit perfgit.Git, subStore subscription.Store, alertStore alerts.Store, culpritStore culprit.Store, regStore regression.Store, anomalygroupStore anomalygroup.Store) anomaliesApi {
 	return anomaliesApi{
 		loginProvider:     loginProvider,
 		chromeperfClient:  chromeperfClient,
@@ -134,12 +133,11 @@ func NewAnomaliesApi(loginProvider alogin.Login, chromeperfClient chromeperf.Chr
 		culpritStore:      culpritStore,
 		regStore:          regStore,
 		anomalygroupStore: anomalygroupStore,
-		preferLegacy:      preferLegacy,
 	}
 }
 
 func (api anomaliesApi) GetSheriffListDefault(w http.ResponseWriter, r *http.Request) {
-	if api.preferLegacy {
+	if preferLegacy(r) {
 		api.GetSheriffListLegacy(w, r)
 	} else {
 		api.GetSheriffList(w, r)
@@ -147,7 +145,7 @@ func (api anomaliesApi) GetSheriffListDefault(w http.ResponseWriter, r *http.Req
 }
 
 func (api anomaliesApi) GetAnomalyListDefault(w http.ResponseWriter, r *http.Request) {
-	if api.preferLegacy {
+	if preferLegacy(r) {
 		api.GetAnomalyListLegacy(w, r)
 	} else {
 		api.GetAnomalyList(w, r)
@@ -155,7 +153,7 @@ func (api anomaliesApi) GetAnomalyListDefault(w http.ResponseWriter, r *http.Req
 }
 
 func (api anomaliesApi) GetGroupReportDefault(w http.ResponseWriter, r *http.Request) {
-	if api.preferLegacy {
+	if preferLegacy(r) {
 		api.GetGroupReportLegacy(w, r)
 	} else {
 		api.GetGroupReport(w, r)
@@ -311,7 +309,7 @@ func (api anomaliesApi) GetGroupReportLegacy(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	groupReportResponse.TimerangeMap, err = api.getTimerangeMap(ctx, groupReportResponse.Anomalies)
+	groupReportResponse.TimerangeMap, err = api.getTimerangeMap(ctx, groupReportResponse.Anomalies, preferLegacy(r))
 	if err != nil {
 		httputils.ReportError(w, err, "Failed to get timerange map.", http.StatusInternalServerError)
 		sklog.Debugf("[SkiaTriage] Failed to get timerange map: %v", err)
@@ -507,7 +505,7 @@ func (api anomaliesApi) GetGroupReport(w http.ResponseWriter, r *http.Request) {
 		groupReportResponse.SelectedKeys = []string{}
 	}
 
-	groupReportResponse.TimerangeMap, err = api.getTimerangeMap(ctx, groupReportResponse.Anomalies)
+	groupReportResponse.TimerangeMap, err = api.getTimerangeMap(ctx, groupReportResponse.Anomalies, preferLegacy(r))
 	if err != nil {
 		httputils.ReportError(w, err, "Failed to get timerange map.", http.StatusInternalServerError)
 		sklog.Errorf("[SkiaTriage] Failed to get timerange map: %v", err)
@@ -558,14 +556,14 @@ func (api anomaliesApi) getSelectedKeys(anomalies []chromeperf.Anomaly) []string
 	return selectedKeys
 }
 
-func (api anomaliesApi) getTimerangeMap(ctx context.Context, anomalies []chromeperf.Anomaly) (map[string]Timerange, error) {
+func (api anomaliesApi) getTimerangeMap(ctx context.Context, anomalies []chromeperf.Anomaly, preferLegacy bool) (map[string]Timerange, error) {
 	timerangeMap := make(map[string]Timerange)
 	for i := range anomalies {
 		anomaly := &anomalies[i]
 		var startTime int64
 		var endTime int64
 
-		if strings.Contains(config.Config.InstanceName, "fuchsia") && api.preferLegacy {
+		if strings.Contains(config.Config.InstanceName, "fuchsia") && preferLegacy {
 			timestampStr := anomaly.Timestamp
 			const layout = "2006-01-02T15:04:05.999999" // Layout for "ISO Format"
 

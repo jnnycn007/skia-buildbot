@@ -41,6 +41,22 @@ perf-scaffold-sk app-sk.legacy-ui {
     }
   }
 
+  .anomaly-toggle {
+    margin: 0 10px;
+    padding: 5px 10px;
+    font-weight: bold;
+    cursor: pointer;
+    border-radius: 4px;
+    background: transparent;
+    color: white;
+    border: 1px solid white;
+
+    &:hover {
+      background: white;
+      color: var(--primary);
+    }
+  }
+
   main {
     // We don't want to use 100vw since that includes the scrollbar width as
     // well which brings a unnecessary horizontal scroller.
@@ -229,6 +245,13 @@ perf-scaffold-sk app-sk.v2-ui {
 
       alogin-sk {
         margin-left: 16px;
+      }
+
+      .anomaly-toggle {
+        width: auto;
+        padding: 0 10px;
+        font-weight: bold;
+        border-radius: 16px;
       }
 
       .aside-button {

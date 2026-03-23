@@ -397,7 +397,7 @@ func TestGetTimeRangeMap(t *testing.T) {
 	}
 
 	// Call the function under test.
-	timerangeMap, err := api.getTimerangeMap(ctx, anomalies)
+	timerangeMap, err := api.getTimerangeMap(ctx, anomalies, false)
 
 	// Assert the results.
 	assert.NoError(t, err)

@@ -182,6 +182,8 @@ type Frontend struct {
 
 	anomalyStore anomalies.Store
 
+	chromeperfAnomalyStore anomalies.Store
+
 	pinpoint *pinpoint.Client
 
 	alertGroupClient chromeperf.AlertGroupApiClient
@@ -287,6 +289,7 @@ type SkPerfConfig struct {
 	Notifications               notifytypes.Type   `json:"notifications"`                         // The type of notifications that can be sent.
 	FetchChromePerfAnomalies    bool               `json:"fetch_chrome_perf_anomalies"`           // If true explore-sk will show the bisect button
 	FetchAnomaliesFromSql       bool               `json:"fetch_anomalies_from_sql"`              // If true new anomalies API will be used.
+	BothAnomalySources          bool               `json:"both_anomaly_sources,omitempty"`        // If true, both anomaly sources are configured and available to be toggled.
 	FeedbackURL                 string             `json:"feedback_url"`                          // The URL for the Provide Feedback link
 	ChatURL                     string             `json:"chat_url"`                              // The URL for the Ask the Team link
 	HelpURLOverride             string             `json:"help_url_override"`                     // If specified, this URL will override the help link
@@ -341,6 +344,7 @@ func (f *Frontend) getPageContext() (template.JS, error) {
 		Notifications:               config.Config.NotifyConfig.Notifications,
 		FetchChromePerfAnomalies:    config.Config.FetchChromePerfAnomalies,
 		FetchAnomaliesFromSql:       config.Config.FetchAnomaliesFromSql,
+		BothAnomalySources:          config.Config.FetchChromePerfAnomalies && config.Config.FetchAnomaliesFromSql,
 		FeedbackURL:                 config.Config.FeedbackURL,
 		ChatURL:                     config.Config.ChatURL,
 		HelpURLOverride:             config.Config.HelpURLOverride,
@@ -656,15 +660,19 @@ func (f *Frontend) initialize() {
 		if err != nil {
 			sklog.Fatalf("Failed to build anomalies.Store: %s", err)
 		}
-	} else if config.Config.FetchChromePerfAnomalies {
+	}
+	if config.Config.FetchChromePerfAnomalies {
 		// Use old source (ChromePerf anomalies API) for anomalies.
 		f.anomalyApiClient, err = chromeperf.NewAnomalyApiClient(ctx, f.perfGit, config.Config)
 		if err != nil {
 			sklog.Fatalf("Failed to build chrome anomaly api client: %s", err)
 		}
-		f.anomalyStore, err = anomalies_impl.New(f.anomalyApiClient)
+		f.chromeperfAnomalyStore, err = anomalies_impl.New(f.anomalyApiClient)
 		if err != nil {
 			sklog.Fatalf("Failed to build anomalies.Store: %s", err)
+		}
+		if f.anomalyStore == nil {
+			f.anomalyStore = f.chromeperfAnomalyStore
 		}
 	}
 
@@ -1164,26 +1172,30 @@ func (f *Frontend) GetHandler(allowedHosts []string) http.Handler {
 // getFrontendApis returns a list of apis supported by the Frontend service.
 func (f *Frontend) getFrontendApis() []api.FrontendApi {
 
-	var triageClient api.TriageBackend
+	var triageBackendSkia api.TriageBackend
 	if config.Config.FetchAnomaliesFromSql {
 		if f.issuetracker == nil {
 			sklog.Fatalf("New triage backend requires issuetracker to run.")
 		}
-		triageClient = api.NewTriageBackend(f.issuetracker, f.regStore)
-	} else {
-		triageClient = api.NewChromeperfTriageBackend(f.chromeperfClient)
+		triageBackendSkia = api.NewTriageBackend(f.issuetracker, f.regStore)
 	}
+
+	var triageBackendLegacy api.TriageBackend
+	if config.Config.FetchChromePerfAnomalies {
+		triageBackendLegacy = api.NewChromeperfTriageBackend(f.chromeperfClient)
+	}
+
 	return []api.FrontendApi{
 		api.NewFavoritesApi(f.loginProvider, f.favStore),
 		api.NewAlertsApi(f.loginProvider, f.configProvider, f.alertStore, f.notifier, f.subStore, f.dryrunRequests),
-		api.NewAnomaliesApi(f.loginProvider, f.chromeperfClient, f.perfGit, f.subStore, f.alertStore, f.culpritStore, f.regStore, f.anomalygroupStore, !config.Config.FetchAnomaliesFromSql),
+		api.NewAnomaliesApi(f.loginProvider, f.chromeperfClient, f.perfGit, f.subStore, f.alertStore, f.culpritStore, f.regStore, f.anomalygroupStore),
 		api.NewRegressionsApi(f.loginProvider, f.configProvider, f.alertStore, f.regStore, f.perfGit, f.anomalyApiClient, f.urlProvider, f.graphsShortcutStore, f.alertGroupClient, f.progressTracker, f.shortcutStore, f.dfBuilder, f.paramsetRefresher),
 		api.NewQueryApi(f.paramsetRefresher),
 		api.NewShortCutsApi(f.shortcutStore, f.graphsShortcutStore),
-		api.NewGraphApi(f.flags.NumParamSetsForQueries, config.Config.QueryConfig.CommitChunkSize, config.Config.QueryConfig.MaxEmptyTilesForQuery, f.loginProvider, f.dfBuilder, f.perfGit, f.traceStore, f.metadataStore, f.traceCache, f.shortcutStore, f.graphsShortcutStore, f.anomalyStore, f.progressTracker, f.ingestedFS),
+		api.NewGraphApi(f.flags.NumParamSetsForQueries, config.Config.QueryConfig.CommitChunkSize, config.Config.QueryConfig.MaxEmptyTilesForQuery, f.loginProvider, f.dfBuilder, f.perfGit, f.traceStore, f.metadataStore, f.traceCache, f.shortcutStore, f.graphsShortcutStore, f.anomalyStore, f.chromeperfAnomalyStore, f.progressTracker, f.ingestedFS),
 		api.NewPinpointApi(f.loginProvider, f.pinpoint),
 		api.NewSheriffConfigApi(f.loginProvider),
-		api.NewTriageApi(f.loginProvider, triageClient, f.issuetracker),
+		api.NewTriageApi(f.loginProvider, triageBackendLegacy, triageBackendSkia, f.issuetracker),
 		api.NewUserIssueApi(f.loginProvider, f.userIssueStore, f.issuetracker),
 		api.NewMcpApi(f.dfBuilder, f.metadataStore),
 	}

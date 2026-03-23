@@ -60,7 +60,7 @@ func TestGetGraphsShortcutDataHandler_Success(t *testing.T) {
 	anomalyStore := anomalyMock.NewStore(t)
 	loginProvider := alogin_mock.NewLogin(t)
 
-	api := NewGraphApi(2, 100, 10, loginProvider, dfBuilder, perfGit, traceStore, metadataStore, nil, shortcutStore, gsStore, anomalyStore, nil, nil)
+	api := NewGraphApi(2, 100, 10, loginProvider, dfBuilder, perfGit, traceStore, metadataStore, nil, shortcutStore, gsStore, anomalyStore, nil, nil, nil)
 
 	shortcutID := "test-shortcut-id"
 	begin := 1000
@@ -122,7 +122,7 @@ func TestGetGraphsShortcutDataHandler_DefaultTiles(t *testing.T) {
 	anomalyStore := anomalyMock.NewStore(t)
 	loginProvider := alogin_mock.NewLogin(t)
 
-	api := NewGraphApi(2, 100, 10, loginProvider, dfBuilder, perfGit, traceStore, metadataStore, nil, shortcutStore, gsStore, anomalyStore, nil, nil)
+	api := NewGraphApi(2, 100, 10, loginProvider, dfBuilder, perfGit, traceStore, metadataStore, nil, shortcutStore, gsStore, anomalyStore, nil, nil, nil)
 
 	shortcutID := "test-shortcut-id"
 	requestURL := fmt.Sprintf("/_/shortcut/graphs?id=%s&request_type=%d", shortcutID, frame.REQUEST_TIME_RANGE)
@@ -178,7 +178,7 @@ func TestGetGraphsShortcutDataHandler_NoMetadata(t *testing.T) {
 	anomalyStore := anomalyMock.NewStore(t)
 	loginProvider := alogin_mock.NewLogin(t)
 
-	api := NewGraphApi(2, 100, 10, loginProvider, dfBuilder, perfGit, traceStore, metadataStore, nil, shortcutStore, gsStore, anomalyStore, nil, nil)
+	api := NewGraphApi(2, 100, 10, loginProvider, dfBuilder, perfGit, traceStore, metadataStore, nil, shortcutStore, gsStore, anomalyStore, nil, nil, nil)
 
 	shortcutID := "test-shortcut-id"
 	begin := 1000

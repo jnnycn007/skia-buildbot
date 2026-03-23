@@ -39,15 +39,16 @@ import (
 
 // graphApi provides a struct to handle api requests related to graph plots.
 type graphApi struct {
-	loginProvider       alogin.Login
-	traceCache          *tracecache.TraceCache
-	dfBuilder           dataframe.DataFrameBuilder
-	perfGit             perfgit.Git
-	traceStore          tracestore.TraceStore
-	metadataStore       tracestore.MetadataStore
-	shortcutStore       shortcut.Store
-	graphsShortcutStore graphsshortcut.Store
-	anomalyStore        anomalies.Store
+	loginProvider          alogin.Login
+	traceCache             *tracecache.TraceCache
+	dfBuilder              dataframe.DataFrameBuilder
+	perfGit                perfgit.Git
+	traceStore             tracestore.TraceStore
+	metadataStore          tracestore.MetadataStore
+	shortcutStore          shortcut.Store
+	graphsShortcutStore    graphsshortcut.Store
+	anomalyStore           anomalies.Store
+	chromeperfAnomalyStore anomalies.Store
 	// progressTracker tracks long running web requests.
 	progressTracker progress.Tracker
 	// provides access to the ingested files.
@@ -90,7 +91,7 @@ func (api graphApi) RegisterHandlers(router *chi.Mux) {
 }
 
 // NewGraphApi returns a new instance of the graphApi struct.
-func NewGraphApi(numParamSetsForQueries int, queryCommitChunkSize int, maxEmptyTiles int, loginProvider alogin.Login, dfBuilder dataframe.DataFrameBuilder, perfGit perfgit.Git, traceStore tracestore.TraceStore, metadataStore tracestore.MetadataStore, traceCache *tracecache.TraceCache, shortcutStore shortcut.Store, graphsShortcutStore graphsshortcut.Store, anomalyStore anomalies.Store, progressTracker progress.Tracker, ingestedFS fs.FS) graphApi {
+func NewGraphApi(numParamSetsForQueries int, queryCommitChunkSize int, maxEmptyTiles int, loginProvider alogin.Login, dfBuilder dataframe.DataFrameBuilder, perfGit perfgit.Git, traceStore tracestore.TraceStore, metadataStore tracestore.MetadataStore, traceCache *tracecache.TraceCache, shortcutStore shortcut.Store, graphsShortcutStore graphsshortcut.Store, anomalyStore anomalies.Store, chromeperfAnomalyStore anomalies.Store, progressTracker progress.Tracker, ingestedFS fs.FS) graphApi {
 	return graphApi{
 		numParamSetsForQueries:      numParamSetsForQueries,
 		queryCommitChunkSize:        queryCommitChunkSize,
@@ -104,6 +105,7 @@ func NewGraphApi(numParamSetsForQueries int, queryCommitChunkSize int, maxEmptyT
 		shortcutStore:               shortcutStore,
 		graphsShortcutStore:         graphsShortcutStore,
 		anomalyStore:                anomalyStore,
+		chromeperfAnomalyStore:      chromeperfAnomalyStore,
 		progressTracker:             progressTracker,
 		ingestedFS:                  ingestedFS,
 		frameStartHandlerTimer:      metrics2.GetFloat64SummaryMetric("perfserver_graphApi_frameStartHandler"),
@@ -171,7 +173,16 @@ func (api graphApi) frameStartHandler(w http.ResponseWriter, r *http.Request) {
 		timeoutCtx, cancel := context.WithTimeout(ctx, config.QueryMaxRunTime)
 		defer cancel()
 		defer span.End()
-		err := frame.ProcessFrameRequest(timeoutCtx, fr, api.perfGit, dfBuilder, api.traceStore, api.metadataStore, api.shortcutStore, api.anomalyStore, config.Config.GitRepoConfig.CommitNumberRegex == "")
+		storeToUse := api.anomalyStore
+		legacyUsed := preferLegacy(r)
+		if legacyUsed {
+			storeToUse = api.chromeperfAnomalyStore
+		}
+		if storeToUse == nil {
+			fr.Progress.Error("Anomaly store is uninitialized.")
+			sklog.Errorf("Anomaly store is uninitialized. Using legacy? %v", legacyUsed)
+		}
+		err := frame.ProcessFrameRequest(timeoutCtx, fr, api.perfGit, dfBuilder, api.traceStore, api.metadataStore, api.shortcutStore, storeToUse, config.Config.GitRepoConfig.CommitNumberRegex == "")
 		if err != nil {
 			fr.Progress.Error(err.Error())
 		} else {
@@ -538,6 +549,8 @@ func (api graphApi) getGraphsShortcutDataHandler(w http.ResponseWriter, r *http.
 		}
 	}
 
+	fetchAnomaliesFromSql := !preferLegacy(r)
+
 	auditlog.LogWithUser(r, api.loginProvider.LoggedInAs(r).String(), "get_graphs_shortcut", id)
 
 	if begin == 0 || end == 0 {
@@ -597,7 +610,11 @@ func (api graphApi) getGraphsShortcutDataHandler(w http.ResponseWriter, r *http.
 		fr.Formulas = g.Formulas
 		fr.Keys = g.Keys
 
-		err := frame.ProcessFrameRequest(ctx, fr, api.perfGit, api.dfBuilder, api.traceStore, metadataStore, api.shortcutStore, api.anomalyStore, config.Config.GitRepoConfig.CommitNumberRegex == "")
+		storeToUse := api.anomalyStore
+		if !fetchAnomaliesFromSql && api.chromeperfAnomalyStore != nil {
+			storeToUse = api.chromeperfAnomalyStore
+		}
+		err := frame.ProcessFrameRequest(ctx, fr, api.perfGit, api.dfBuilder, api.traceStore, metadataStore, api.shortcutStore, storeToUse, config.Config.GitRepoConfig.CommitNumberRegex == "")
 		if err != nil {
 			httputils.ReportError(w, err, fmt.Sprintf("Failed to process frame request for graph %d", i), http.StatusInternalServerError)
 			return

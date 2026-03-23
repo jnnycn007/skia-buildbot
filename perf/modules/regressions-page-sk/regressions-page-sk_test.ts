@@ -460,4 +460,41 @@ describe('regressions-page-sk', () => {
       assert.isTrue(element.querySelector('#showmore')!.hasAttribute('hidden'));
     });
   });
+
+  describe('RegressionsPageSk - Anomalies Source Change', () => {
+    let element: RegressionsPageSk;
+    beforeEach(async () => {
+      element = newInstance();
+      await fetchMock.flush(true);
+      await element.updateComplete;
+    });
+
+    it('updates useSkia and refetches regressions on anom-source-changed', async () => {
+      await element.filterChange('Sheriff Config 2');
+      await fetchMock.flush(true);
+      await element.updateComplete;
+
+      // Ensure some anomalies are loaded
+      assert.equal(element.cpAnomalies.length, 1);
+      assert.equal(element.state.useSkia, false);
+
+      // Change window.perf setting and dispatch event
+      window.perf.fetch_anomalies_from_sql = true;
+      window.dispatchEvent(
+        new CustomEvent('anomalies-source-changed', {
+          detail: { fetch_anomalies_from_sql: true },
+        })
+      );
+
+      await fetchMock.flush(true);
+      await element.updateComplete;
+
+      assert.equal(element.state.useSkia, true);
+      const url = '/_/anomalies/anomaly_list?sheriff=Sheriff%20Config%202';
+      assert.equal(fetchMock.lastUrl(), url);
+
+      // Reset for other tests
+      window.perf.fetch_anomalies_from_sql = false;
+    });
+  });
 });

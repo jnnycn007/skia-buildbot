@@ -26,9 +26,18 @@ const (
 type triageApi struct {
 	// TODO(wenbinzhang): add pinpoint client and issuetracker client to complete
 	// the triage toolchain when skia backend is ready.
-	triageBackend TriageBackend
-	loginProvider alogin.Login
-	issueTracker  perf_issuetracker.IssueTracker
+	cpTriageBackend  TriageBackend
+	sqlTriageBackend TriageBackend
+	loginProvider    alogin.Login
+	issueTracker     perf_issuetracker.IssueTracker
+}
+
+func (api triageApi) getTriageBackend(r *http.Request) TriageBackend {
+	legacyPreference := preferLegacy(r)
+	if legacyPreference {
+		return api.cpTriageBackend
+	}
+	return api.sqlTriageBackend
 }
 
 // Existing bug request object to asscociate alerts from new bug UI.
@@ -89,11 +98,12 @@ func (api triageApi) RegisterHandlers(router *chi.Mux) {
 	router.Post("/_/triage/list_issues", api.ListIssues)
 }
 
-func NewTriageApi(loginProvider alogin.Login, triageBackend TriageBackend, issueTracker perf_issuetracker.IssueTracker) triageApi {
+func NewTriageApi(loginProvider alogin.Login, cpTriageBackend TriageBackend, sqlTriageBackend TriageBackend, issueTracker perf_issuetracker.IssueTracker) triageApi {
 	return triageApi{
-		loginProvider: loginProvider,
-		triageBackend: triageBackend,
-		issueTracker:  issueTracker,
+		loginProvider:    loginProvider,
+		cpTriageBackend:  cpTriageBackend,
+		sqlTriageBackend: sqlTriageBackend,
+		issueTracker:     issueTracker,
 	}
 }
 
@@ -119,7 +129,12 @@ func (api triageApi) FileNewBug(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), defaultRequestProcessTimeout)
 	defer cancel()
 
-	resp, err := api.triageBackend.FileBug(ctx, &fileBugRequest)
+	triageBackend := api.getTriageBackend(r)
+	if triageBackend == nil {
+		httputils.ReportError(w, errors.New("triage backend not configured"), "Triage backend is not configured.", http.StatusInternalServerError)
+		return
+	}
+	resp, err := triageBackend.FileBug(ctx, &fileBugRequest)
 	if err != nil {
 		httputils.ReportError(w, err, "File new bug request failed due to an internal server error. Please try again.", http.StatusInternalServerError)
 		return
@@ -175,7 +190,12 @@ func (api triageApi) EditAnomalies(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Missing anomaly keys.", http.StatusBadRequest)
 		return
 	}
-	resp, err := api.triageBackend.EditAnomalies(ctx, &editAnomaliesRequest)
+	triageBackend := api.getTriageBackend(r)
+	if triageBackend == nil {
+		httputils.ReportError(w, errors.New("triage backend not configured"), "Triage backend is not configured.", http.StatusInternalServerError)
+		return
+	}
+	resp, err := triageBackend.EditAnomalies(ctx, &editAnomaliesRequest)
 	if err != nil {
 		httputils.ReportError(
 			w,
@@ -213,7 +233,12 @@ func (api triageApi) AssociateAlerts(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), defaultRequestProcessTimeout)
 	defer cancel()
 
-	resp, err := api.triageBackend.AssociateAlerts(ctx, &associateBugRequest)
+	triageBackend := api.getTriageBackend(r)
+	if triageBackend == nil {
+		httputils.ReportError(w, errors.New("triage backend not configured"), "Triage backend is not configured.", http.StatusInternalServerError)
+		return
+	}
+	resp, err := triageBackend.AssociateAlerts(ctx, &associateBugRequest)
 	if err != nil {
 		httputils.ReportError(
 			w,

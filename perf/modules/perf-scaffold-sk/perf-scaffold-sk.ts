@@ -42,6 +42,7 @@ const SIDEBAR_HELP_ID = 'sidebar_help';
 const BUILDBOT_GIT = 'https://skia.googlesource.com/buildbot.git/+log/';
 const SKIA_INFRA_REPO = 'https://skia.googlesource.com/buildbot.git';
 const PINPOINT_URL = 'https://pinpoint-dot-chromeperf.appspot.com/';
+const COOKIE_MISC = 'path=/; max-age=31536000; SameSite=Strict;';
 /**
  * Moves the elements from a list to be the children of the target element.
  *
@@ -82,6 +83,15 @@ export class PerfScaffoldSk extends ElementSk {
 
   constructor() {
     super(PerfScaffoldSk.template);
+    // Override window.perf if a local preference exists.
+    const fetchAnomaliesFromSqlStr = localStorage.getItem('fetch_anomalies_from_sql');
+    if (fetchAnomaliesFromSqlStr !== null) {
+      window.perf.fetch_anomalies_from_sql = fetchAnomaliesFromSqlStr === 'true';
+      window.perf.fetch_chrome_perf_anomalies = !window.perf.fetch_anomalies_from_sql;
+    }
+    // Set cookie for backend processing
+    const cookie = `fetch_anomalies_from_sql=${window.perf.fetch_anomalies_from_sql}`;
+    document.cookie = `${cookie}; ${COOKIE_MISC}`;
   }
 
   private static template = (ele: PerfScaffoldSk) => {
@@ -95,6 +105,10 @@ export class PerfScaffoldSk extends ElementSk {
     return ele.renderLegacyUI(ele);
   };
 
+  private get anomalySourceText(): string {
+    return window.perf.fetch_anomalies_from_sql ? 'New anomalies' : 'Legacy (Chromeperf) anomalies';
+  }
+
   private fallbackLogo(e: Event) {
     const img = e.target as HTMLImageElement;
     // Prevent infinite loop if the default image also fails
@@ -102,6 +116,25 @@ export class PerfScaffoldSk extends ElementSk {
       return;
     }
     img.src = '/dist/images/alpine_transparent.png';
+  }
+
+  private toggleAnomaliesSource(_e: Event) {
+    const isChecked = !window.perf.fetch_anomalies_from_sql;
+    window.perf.fetch_anomalies_from_sql = isChecked;
+    // ensure exclusivity based on selection
+    window.perf.fetch_chrome_perf_anomalies = !isChecked;
+
+    // SAVE TO LOCAL STORAGE
+    localStorage.setItem('fetch_anomalies_from_sql', isChecked.toString());
+    // SAVE TO COOKIE
+    document.cookie = `fetch_anomalies_from_sql=${isChecked}; ${COOKIE_MISC}`;
+
+    window.dispatchEvent(
+      new CustomEvent('anomalies-source-changed', {
+        detail: { fetch_anomalies_from_sql: window.perf.fetch_anomalies_from_sql },
+      })
+    );
+    this._render();
   }
 
   private renderLegacyUI(ele: PerfScaffoldSk) {
@@ -117,6 +150,11 @@ export class PerfScaffoldSk extends ElementSk {
       </div>
       <h1 class=name>${ele.instanceTitleTemplate()}</h1>
       <div class=spacer></div>
+      <button ?hidden=${!window.perf.both_anomaly_sources} @click=${
+        ele.toggleAnomaliesSource
+      } title="Toggle Anomaly Source" class="anomaly-toggle">
+        ${ele.anomalySourceText}
+      </button>
       <alogin-sk url=/_/login/status></alogin-sk>
       <theme-chooser-sk></theme-chooser-sk>
     </header>
@@ -203,6 +241,11 @@ export class PerfScaffoldSk extends ElementSk {
       </nav>
       <div id="header-aside-container">
         <div id="header-aside">
+          <button ?hidden=${!window.perf.both_anomaly_sources} @click=${
+            ele.toggleAnomaliesSource
+          } title="Toggle Anomaly Source" class="aside-button anomaly-toggle">
+            ${ele.anomalySourceText}
+          </button>
           <a href="${
             ele._reportBugUrl
           }" target="_blank" tab-index=0 title="Report Bug" class="aside-button">

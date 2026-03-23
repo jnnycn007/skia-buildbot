@@ -435,6 +435,7 @@ export interface SkPerfConfig {
 	notifications: NotifierTypes;
 	fetch_chrome_perf_anomalies: boolean;
 	fetch_anomalies_from_sql: boolean;
+	both_anomaly_sources?: boolean;
 	feedback_url: string;
 	chat_url: string;
 	help_url_override: string;
