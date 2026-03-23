@@ -203,24 +203,22 @@ describe('test-picker-sk', () => {
       }
     }
 
-    // Check vertical gaps between elements on different rows.
+    // Check that no bounding boxes overlap.
     for (let i = 0; i < boxes.length; i++) {
       for (let j = i + 1; j < boxes.length; j++) {
         const box1 = boxes[i];
         const box2 = boxes[j];
 
-        // If box2 is on a new row below box1
-        if (box2.y > box1.y + box1.height - 1) {
-          // -1 for floating point safety
-          const verticalGap = box2.y - (box1.y + box1.height);
-          // Gap should be at least 28px to accommodate the top:-25px absolute split-by container
-          expect(verticalGap).to.be.at.least(27);
-        }
+        const xOverlap = box1.x < box2.x + box2.width && box1.x + box1.width > box2.x;
+        const yOverlap = box1.y < box2.y + box2.height && box1.y + box1.height > box2.y;
+
+        // If they overlap, this will fail.
+        expect(xOverlap && yOverlap).to.be.false;
       }
     }
 
     // Take a screenshot to capture the layout.
-    // https://screenshot.googleplex.com/3LbUEdH7pmpD4k7
+    // https://screenshot.googleplex.com/BDxE2JysXAT5yzw
     await takeScreenshot(testBed.page, 'perf', 'test-picker-sk-small-viewport');
   });
 });

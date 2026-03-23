@@ -58,8 +58,9 @@ export class PickerFieldSkPO extends PageObject {
   }
 
   async getLabel(): Promise<string> {
-    const label = await this.comboBox.getAttribute('label');
-    return label || '';
+    const labelElement = await this.bySelector('.header-row label');
+    const labelText = await labelElement.innerText;
+    return labelText ? labelText.trim() : '';
   }
 
   async getSelectedItems(): Promise<string[]> {

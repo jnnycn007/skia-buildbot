@@ -5,14 +5,25 @@
   // Look for any div with id containing 'picker-field'
   *[id^='picker-field-'] {
     display: flex;
-    align-items: flex-end;
+    align-items: flex-start;
     flex-direction: column;
     position: relative;
-    #split-by-container {
-      position: absolute;
+    .header-row {
       display: flex;
-      top: -25px;
-      right: 0;
+      justify-content: space-between;
+      align-items: flex-end;
+      width: 100%;
+      min-height: 25px; // Reserve space so layout doesn't jump when checkboxes appear
+      label {
+        font-size: var(--lumo-font-size-s);
+        color: var(--lumo-secondary-text-color);
+        font-weight: 500;
+        line-height: 1;
+        padding-bottom: 2px;
+      }
+    }
+    #split-by-container {
+      display: flex;
     }
   }
   vaadin-multi-select-combo-box {
@@ -45,11 +56,26 @@
     label {
       display: flex;
       flex-flow: row-reverse;
+      font-size: var(--lumo-font-size-s);
+      line-height: 1;
+      padding-bottom: 2px;
     }
   }
 }
 
 .darkmode picker-field-sk {
+  *[id^='picker-field-'] .header-row label {
+    transition: color 0.3s ease;
+    color: var(--on-disabled);
+  }
+  *[id^='picker-field-']:hover .header-row label {
+    transition: color 0.3s ease;
+    color: var(--on-surface);
+  }
+  *[id^='picker-field-']:focus-within .header-row label {
+    transition: color 0.3s ease;
+    color: var(--primary);
+  }
   vaadin-multi-select-combo-box::part(label) {
     transition: color 0.3s ease;
     color: var(--on-disabled);

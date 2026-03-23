@@ -119,43 +119,47 @@ export class PickerFieldSk extends LitElement {
   }
 
   render() {
+    const labelId = `label-${this.label.replace(/\s+/g, '-')}`;
     return html`
       <div id="picker-field-${this.label}">
-        <div id="split-by-container">
-          <checkbox-sk
-            title="Split the chart by attribute."
-            name=${this.label}
-            id="split-by"
-            label="Split"
-            @change=${this.splitOnValue}
-            .checked=${this.split}
-            ?disabled=${this.disabled || this.splitDisabled}
-            ?hidden=${!this.showSplit}>
-          </checkbox-sk>
-          <checkbox-sk
-            title="Select all values without periods in the name."
-            name=${this.label}
-            id="select-primary"
-            label="Primary"
-            @change=${this.selectPrimary}
-            .checked=${this._arePrimarySelected}
-            ?disabled=${this.disabled}
-            ?hidden=${!this.showPrimary}>
-          </checkbox-sk>
-          <checkbox-sk
-            title="Select All"
-            name=${this.label}
-            id="select-all"
-            label="All"
-            @change=${this.selectAll}
-            .checked=${this._isAllSelected}
-            ?disabled=${this.disabled}
-            ?hidden=${!this.showSelectAll}>
-          </checkbox-sk>
+        <div class="header-row">
+          <label id="${labelId}">${this.label}</label>
+          <div id="split-by-container">
+            <checkbox-sk
+              title="Split the chart by attribute."
+              name=${this.label}
+              id="split-by"
+              label="Split"
+              @change=${this.splitOnValue}
+              .checked=${this.split}
+              ?disabled=${this.disabled || this.splitDisabled}
+              ?hidden=${!this.showSplit}>
+            </checkbox-sk>
+            <checkbox-sk
+              title="Select all values without periods in the name."
+              name=${this.label}
+              id="select-primary"
+              label="Primary"
+              @change=${this.selectPrimary}
+              .checked=${this._arePrimarySelected}
+              ?disabled=${this.disabled}
+              ?hidden=${!this.showPrimary}>
+            </checkbox-sk>
+            <checkbox-sk
+              title="Select All"
+              name=${this.label}
+              id="select-all"
+              label="All"
+              @change=${this.selectAll}
+              .checked=${this._isAllSelected}
+              ?disabled=${this.disabled}
+              ?hidden=${!this.showSelectAll}>
+            </checkbox-sk>
+          </div>
         </div>
         <vaadin-multi-select-combo-box
           auto-expand-vertically
-          label=${this.label}
+          aria-labelledby="${labelId}"
           .items=${this.options}
           .selectedItems=${this.selectedItems}
           @selected-items-changed=${this.onValueChanged}
