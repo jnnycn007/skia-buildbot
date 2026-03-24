@@ -1448,6 +1448,7 @@ describe('ExploreMultiSk', () => {
       // The button only appears when totalGraphs > 10.
       element.totalGraphs = 11;
       element['_render']();
+      await element.updateComplete;
       const loadAllButton = element.querySelector<HTMLButtonElement>('div#pagination > button');
       assert.isNotNull(loadAllButton, 'Load All Charts button should be visible');
 

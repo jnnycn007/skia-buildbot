@@ -12,8 +12,11 @@
  * URL from becoming too long and keeping the logic simple.
  *
  */
-import { html } from 'lit/html.js';
-import { define } from '../../../elements-sk/modules/define';
+import { LitElement, html, nothing } from 'lit';
+import { Task, TaskStatus } from '@lit/task';
+import { customElement, query, state } from 'lit/decorators.js';
+import { repeat } from 'lit/directives/repeat.js';
+import { when } from 'lit/directives/when.js';
 import {
   DEFAULT_RANGE_S,
   ExploreSimpleSk,
@@ -34,7 +37,6 @@ import {
 import { stateReflector } from '../../../infra-sk/modules/stateReflector';
 import { HintableObject } from '../../../infra-sk/modules/hintable';
 import { errorMessage } from '../errorMessage';
-import { ElementSk } from '../../../infra-sk/modules/ElementSk';
 import {
   AnomalyMap,
   ColumnHeader,
@@ -58,7 +60,6 @@ import '../../../golden/modules/pagination-sk/pagination-sk';
 import '../window/window';
 
 import { LoggedIn } from '../../../infra-sk/modules/alogin-sk/alogin-sk';
-import { Status as LoginStatus } from '../../../infra-sk/modules/json';
 import { PaginationSkPageChangedEventDetail } from '../../../golden/modules/pagination-sk/pagination-sk';
 import { CommitLinks } from '../point-links-sk/point-links-sk';
 import { MISSING_VALUE_SENTINEL } from '../const/const';
@@ -115,7 +116,8 @@ export class State {
   manual_plot_mode: boolean = false;
 }
 
-export class ExploreMultiSk extends ElementSk {
+@customElement('explore-multi-sk')
+export class ExploreMultiSk extends LitElement {
   private allGraphConfigs: GraphConfig[] = [];
 
   private allFrameResponses: FrameResponse[] = [];
@@ -126,12 +128,17 @@ export class ExploreMultiSk extends ElementSk {
 
   private exploreElements: ExploreSimpleSk[] = [];
 
+  @state()
   private currentPageExploreElements: ExploreSimpleSk[] = [];
+
+  @state()
+  private hiddenSummaryExploreElement: ExploreSimpleSk | null = null;
 
   private stateHasChanged: (() => void) | null = null;
 
   private _state: State = new State();
 
+  @state()
   private _totalGraphs: number = 0;
 
   public get totalGraphs(): number {
@@ -139,30 +146,96 @@ export class ExploreMultiSk extends ElementSk {
   }
 
   public set totalGraphs(v: number) {
+    const oldValue = this._totalGraphs;
     this._totalGraphs = v;
+    this.requestUpdate('totalGraphs', oldValue);
   }
 
-  private graphDiv: Element | null = null;
+  @query('#graphContainer')
+  private graphDiv!: HTMLDivElement;
 
+  @state()
   private useTestPicker: boolean = false;
 
-  private testPicker: TestPickerSk | null = null;
+  @query('#test-picker')
+  private queriedTestPicker!: TestPickerSk | null;
 
+  private testPickerOverride: TestPickerSk | null = null;
+
+  private get testPicker(): TestPickerSk | null {
+    return this.testPickerOverride ?? this.queriedTestPicker ?? null;
+  }
+
+  private set testPicker(value: TestPickerSk | null) {
+    this.testPickerOverride = value;
+  }
+
+  @state()
   private defaults: QueryConfig | null = null;
 
+  @state()
   private userEmail: string = '';
 
+  @state()
   private _dataLoading: boolean = false;
 
+  @state()
   private progress: string = '';
 
   private initialLoadStartTime: number = 0;
 
   private loadTrigger: string = '';
 
+  private readonly bootstrapTaskArgs = [0] as const;
+
+  private readonly bootstrapTask = new Task(this, {
+    task: async ([bootstrapKey]: readonly [number]) => {
+      if (bootstrapKey < 0) {
+        return;
+      }
+
+      await this.initializeDefaults();
+      await this.updateComplete;
+
+      if (!this.stateHasChanged) {
+        const reflectState = stateReflector(
+          () => this.state as unknown as HintableObject,
+          this._onStateChangedInUrl,
+          /*replaceState=*/ true
+        );
+        this.stateHasChanged = () => {
+          reflectState();
+          this.requestUpdate();
+        };
+      }
+
+      try {
+        const status = await LoggedIn();
+        this.userEmail = status.email ?? '';
+        this.exploreElements.forEach((explore) => {
+          if (this.userEmail) {
+            explore.user = this.userEmail;
+          }
+        });
+      } catch (error) {
+        errorMessage(error as string);
+      }
+    },
+    args: () => this.bootstrapTaskArgs,
+  });
+
+  private readonly onDocumentKeydown = (e: KeyboardEvent) => {
+    this.exploreElements.forEach((exp) => {
+      exp.keyDown(e);
+    });
+  };
+
+  private _render() {
+    this.requestUpdate();
+  }
+
   private setProgress(value: string) {
     this.progress = value;
-    this._render();
   }
 
   private _onSplitByChanged = async (e: Event) => {
@@ -304,10 +377,6 @@ export class ExploreMultiSk extends ElementSk {
     // This can happen if you add a graph and then use the browser's back button.
     while (this.exploreElements.length > this.allGraphConfigs.length) {
       this.exploreElements.pop();
-      // Ensure graphDiv exists and has children before removing.
-      if (this.graphDiv && this.graphDiv.lastChild) {
-        this.graphDiv.removeChild(this.graphDiv.lastChild);
-      }
     }
 
     this.state = state;
@@ -317,6 +386,19 @@ export class ExploreMultiSk extends ElementSk {
     await load();
 
     await this.renderCurrentPage(false);
+    if (this.state.manual_plot_mode) {
+      this.exploreElements.forEach((explore, index) => {
+        const graphConfig = this.allGraphConfigs[index];
+        if (
+          graphConfig &&
+          (graphConfig.queries.length > 0 ||
+            graphConfig.formulas.length > 0 ||
+            graphConfig.keys !== '')
+        ) {
+          explore.state.doNotQueryData = false;
+        }
+      });
+    }
     // If a key is specified on initial load, we must wait for the
     // shortcut's graphs to load their data before we can split them.
     if (this.state.splitByKeys.length > 0 && this.exploreElements.length > 0) {
@@ -344,12 +426,6 @@ export class ExploreMultiSk extends ElementSk {
       this.setProgress('');
       this.checkDataLoaded();
     }
-
-    document.addEventListener('keydown', (e) => {
-      this.exploreElements.forEach((exp) => {
-        exp.keyDown(e);
-      });
-    });
   };
 
   // Event listener to remove the explore object from the list if the user
@@ -420,7 +496,7 @@ export class ExploreMultiSk extends ElementSk {
           });
         }
         const shouldPreserveExistingData = this.state.manual_plot_mode;
-        this.renderCurrentPage(shouldPreserveExistingData);
+        await this.renderCurrentPage(shouldPreserveExistingData);
         // Get the actual element that was just added to the DOM.
         // Since we unshifted (true), it should be at index 0 of the current page.
         const newExplore = this.currentPageExploreElements[0];
@@ -453,7 +529,7 @@ export class ExploreMultiSk extends ElementSk {
         // splitGraphs will then use its accumulated traceset to create the individual
         // split graphs.
         this.addEmptyGraph(true);
-        this.renderCurrentPage(false);
+        await this.renderCurrentPage(false);
         // Note: We use this.exploreElements[0] directly instead of a local variable
         // because splitGraphs() recreates the graphs, invalidating any local reference.
         if (!this.exploreElements[0]) {
@@ -538,7 +614,7 @@ export class ExploreMultiSk extends ElementSk {
     let explore: ExploreSimpleSk;
     this._dataLoading = true;
     this.testPicker?.setReadOnly(true);
-    if (this.currentPageExploreElements.length === 0) {
+    if (this.currentPageExploreElements.length === 0 || this.exploreElements.length <= 1) {
       this.addEmptyGraph(true);
       // We don't use the returned element, but rely on renderCurrentPage to create
       // the element and put it in currentPageExploreElements.
@@ -546,7 +622,7 @@ export class ExploreMultiSk extends ElementSk {
         if (this.exploreElements.length > 0 && this._dataLoading) {
           await this.exploreElements[0].requestComplete;
         }
-        this.renderCurrentPage(true);
+        await this.renderCurrentPage(true);
         // The newly added graph is at index 0.
         explore = this.currentPageExploreElements[0];
       } else {
@@ -896,92 +972,128 @@ export class ExploreMultiSk extends ElementSk {
     });
   };
 
-  constructor() {
-    super(ExploreMultiSk.template);
+  connectedCallback() {
+    super.connectedCallback();
+    document.addEventListener('keydown', this.onDocumentKeydown);
+    this.addEventListener('remove-explore', this._onRemoveExplore);
+    this.addEventListener('plot-button-clicked', this._onPlotButtonClicked);
+    this.addEventListener('split-by-changed', this._onSplitByChanged);
+    this.addEventListener('add-to-graph', this._onAddToGraph);
+    this.addEventListener('remove-trace', this._onRemoveTrace);
+    this.addEventListener('populate-query', this._onPopulateQuery);
+    this.addEventListener(
+      'range-changing-in-multi',
+      this.syncExtendRange as unknown as EventListener
+    );
+    this.addEventListener(
+      'selection-range-changed',
+      this.syncChartSelection as unknown as EventListener
+    );
+    this.addEventListener('x-axis-toggled', this.syncXAxisLabel as EventListener);
+    this.addEventListener(
+      'even-x-axis-spacing-changed',
+      this._onEvenXAxisSpacingChanged as EventListener
+    );
   }
 
-  async connectedCallback() {
-    super.connectedCallback();
-
-    this._render();
-
-    this.graphDiv = this.querySelector('#graphContainer');
-    this.testPicker = this.querySelector('#test-picker');
-
-    await this.initializeDefaults();
-    this.stateHasChanged = stateReflector(
-      () => this.state as unknown as HintableObject,
-      this._onStateChangedInUrl,
-      /*replaceState=*/ true
+  disconnectedCallback() {
+    document.removeEventListener('keydown', this.onDocumentKeydown);
+    this.removeEventListener('remove-explore', this._onRemoveExplore);
+    this.removeEventListener('plot-button-clicked', this._onPlotButtonClicked);
+    this.removeEventListener('split-by-changed', this._onSplitByChanged);
+    this.removeEventListener('add-to-graph', this._onAddToGraph);
+    this.removeEventListener('remove-trace', this._onRemoveTrace);
+    this.removeEventListener('populate-query', this._onPopulateQuery);
+    this.removeEventListener(
+      'range-changing-in-multi',
+      this.syncExtendRange as unknown as EventListener
     );
+    this.removeEventListener(
+      'selection-range-changed',
+      this.syncChartSelection as unknown as EventListener
+    );
+    this.removeEventListener('x-axis-toggled', this.syncXAxisLabel as EventListener);
+    this.removeEventListener(
+      'even-x-axis-spacing-changed',
+      this._onEvenXAxisSpacingChanged as EventListener
+    );
+    super.disconnectedCallback();
+  }
 
-    LoggedIn()
-      .then((status: LoginStatus) => {
-        this.userEmail = status.email;
-        this._render();
-      })
-      .catch(errorMessage);
+  createRenderRoot() {
+    return this;
   }
 
   private canAddFav(): boolean {
     return this.userEmail !== null && this.userEmail !== '';
   }
 
-  private static template = (ele: ExploreMultiSk) => html`
-    <div id="menu">
-      <h1>MultiGraph Menu</h1>
-      <spinner-sk id="spinner"></spinner-sk>
-      <test-picker-sk id="test-picker" class="hidden"></test-picker-sk>
-      ${ele.progress
-        ? html`
+  render() {
+    const bootstrapPending =
+      this.bootstrapTask.status === TaskStatus.INITIAL ||
+      this.bootstrapTask.status === TaskStatus.PENDING;
+
+    return html`
+      <div id="menu">
+        <h1>MultiGraph Menu</h1>
+        <spinner-sk id="spinner"></spinner-sk>
+        <test-picker-sk id="test-picker" class=${this.useTestPicker ? '' : 'hidden'}>
+        </test-picker-sk>
+        ${when(
+          this.progress !== '' || bootstrapPending,
+          () => html`
             <div class="progress-container">
               <spinner-sk id="spinner" active></spinner-sk>
-              <span class="progress">${ele.progress}</span>
+              <span class="progress">${this.progress || 'Loading configuration...'}</span>
             </div>
-          `
-        : ''}
-    </div>
-    <hr />
+          `,
+          () => nothing
+        )}
+      </div>
+      <hr />
 
-    <div id="pagination">
-      <pagination-sk
-        offset=${ele.state.pageOffset}
-        page_size=${ele.state.pageSize}
-        total=${ele.totalGraphs}
-        @page-changed=${ele.pageChanged}>
-      </pagination-sk>
+      <div id="pagination">
+        <pagination-sk
+          offset=${this.state.pageOffset}
+          page_size=${this.state.pageSize}
+          total=${this.totalGraphs}
+          @page-changed=${this.pageChanged}>
+        </pagination-sk>
 
-      ${ele.totalGraphs < 10
-        ? ''
-        : html`
-            <label>
-              <span class="prefix">Charts per page</span>
-              <input
-                @change=${ele.pageSizeChanged}
-                type="number"
-                .value="${ele.state.pageSize.toString()}"
-                min="1"
-                max="50"
-                title="The number of charts per page." />
-            </label>
-            <button @click=${ele.loadAllCharts}>Load All Charts</button>
-          `}
+        ${this.totalGraphs < 10
+          ? nothing
+          : html`
+              <label>
+                <span class="prefix">Charts per page</span>
+                <input
+                  @change=${this.pageSizeChanged}
+                  type="number"
+                  .value=${this.state.pageSize.toString()}
+                  min="1"
+                  max="50"
+                  title="The number of charts per page." />
+              </label>
+              <button @click=${this.loadAllCharts}>Load All Charts</button>
+            `}
 
-      <div
-        id="graphContainer"
-        @range-changing-in-multi=${ele.syncExtendRange}
-        @selection-range-changed=${ele.syncChartSelection}
-        @x-axis-toggled=${ele.syncXAxisLabel}
-        @even-x-axis-spacing-changed=${ele._onEvenXAxisSpacingChanged}></div>
-      <pagination-sk
-        offset=${ele.state.pageOffset}
-        page_size=${ele.state.pageSize}
-        total=${ele.totalGraphs}
-        @page-changed=${ele.pageChanged}>
-      </pagination-sk>
-      <div id="bottom-spacer"></div>
-    </div>
-  `;
+        <div id="graphContainer">
+          ${this.hiddenSummaryExploreElement ?? nothing}
+          ${repeat(
+            this.currentPageExploreElements,
+            (graph) => graph.state.graph_index,
+            (graph) => graph
+          )}
+        </div>
+        <pagination-sk
+          offset=${this.state.pageOffset}
+          page_size=${this.state.pageSize}
+          total=${this.totalGraphs}
+          @page-changed=${this.pageChanged}>
+        </pagination-sk>
+        <div id="bottom-spacer"></div>
+      </div>
+    `;
+  }
 
   /**
    * Fetch defaults from backend.
@@ -1318,7 +1430,6 @@ export class ExploreMultiSk extends ElementSk {
     const testPickerParams = this.defaults?.include_params ?? null;
     if (testPickerParams !== null) {
       this.useTestPicker = true;
-      this.testPicker!.classList.remove('hidden');
       let defaultParams = this.defaults?.default_param_selections ?? {};
       if (window.perf.remove_default_stat_value) {
         defaultParams = {};
@@ -1333,26 +1444,7 @@ export class ExploreMultiSk extends ElementSk {
         readOnly,
         this.state.manual_plot_mode
       );
-      this._render();
     }
-
-    this.removeEventListener('remove-explore', this._onRemoveExplore);
-    this.addEventListener('remove-explore', this._onRemoveExplore);
-
-    this.removeEventListener('plot-button-clicked', this._onPlotButtonClicked);
-    this.addEventListener('plot-button-clicked', this._onPlotButtonClicked);
-
-    this.removeEventListener('split-by-changed', this._onSplitByChanged);
-    this.addEventListener('split-by-changed', this._onSplitByChanged);
-
-    this.removeEventListener('add-to-graph', this._onAddToGraph);
-    this.addEventListener('add-to-graph', this._onAddToGraph);
-
-    this.removeEventListener('remove-trace', this._onRemoveTrace);
-    this.addEventListener('remove-trace', this._onRemoveTrace);
-
-    this.removeEventListener('populate-query', this._onPopulateQuery);
-    this.addEventListener('populate-query', this._onPopulateQuery);
   }
 
   private async populateTestPicker(paramSet: { [key: string]: string[] }) {
@@ -1483,7 +1575,7 @@ export class ExploreMultiSk extends ElementSk {
   }
 
   private emptyCurrentPage(): void {
-    this.graphDiv!.replaceChildren();
+    this.hiddenSummaryExploreElement = null;
     this.currentPageExploreElements = [];
   }
 
@@ -1508,7 +1600,8 @@ export class ExploreMultiSk extends ElementSk {
       endIndex = this.allGraphConfigs.length - 1;
     }
 
-    const fragment = document.createDocumentFragment();
+    let hiddenSummaryExploreElement: ExploreSimpleSk | null = null;
+    const nextCurrentPageExploreElements: ExploreSimpleSk[] = [];
 
     // Always render the main graph (index 0) if it exists, to ensure it's connected and can load
     // data.
@@ -1529,7 +1622,7 @@ export class ExploreMultiSk extends ElementSk {
       const shouldQueryDataForThisGraph = !doNotQueryData && !hasResponse;
 
       this.addStateToExplore(explore, graphConfig, !shouldQueryDataForThisGraph, 0);
-      fragment.appendChild(explore);
+      hiddenSummaryExploreElement = explore;
     }
 
     for (let i = startIndex; i <= endIndex; i++) {
@@ -1560,14 +1653,14 @@ export class ExploreMultiSk extends ElementSk {
         (!doNotQueryData && !hasResponse) ||
         (this.state.manual_plot_mode && doNotQueryData && i === 0 && !hasResponse);
 
-      this.currentPageExploreElements.push(explore);
+      nextCurrentPageExploreElements.push(explore);
       this.addStateToExplore(explore, graphConfig, !shouldQueryDataForThisGraph, i);
-      fragment.appendChild(explore);
     }
 
-    this.graphDiv!.appendChild(fragment);
+    this.hiddenSummaryExploreElement = hiddenSummaryExploreElement;
+    this.currentPageExploreElements = nextCurrentPageExploreElements;
+    await this.updateComplete;
     this.updateChartHeights();
-    this._render();
     this.checkDataLoaded();
 
     if (this.state.manual_plot_mode && doNotQueryData) {
@@ -1890,7 +1983,9 @@ export class ExploreMultiSk extends ElementSk {
   }
 
   public set state(v: State) {
+    const oldState = this._state;
     this._state = v;
+    this.requestUpdate('state', oldState);
   }
 
   /**
@@ -2101,5 +2196,3 @@ export class ExploreMultiSk extends ElementSk {
     }
   }
 }
-
-define('explore-multi-sk', ExploreMultiSk);
