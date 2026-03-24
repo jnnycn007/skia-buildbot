@@ -7,8 +7,9 @@ describe('algo-select-sk', () => {
   const newInstance = setUpElementUnderTest<AlgoSelectSk>('algo-select-sk');
 
   let element: AlgoSelectSk;
-  beforeEach(() => {
+  beforeEach(async () => {
     element = newInstance();
+    await element.updateComplete;
   });
 
   const dispatchSelectionChanged = (selection: number) => {

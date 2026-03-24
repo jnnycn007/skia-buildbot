@@ -10,11 +10,10 @@
  * @attr {string} algo - The algorithm name.
  */
 import '../../../elements-sk/modules/select-sk';
-import { html } from 'lit/html.js';
-import { define } from '../../../elements-sk/modules/define';
+import { html, LitElement } from 'lit';
+import { customElement, property } from 'lit/decorators.js';
 import { $ } from '../../../infra-sk/modules/dom';
 import { SelectSkSelectionChangedEventDetail } from '../../../elements-sk/modules/select-sk/select-sk';
-import { ElementSk } from '../../../infra-sk/modules/ElementSk';
 import { ClusterAlgo } from '../json';
 
 function toClusterAlgo(s: string): ClusterAlgo {
@@ -29,44 +28,47 @@ export interface AlgoSelectAlgoChangeEventDetail {
   algo: ClusterAlgo;
 }
 
-export class AlgoSelectSk extends ElementSk {
-  constructor() {
-    super(AlgoSelectSk.template);
+@customElement('algo-select-sk')
+export class AlgoSelectSk extends LitElement {
+  private _algo: ClusterAlgo = 'kmeans';
+
+  @property({ type: String, noAccessor: true })
+  get algo(): ClusterAlgo {
+    return this._algo;
   }
 
-  // TODO(jcgregorio) select-sk needs something like attr-for-selected and
-  // fallback-selection like iron-selector.
-  private static template = (ele: AlgoSelectSk) => html`
-    <select-sk @selection-changed=${ele._selectionChanged}>
-      <div
-        class="kmeans"
-        value="kmeans"
-        ?selected=${ele.algo === 'kmeans'}
-        title="Use k-means clustering on the trace shapes and look for a step on the cluster centroid.">
-        K-Means
-      </div>
-      <div
-        class="stepfit"
-        value="stepfit"
-        ?selected=${ele.algo === 'stepfit'}
-        title="Look for a step in each individual trace.">
-        Individual
-      </div>
-    </select-sk>
-  `;
-
-  connectedCallback(): void {
-    super.connectedCallback();
-    this._upgradeProperty('algo');
-    this._render();
+  set algo(val: ClusterAlgo) {
+    const oldVal = this._algo;
+    this._algo = toClusterAlgo(val);
+    if (this._algo !== oldVal) {
+      this.setAttribute('algo', this._algo);
+      this.requestUpdate('algo', oldVal);
+    }
   }
 
-  attributeChangedCallback(): void {
-    this._render();
+  createRenderRoot() {
+    return this;
   }
 
-  static get observedAttributes(): string[] {
-    return ['algo'];
+  render() {
+    return html`
+      <select-sk @selection-changed=${this._selectionChanged}>
+        <div
+          class="kmeans"
+          value="kmeans"
+          ?selected=${this.algo === 'kmeans'}
+          title="Use k-means clustering on the trace shapes and look for a step on the cluster centroid.">
+          K-Means
+        </div>
+        <div
+          class="stepfit"
+          value="stepfit"
+          ?selected=${this.algo === 'stepfit'}
+          title="Look for a step in each individual trace.">
+          Individual
+        </div>
+      </select-sk>
+    `;
   }
 
   private _selectionChanged(e: CustomEvent<SelectSkSelectionChangedEventDetail>) {
@@ -85,15 +87,4 @@ export class AlgoSelectSk extends ElementSk {
       })
     );
   }
-
-  /** @prop algo {string} The algorithm. */
-  get algo(): ClusterAlgo {
-    return toClusterAlgo(this.getAttribute('algo') || '');
-  }
-
-  set algo(val: ClusterAlgo) {
-    this.setAttribute('algo', toClusterAlgo(val));
-  }
 }
-
-define('algo-select-sk', AlgoSelectSk);
