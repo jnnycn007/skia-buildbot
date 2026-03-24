@@ -25,10 +25,9 @@
  *
  * @attr {Number} selected - The index of the selected commit.
  */
-import { html, TemplateResult } from 'lit/html.js';
-import { define } from '../../../elements-sk/modules/define';
+import { html, LitElement, TemplateResult } from 'lit';
+import { property, customElement } from 'lit/decorators.js';
 import { findParent } from '../../../infra-sk/modules/dom';
-import { ElementSk } from '../../../infra-sk/modules/ElementSk';
 import '../commit-detail-sk';
 import { Commit } from '../json';
 
@@ -38,71 +37,48 @@ export interface CommitDetailPanelSkCommitSelectedDetails {
   commit: Commit;
 }
 
-export class CommitDetailPanelSk extends ElementSk {
-  private _details: Commit[] = [];
+@customElement('commit-detail-panel-sk')
+export class CommitDetailPanelSk extends LitElement {
+  @property({ type: Array })
+  details: Commit[] = [];
 
-  private _hide: boolean = false;
+  @property({ type: Boolean })
+  hide: boolean = false;
 
-  private _trace_id: string = '';
+  @property({ type: String })
+  trace_id: string = '';
 
-  constructor() {
-    super(CommitDetailPanelSk.template);
+  @property({ type: Boolean, reflect: true })
+  selectable: boolean = false;
+
+  @property({ type: Number, reflect: true })
+  selected: number = -1;
+
+  protected createRenderRoot() {
+    return this;
   }
 
-  private static rows = (ele: CommitDetailPanelSk): TemplateResult[] => {
-    if (ele.hide) {
+  private renderRows(): TemplateResult[] {
+    if (this.hide) {
       return [html``];
     }
-    return ele._details.map(
+    return this.details.map(
       (item, index) => html`
-        <tr data-id="${index}" ?selected="${ele._isSelected(index)}">
+        <tr data-id="${index}" ?selected="${this._isSelected(index)}">
           <td>
-            <commit-detail-sk .cid=${item} .trace_id=${ele.trace_id}></commit-detail-sk>
+            <commit-detail-sk .cid=${item} .trace_id=${this.trace_id}></commit-detail-sk>
           </td>
         </tr>
       `
     );
-  };
-
-  private static template = (ele: CommitDetailPanelSk) => html`
-    <table @click=${ele._click}>
-      ${CommitDetailPanelSk.rows(ele)}
-    </table>
-  `;
-
-  connectedCallback(): void {
-    super.connectedCallback();
-    this._upgradeProperty('details');
-    this._upgradeProperty('selected');
-    this._upgradeProperty('selectable');
-    this._upgradeProperty('hide');
-    this._upgradeProperty('trace_id');
-    this._render();
   }
 
-  attributeChangedCallback(_: string, oldValue: string, newValue: string): void {
-    if (oldValue !== newValue) {
-      this._render();
-    }
-  }
-
-  /** An array of serialized cid.CommitDetail. */
-  get details(): Commit[] {
-    return this._details;
-  }
-
-  set details(val: Commit[]) {
-    this._details = val;
-    this._render();
-  }
-
-  get trace_id(): string {
-    return this._trace_id;
-  }
-
-  set trace_id(val: string) {
-    this._trace_id = val;
-    this._render();
+  render() {
+    return html`
+      <table @click=${this._click}>
+        ${this.renderRows()}
+      </table>
+    `;
   }
 
   private _isSelected(index: number) {
@@ -118,10 +94,10 @@ export class CommitDetailPanelSk extends ElementSk {
       return;
     }
     this.selected = +(ele.dataset.id || '0');
-    if (this.selected > this._details.length - 1) {
+    if (this.selected > this.details.length - 1) {
       return;
     }
-    const commit = this._details[this.selected];
+    const commit = this.details[this.selected];
     const detail = {
       selected: this.selected,
       description: `${commit.author} -  ${commit.message}`,
@@ -134,45 +110,4 @@ export class CommitDetailPanelSk extends ElementSk {
       })
     );
   }
-
-  static get observedAttributes(): string[] {
-    return ['selectable', 'selected'];
-  }
-
-  /** Mirrors the selectable attribute. */
-  get selectable(): boolean {
-    return this.hasAttribute('selectable');
-  }
-
-  set selectable(val: boolean) {
-    if (val) {
-      this.setAttribute('selectable', '');
-    } else {
-      this.removeAttribute('selectable');
-    }
-  }
-
-  /** Mirrors the selected attribute. */
-  get selected(): number {
-    if (this.hasAttribute('selected')) {
-      return +this.getAttribute('selected')!;
-    }
-    return -1;
-  }
-
-  set selected(val: number) {
-    this.setAttribute('selected', `${val}`);
-  }
-
-  /** @prop hide - Do not display the commit list if true.  */
-  get hide(): boolean {
-    return this._hide;
-  }
-
-  set hide(val: boolean) {
-    this._hide = val;
-    this._render();
-  }
 }
-
-define('commit-detail-panel-sk', CommitDetailPanelSk);

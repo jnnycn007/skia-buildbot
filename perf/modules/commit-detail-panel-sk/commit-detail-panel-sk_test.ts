@@ -36,23 +36,26 @@ describe('commit-detail-panel-sk', () => {
     },
   ];
 
-  it('renders a list of commits', () => {
+  it('renders a list of commits', async () => {
     element.details = commits;
+    await element.updateComplete;
     const rows = element.querySelectorAll('tr');
     assert.equal(rows.length, 2);
     assert.include(rows[0].textContent, 'alice@example.com');
     assert.include(rows[1].textContent, 'bob@example.com');
   });
 
-  it('hides commits when hide is true', () => {
+  it('hides commits when hide is true', async () => {
     element.details = commits;
     element.hide = true;
+    await element.updateComplete;
     assert.equal(element.querySelectorAll('tr').length, 0);
   });
 
   it('selects a commit and emits event', async () => {
     element.details = commits;
     element.selectable = true;
+    await element.updateComplete;
 
     const eventPromise = new Promise<CustomEvent<CommitDetailPanelSkCommitSelectedDetails>>(
       (resolve) => {
@@ -75,9 +78,10 @@ describe('commit-detail-panel-sk', () => {
     assert.equal(element.selected, 1);
   });
 
-  it('does not emit event if not selectable', () => {
+  it('does not emit event if not selectable', async () => {
     element.details = commits;
     element.selectable = false;
+    await element.updateComplete;
 
     let eventEmitted = false;
     element.addEventListener('commit-selected', () => {
@@ -91,8 +95,9 @@ describe('commit-detail-panel-sk', () => {
     assert.equal(element.selected, -1);
   });
 
-  it('renders nothing if details list is empty', () => {
+  it('renders nothing if details list is empty', async () => {
     element.details = [];
+    await element.updateComplete;
     assert.equal(element.querySelectorAll('tr').length, 0);
   });
 
@@ -102,7 +107,7 @@ describe('commit-detail-panel-sk', () => {
     element.selected = 1;
 
     // Wait for render
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await element.updateComplete;
 
     const rows = element.querySelectorAll('tr');
     assert.isFalse(rows[0].hasAttribute('selected'));
@@ -113,6 +118,7 @@ describe('commit-detail-panel-sk', () => {
     element.details = commits;
     element.selectable = false;
     element.selectable = true;
+    await element.updateComplete;
 
     const eventPromise = new Promise<CustomEvent<CommitDetailPanelSkCommitSelectedDetails>>(
       (resolve) => {
@@ -136,6 +142,7 @@ describe('commit-detail-panel-sk', () => {
   it('selects correctly when clicking a nested element', async () => {
     element.details = commits;
     element.selectable = true;
+    await element.updateComplete;
 
     const eventPromise = new Promise<CustomEvent<CommitDetailPanelSkCommitSelectedDetails>>(
       (resolve) => {
@@ -162,7 +169,7 @@ describe('commit-detail-panel-sk', () => {
     element.details = commits;
     element.trace_id = 'test_trace_id';
 
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await element.updateComplete;
     const detail = element.querySelector('commit-detail-sk');
     assert.isNotNull(detail);
     assert.equal((detail as any).trace_id, 'test_trace_id');

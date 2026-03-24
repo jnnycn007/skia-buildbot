@@ -21,11 +21,13 @@ describe('commit-detail-sk', () => {
 
   let windowOpenStub: sinon.SinonStub;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     windowOpenStub = sinon.stub(window, 'open');
     element = newInstance((el: CommitDetailSk) => {
       el.cid = commit;
     });
+    // Wait for LitElement's initial render.
+    await element.updateComplete;
   });
 
   afterEach(() => {
@@ -51,7 +53,7 @@ describe('commit-detail-sk', () => {
 
   it('opens specific explore link when trace_id is set', async () => {
     element.trace_id = 'test_trace_id';
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await element.updateComplete;
     const exploreBtn = element.querySelectorAll<HTMLElement>('md-outlined-button')[0];
 
     exploreBtn.click();
