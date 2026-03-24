@@ -24,9 +24,13 @@ const (
 // MaybeTriggerBisectionWorkflow is the entry point for the workflow which handles anomaly group
 // processing. It is responsible for triggering a bisection if the anomalygroup's
 // group action = BISECT. If group action = REPORT, files a bug notifying user of the anomalies.
-func MaybeTriggerBisectionWorkflow(ctx workflow.Context, input *workflows.MaybeTriggerBisectionParam) (*workflows.MaybeTriggerBisectionResult, error) {
+func MaybeTriggerBisectionWorkflow(
+	ctx workflow.Context,
+	input *workflows.MaybeTriggerBisectionParam,
+) (*workflows.MaybeTriggerBisectionResult, error) {
 	ctx = workflow.WithChildOptions(ctx, childWorkflowOptions)
 	ctx = workflow.WithActivityOptions(ctx, regularActivityOptions)
+	logger := workflow.GetLogger(ctx)
 	var anomalyGroupResponse *ag_pb.LoadAnomalyGroupByIDResponse
 	var err error
 	var agsa AnomalyGroupServiceActivity
@@ -44,6 +48,16 @@ func MaybeTriggerBisectionWorkflow(ctx workflow.Context, input *workflows.MaybeT
 	}).Get(ctx, &anomalyGroupResponse); err != nil {
 		return nil, skerr.Wrap(err)
 	}
+
+	logger.Info(
+		"MaybeTriggerBisectionWorkflow",
+		"WorkflowID",
+		workflow.GetInfo(ctx).WorkflowExecution.ID,
+		"AnomalyGroup",
+		input.AnomalyGroupId,
+		"GroupAction",
+		anomalyGroupResponse.AnomalyGroup.GroupAction,
+	)
 
 	if anomalyGroupResponse.AnomalyGroup.GroupAction == ag_pb.GroupActionType_BISECT {
 		// Step 3. Load Anomaly data
@@ -174,7 +188,10 @@ func MaybeTriggerBisectionWorkflow(ctx workflow.Context, input *workflows.MaybeT
 		return &workflows.MaybeTriggerBisectionResult{}, nil
 	}
 
-	return nil, skerr.Fmt("Unhandled GroupAction type %s", anomalyGroupResponse.AnomalyGroup.GroupAction)
+	return nil, skerr.Fmt(
+		"Unhandled GroupAction type %s",
+		anomalyGroupResponse.AnomalyGroup.GroupAction,
+	)
 }
 
 // Mimic the story name update in the legacy descriptor logic.
