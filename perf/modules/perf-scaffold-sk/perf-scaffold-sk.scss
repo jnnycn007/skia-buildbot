@@ -55,6 +55,10 @@ perf-scaffold-sk app-sk.legacy-ui {
       background: white;
       color: var(--primary);
     }
+
+    &[hidden] {
+      display: none !important;
+    }
   }
 
   main {
@@ -252,6 +256,10 @@ perf-scaffold-sk app-sk.v2-ui {
         padding: 0 10px;
         font-weight: bold;
         border-radius: 16px;
+
+        &[hidden] {
+          display: none !important;
+        }
       }
 
       .aside-button {
