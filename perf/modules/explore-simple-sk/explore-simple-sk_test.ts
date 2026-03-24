@@ -507,7 +507,8 @@ describe('plotSummary', () => {
 
     explore.state.plotSummary = true;
     explore['tracesRendered'] = true;
-    explore.render();
+    explore.requestUpdate();
+    await explore.updateComplete;
 
     const plotSummaryElement = explore['plotSummary'].value;
     assert.notEqual(plotSummaryElement, undefined);
@@ -1436,7 +1437,7 @@ describe('Domain Picker Interaction', () => {
         request_type: 0,
       },
     };
-    (explore as any).range = mockRange;
+    sinon.stub(explore as any, 'range').get(() => mockRange as any);
 
     await explore.addFromQueryOrFormula(true, 'query', 'config=test', '');
 
@@ -1466,7 +1467,7 @@ describe('Domain Picker Interaction', () => {
         request_type: 0,
       },
     };
-    (explore as any).range = mockRange;
+    sinon.stub(explore as any, 'range').get(() => mockRange as any);
 
     await explore.addFromQueryOrFormula(true, 'query', 'config=test', '');
 

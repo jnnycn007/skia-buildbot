@@ -76,6 +76,9 @@ describe('ReportPageSk', () => {
       return mockInstance;
     };
 
+    // Wait for initial render to complete in LitElement
+    await element.updateComplete;
+
     // Stub methods on the child anomalies table to isolate the parent component.
     const table = element.querySelector<AnomaliesTableSk>('#anomaly-table')!;
     sinon.stub(table, 'populateTable').resolves();
@@ -201,13 +204,11 @@ describe('ReportPageSk', () => {
 
       await initializeElement();
       const graphContainer = element.querySelector<HTMLDivElement>('#graph-container')!;
-      const appendSpy = sinon.spy(graphContainer, 'appendChild');
-
       await fetchMock.flush(true);
 
       // First chunk should start loading immediately.
       await waitUntil(() => {
-        return appendSpy.callCount === chunkSize;
+        return graphContainer.querySelectorAll('explore-simple-sk').length === chunkSize;
       });
 
       // Simulate data-loaded events for the first chunk. Second chunk should
@@ -215,7 +216,9 @@ describe('ReportPageSk', () => {
       for (let i = 0; i < chunkSize; i++) {
         mockExploreInstances[i].dispatchEvent(new CustomEvent('data-loaded'));
       }
-      await waitUntil(() => appendSpy.callCount === anomalyCount);
+      await waitUntil(
+        () => graphContainer.querySelectorAll('explore-simple-sk').length === anomalyCount
+      );
 
       // Simulate data-loaded events for the rest.
       for (let i = chunkSize; i < anomalyCount; i++) {
@@ -226,9 +229,9 @@ describe('ReportPageSk', () => {
       await waitUntil(() => element['_allGraphsLoaded']);
 
       assert.strictEqual(
-        appendSpy.callCount,
+        graphContainer.querySelectorAll('explore-simple-sk').length,
         anomalyCount,
-        'append should be called for each graph'
+        'should render all graphs'
       );
       assert.strictEqual(graphContainer.children.length, anomalyCount);
       assert.strictEqual(graphContainer.children[0], mockExploreInstances[0]);
@@ -254,9 +257,10 @@ describe('ReportPageSk', () => {
 
       await initializeElement();
       const graphContainer = element.querySelector<HTMLDivElement>('#graph-container')!;
-      const appendSpy = sinon.spy(graphContainer, 'appendChild');
       await fetchMock.flush(true);
-      await waitUntil(() => appendSpy.callCount === anomalyCount);
+      await waitUntil(
+        () => graphContainer.querySelectorAll('explore-simple-sk').length === anomalyCount
+      );
 
       // Simulate data-loaded for all graphs.
       for (let i = 0; i < anomalyCount; i++) {
@@ -303,14 +307,15 @@ describe('ReportPageSk', () => {
 
       await initializeElement();
       const graphContainer = element.querySelector<HTMLDivElement>('#graph-container')!;
-      const appendSpy = sinon.spy(graphContainer, 'appendChild');
-
       await fetchMock.flush(true);
 
-      // We don't expect any graphs to be loaded, so no need to wait for appendSpy.
-      // Instead, let the connectedCallbackPromise resolve.
+      // We don't expect any graphs to be loaded.
 
-      assert.strictEqual(appendSpy.callCount, 0, 'Should load no graphs');
+      assert.strictEqual(
+        graphContainer.querySelectorAll('explore-simple-sk').length,
+        0,
+        'Should load no graphs'
+      );
       assert.strictEqual(
         element['anomalyTracker'].getSelectedAnomalies().length,
         0,
@@ -341,18 +346,22 @@ describe('ReportPageSk', () => {
 
       await initializeElement();
       const graphContainer = element.querySelector<HTMLDivElement>('#graph-container')!;
-      const appendSpy = sinon.spy(graphContainer, 'appendChild');
       const table = element.querySelector<AnomaliesTableSk>('#anomaly-table')!;
 
       await fetchMock.flush(true);
 
-      await waitUntil(() => appendSpy.callCount === anomalies.length);
+      await waitUntil(
+        () => graphContainer.querySelectorAll('explore-simple-sk').length === anomalies.length
+      );
       mockExploreInstances.forEach((instance) =>
         instance.dispatchEvent(new CustomEvent('data-loaded'))
       );
       await waitUntil(() => element['_allGraphsLoaded']);
 
-      assert.strictEqual(appendSpy.callCount, anomalies.length);
+      assert.strictEqual(
+        graphContainer.querySelectorAll('explore-simple-sk').length,
+        anomalies.length
+      );
       assert.isTrue(
         (table.initialCheckAllCheckbox as sinon.SinonStub).calledOnce,
         'initialCheckAllCheckbox should be called'
@@ -383,18 +392,22 @@ describe('ReportPageSk', () => {
 
       await initializeElement();
       const graphContainer = element.querySelector<HTMLDivElement>('#graph-container')!;
-      const appendSpy = sinon.spy(graphContainer, 'appendChild');
       const table = element.querySelector<AnomaliesTableSk>('#anomaly-table')!;
 
       await fetchMock.flush(true);
 
-      await waitUntil(() => appendSpy.callCount === anomalies.length);
+      await waitUntil(
+        () => graphContainer.querySelectorAll('explore-simple-sk').length === anomalies.length
+      );
       mockExploreInstances.forEach((instance) =>
         instance.dispatchEvent(new CustomEvent('data-loaded'))
       );
       await waitUntil(() => element['_allGraphsLoaded']);
 
-      assert.strictEqual(appendSpy.callCount, anomalies.length);
+      assert.strictEqual(
+        graphContainer.querySelectorAll('explore-simple-sk').length,
+        anomalies.length
+      );
       assert.isTrue(
         (table.checkSelectedAnomalies as sinon.SinonStub).calledWith(anomalies),
         'checkSelectedAnomalies should be called with all anomalies'
