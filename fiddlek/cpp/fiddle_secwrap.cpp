@@ -238,7 +238,6 @@ const char *rename_allowed_prefixes[] = {
 };
 
 const char *readonly_allowed_prefixes[] = {
-    "",
     "/etc/fonts",
     "/etc/fiddle/",
     "/etc/glvnd/",
