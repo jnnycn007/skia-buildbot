@@ -116,9 +116,9 @@ describe('ExploreSk', () => {
 
   it('renders when explore-simple-sk emits rendered_traces', async () => {
     const exploreSimpleSk = element.querySelector<ExploreSimpleSk>('explore-simple-sk')!;
-    const renderSpy = sinon.spy(element as any, '_render');
+    const renderSpy = sinon.spy(element as any, 'requestUpdate');
     exploreSimpleSk.dispatchEvent(new CustomEvent('rendered_traces'));
-    assert.isTrue(renderSpy.calledOnce);
+    assert.isTrue(renderSpy.called);
   });
 
   it('initializes test picker', async () => {
@@ -157,7 +157,8 @@ describe('ExploreSk', () => {
     const exploreSimpleSk = element.querySelector<ExploreSimpleSk>('explore-simple-sk')!;
     const addSpy = sinon.spy(exploreSimpleSk, 'addFromQueryOrFormula');
 
-    element.dispatchEvent(new CustomEvent('plot-button-clicked'));
+    const testPicker = element.querySelector<any>('#test-picker')!;
+    testPicker.dispatchEvent(new CustomEvent('plot-button-clicked'));
     await new Promise((resolve) => setTimeout(resolve, 100)); // Yield to async listener
 
     assert.isTrue(addSpy.calledOnce);
@@ -189,7 +190,8 @@ describe('ExploreSk', () => {
     const testPicker = element.querySelector<TestPickerSk>('#test-picker')!;
     const populateSpy = sinon.spy(testPicker, 'populateFieldDataFromQuery');
 
-    element.dispatchEvent(
+    const exploreSimpleSk = element.querySelector<ExploreSimpleSk>('explore-simple-sk')!;
+    exploreSimpleSk.dispatchEvent(
       new CustomEvent('populate-query', {
         detail: { key: ',config=8888,' },
       })
