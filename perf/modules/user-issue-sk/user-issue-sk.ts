@@ -1,4 +1,4 @@
-import { LitElement, TemplateResult, css, html } from 'lit';
+import { LitElement, TemplateResult, css, html, PropertyValues } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { LoggedIn } from '../../../infra-sk/modules/alogin-sk/alogin-sk';
 import { formatBug } from '../common/anomaly';
@@ -8,6 +8,8 @@ import { Status as LoginStatus } from '../../../infra-sk/modules/json';
 import '../../../elements-sk/modules/icons/close-icon-sk';
 import '../../../elements-sk/modules/icons/check-icon-sk';
 import { jsonOrThrow } from '../../../infra-sk/modules/jsonOrThrow';
+import { DataService } from '../data-service/data-service';
+import { UserIssue } from '../json';
 
 @customElement('user-issue-sk')
 export class UserIssueSk extends LitElement {
@@ -125,6 +127,55 @@ export class UserIssueSk extends LitElement {
       align-items: center;
       gap: 4px;
     }
+
+    .issues-list {
+      margin: 8px 0;
+      padding: 0;
+      list-style: none;
+
+      .issue-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px;
+        background: var(--surface-1dp);
+        border: 1px solid var(--outline);
+        border-radius: 4px;
+        margin-bottom: 4px;
+
+        .issue-info {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          margin-right: 8px;
+
+          .issue-id {
+            font-weight: bold;
+            color: var(--primary);
+          }
+
+          .issue-commit {
+            font-size: 0.85rem;
+            color: var(--on-surface-variant);
+          }
+        }
+
+        button {
+          background: transparent;
+          color: var(--primary);
+          border: 1px solid var(--primary);
+          border-radius: 4px;
+          padding: 4px 8px;
+          cursor: pointer;
+          transition: background-color 0.2s;
+
+          &:hover {
+            background: var(--primary-variant);
+            color: var(--on-primary);
+          }
+        }
+      }
+    }
   `;
 
   // Email of the logged in user. Empty string otherwise
@@ -144,8 +195,17 @@ export class UserIssueSk extends LitElement {
   @property({ attribute: true })
   commit_position: number = 0;
 
+  @property({ attribute: true })
+  begin_commit_position: number = 0;
+
+  @property({ attribute: true })
+  end_commit_position: number = 0;
+
   @property({ state: true })
   issueExists = false;
+
+  @property({ state: true })
+  _existing_issues: UserIssue[] = [];
 
   // Used for capturing number input values
   _input_val: number = 0;
@@ -163,6 +223,17 @@ export class UserIssueSk extends LitElement {
       LoggedIn().then((status: LoginStatus) => {
         this.user_id = status.email;
       });
+    }
+  }
+
+  updated(changedProperties: PropertyValues) {
+    if (
+      changedProperties.has('trace_key') ||
+      changedProperties.has('commit_position') ||
+      changedProperties.has('begin_commit_position') ||
+      changedProperties.has('end_commit_position')
+    ) {
+      this.loadExistingIssues();
     }
   }
 
@@ -221,6 +292,32 @@ export class UserIssueSk extends LitElement {
     this.render();
   }
 
+  private async loadExistingIssues() {
+    if (!this.trace_key) {
+      return;
+    }
+    const begin = this.begin_commit_position || this.commit_position;
+    const end = this.end_commit_position || this.commit_position;
+
+    const req = {
+      trace_keys: [this.trace_key],
+      begin_commit_position: begin,
+      end_commit_position: end,
+    };
+
+    try {
+      const resp = await DataService.getInstance().getUserIssues(req);
+      this._existing_issues = resp.UserIssues || [];
+    } catch (e) {
+      console.error('Failed to fetch existing issues.', e);
+    }
+  }
+
+  private selectIssue(issueId: number) {
+    this._input_val = issueId;
+    this.saveExistingIssue();
+  }
+
   /* Templates */
 
   // Template for showing option to add an issue on the datapoint
@@ -254,6 +351,23 @@ export class UserIssueSk extends LitElement {
     }
 
     return html`
+      ${this._existing_issues.length > 0
+        ? html`
+            <ul class="issues-list">
+              ${this._existing_issues.map(
+                (issue) => html`
+                  <li class="issue-item">
+                    <div class="issue-info">
+                      <span class="issue-id">Bug ID: ${issue.IssueId}</span>
+                      <span class="issue-commit">Commit: ${issue.CommitPosition}</span>
+                    </div>
+                    <button @click=${() => this.selectIssue(issue.IssueId)}>Select</button>
+                  </li>
+                `
+              )}
+            </ul>
+          `
+        : html``}
       <div class="add-issue-container">
         <button class="add-issue" @click=${this.activateTextInput}>Existing issue</button>
         <button class="add-issue" @click=${this.createNewBug}>New Issue</button>

@@ -109,20 +109,36 @@ describe('user-issue-sk', () => {
   });
 
   describe('saveissue', () => {
-    it('finds an existing issue and displays the link', async () => {
+    it('finds an existing issue, displays it inline, and selects it', async () => {
+      fetchMock.post('/_/user_issues/', {
+        UserIssues: [
+          {
+            UserId: 'test@example.com',
+            TraceKey: 'test-trace',
+            CommitPosition: 100,
+            IssueId: 12345,
+          },
+        ],
+      });
+
       element.user_id = 'test@example.com';
       element.issueExists = false;
-      await element.updateComplete;
-      const addExistingIssueBtn = element.shadowRoot!.querySelector(
-        '.add-issue'
-      ) as HTMLButtonElement;
-      addExistingIssueBtn.click();
-      element._input_val = 12345;
+      element.trace_key = 'test-trace'; // This triggers updated() and loadExistingIssues()
       await element.updateComplete;
 
-      const checkIcon = element.shadowRoot!.querySelector('#check-icon') as HTMLButtonElement;
+      await fetchMock.flush(true);
+      await element.updateComplete;
+
+      const issuesList = element.shadowRoot!.querySelector('.issues-list');
+      expect(issuesList).to.not.equal(null);
+
+      const selectBtn = element.shadowRoot!.querySelector(
+        '.issues-list button'
+      ) as HTMLButtonElement;
+      expect(selectBtn).to.not.equal(null);
+
       fetchMock.post('/_/user_issue/save', {});
-      checkIcon.click();
+      selectBtn.click();
       await fetchMock.flush(true);
 
       expect(element.bug_id).to.equal(12345);
