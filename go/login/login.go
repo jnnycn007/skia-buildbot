@@ -313,9 +313,9 @@ func initLogin(ctx context.Context, clientID, clientSecret, redirectURL, salt st
 	// to decrypt with either of them, while only encoding Cookies with the
 	// latest salt. Also, the two cookieSalts should be periodically re-loaded
 	// in case a new cookieSalt has been uploaded to the secret mananger.
+	cookieSalt = salt
 	secureCookie = securecookie.New([]byte(cookieSalt), nil)
 	oauthConfig = activeOAuth2ConfigConstructor(clientID, clientSecret, redirectURL)
-	cookieSalt = salt
 
 	sklog.Infof("cookieSalt: %q clientID: %q", abbrev(cookieSalt), abbrev(clientID))
 

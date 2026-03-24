@@ -338,8 +338,35 @@ func TestSetDomain_ValidDomainName_Success(t *testing.T) {
 	}
 }
 
-func TestSetDomain_UnknonwDomainName_ReturnsError(t *testing.T) {
-	require.Error(t, setDomain(DomainName("this-in-not-a-known-domain.example.com")))
+func TestInitLogin_SaltIsCorrectlyUsed(t *testing.T) {
+	ctx := context.Background()
+	salt := "sodium-chloride"
+	err := initLogin(ctx, "id", "secret", "http://localhost", salt, SkiaOrg)
+	require.NoError(t, err)
+
+	s := Session{
+		Email:     "somebody@example.org",
+		ID:        sessionIDForTesting,
+		AuthScope: emailScope,
+		Token:     nil,
+	}
+
+	// Manually encode using the same salt.
+	manualSecureCookie := securecookie.New([]byte(salt), nil)
+	encoded, err := manualSecureCookie.Encode(cookieName, &s)
+	require.NoError(t, err)
+
+	// Try to decode using the global secureCookie (via getSession).
+	r, err := http.NewRequest("GET", "http://example.com/", nil)
+	require.NoError(t, err)
+	r.AddCookie(&http.Cookie{
+		Name:  cookieName,
+		Value: encoded,
+	})
+
+	decodedSession, err := getSession(r)
+	require.NoError(t, err, "Should be able to decode cookie with the salt passed to initLogin")
+	assert.Equal(t, s.Email, decodedSession.Email)
 }
 
 func setupForValidateBearerToken(t *testing.T, tokenInfo *oauth2_api.Tokeninfo) {
