@@ -1,3 +1,29 @@
+// This file defines CBB New Release Detector workflow, which is the top-level
+// workflow used by CBB. This workflow is intended to be scheduled to run
+// regularly on the perf infra Temporal server. Currently, the schdule runs
+// every weekday at 22:00 UTC time (2 pm PST or 3 pm PDT on US west coast).
+//
+// To create the schedule using Temporal UI: Go to
+// https://skia-temporal-ui.corp.goog/namespaces/perf-internal/schedules/create
+// and enter the following information:
+// * Name: CBB Schedule
+// * Workflow Type: perf.cbb_new_release_detector
+// * Workflow Id: perf.cbb_new_release_detector
+// * Task Queue: perf.perf-chrome-public.bisect
+// * Schedule Spec: Click on "Days of the Week" tab, and then select Weekdays
+// * Time: Enter 22 hrs, 00 min
+// And then click Create Schedule button.
+//
+// Alternatively, you can create the schedule using Temporal CLI, if you have
+// Temporal CLI installed locally. You need to follow steps 1 through 3 at
+// https://skia.googlesource.com/buildbot/+/refs/heads/main/temporal/README.md#locally-trigger-production-workflow-follow-these-steps-with-care
+// and then run the following command:
+//	temporal schedule create --schedule-id 'CBB Schedule' --workflow-type perf.cbb_new_release_detector --workflow-id perf.cbb_new_release_detector --cron '0 22 * * 1-5' --task-queue perf.perf-chrome-public.bisect --namespace perf-internal
+//
+// Regardless of how you created it, you can view the schedule at
+// https://skia-temporal-ui.corp.goog/namespaces/perf-internal/schedules,
+// or run the Temporal CLI command `temporal schedule list`.
+
 package internal
 
 import (
