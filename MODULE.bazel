@@ -146,6 +146,7 @@ use_repo(
     "com_github_yusufpapurcu_wmi",
     "com_github_zeebo_bencode",
     "com_google_cloud_go",
+    "com_google_cloud_go_auth",
     "com_google_cloud_go_bigquery",
     "com_google_cloud_go_bigtable",
     "com_google_cloud_go_binaryauthorization",

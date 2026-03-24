@@ -119,3 +119,13 @@ Use this command to run the presubmit tests:
 ```
 ./run_unittests --small
 ```
+
+# AI Code Review
+
+Getting AI code review for a local commit:
+
+```
+bazelisk run //cmd/autoreview
+```
+
+Read more at `cmd/autoreview/README.md`

@@ -1,0 +1,42 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+load("//bazel/go:go_test.bzl", "go_test")
+
+go_library(
+    name = "autoreview_lib",
+    srcs = [
+        "config.go",
+        "gemini.go",
+        "git.go",
+        "main.go",
+        "prompts.go",
+    ],
+    importpath = "go.skia.org/infra/cmd/autoreview",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//go/git",
+        "@org_golang_google_genai//:genai",
+    ],
+)
+
+go_binary(
+    name = "autoreview",
+    embed = [":autoreview_lib"],
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "autoreview_test",
+    srcs = [
+        "config_test.go",
+        "gemini_test.go",
+        "prompts_test.go",
+    ],
+    embed = [":autoreview_lib"],
+    deps = [
+        "//go/deepequal/assertdeep",
+        "@com_github_stretchr_testify//assert",
+        "@com_github_stretchr_testify//require",
+        "@com_google_cloud_go_auth//:auth",
+        "@org_golang_google_genai//:genai",
+    ],
+)
