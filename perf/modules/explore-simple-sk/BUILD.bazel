@@ -47,8 +47,10 @@ sk_element(
         "//:node_modules/@material/web",
         "//:node_modules/lit",
         "//:node_modules/lit-html",  # keep
+        "//elements-sk/modules:define_ts_lib",
         "//infra-sk/modules:dom_ts_lib",
         "//infra-sk/modules:query_ts_lib",
+        "//infra-sk/modules/ElementSk:index_ts_lib",
         "//infra-sk/modules/json:index_ts_lib",
         "//perf/modules/const:const_ts_lib",
         "//perf/modules/dataframe:dataframe_context_ts_lib",

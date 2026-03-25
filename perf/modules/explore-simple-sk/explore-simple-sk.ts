@@ -4,12 +4,12 @@
  *
  * Element for exploring data.
  */
-import { LitElement, html } from 'lit';
-import { state, customElement, query } from 'lit/decorators.js';
+import { html } from 'lit/html.js';
 import { when } from 'lit/directives/when.js';
 import { ref, createRef, Ref } from 'lit/directives/ref.js';
 import { MdDialog } from '@material/web/dialog/dialog.js';
 import { MdSwitch } from '@material/web/switch/switch.js';
+import { define } from '../../../elements-sk/modules/define';
 import { AnomalyData } from '../common/anomaly-data';
 import { calculateNudgeList } from './nudge-util';
 import { toParamSet, fromParamSet } from '../../../infra-sk/modules/query';
@@ -19,6 +19,7 @@ import { ParamSet as CommonSkParamSet } from '../../../infra-sk/modules/query';
 import { SpinnerSk } from '../../../elements-sk/modules/spinner-sk/spinner-sk';
 import { errorMessage, logErrorMessage } from '../errorMessage';
 import { StatusCodes } from 'http-status-codes';
+import { ElementSk } from '../../../infra-sk/modules/ElementSk';
 
 import '@material/web/button/outlined-button.js';
 import '@material/web/icon/icon.js';
@@ -412,8 +413,7 @@ export function calculateRangeChange(
   };
 }
 
-@customElement('explore-simple-sk')
-export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandler {
+export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandler {
   private dataService = DataService.getInstance();
 
   private _dataframe: DataFrame = {
@@ -425,7 +425,6 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
   };
 
   // The state that does into the URL.
-  @state()
   private _state: State = new State();
 
   // Set of customization params that have been explicitly specified
@@ -433,87 +432,85 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
   private _userSpecifiedCustomizationParams: Set<string> = new Set();
 
   // Controls the mode of the display. See FrameResponseDisplayMode.
-  @state()
   private displayMode: FrameResponseDisplayMode = 'display_query_only';
 
   // Are we waiting on data from the server.
-  @state()
   private _spinning: boolean = false;
 
-  @state() private _dialogOn: boolean = false;
+  private _dialogOn: boolean = false;
 
   // The id of the current frame request. Will be the empty string if there
   // is no pending request.
-  @state() private _requestId = '';
+  private _requestId = '';
 
-  @state() private testPath: string = '';
+  private testPath: string = '';
 
-  @state() private startCommit: string = '';
+  private startCommit: string = '';
 
-  @state() private endCommit: string = '';
+  private endCommit: string = '';
 
-  @state() private story: string = '';
+  private story: string = '';
 
-  @state() private bugId: string = '';
+  private bugId: string = '';
 
-  @state() private jobUrl: string = '';
+  private jobUrl: string = '';
 
-  @state() private jobId: string = '';
+  private jobId: string = '';
 
-  @state() user: string = '';
+  user: string = '';
 
-  @state() private _defaults: QueryConfig | null = null;
+  private _defaults: QueryConfig | null = null;
 
   private _initialized: boolean = false;
 
-  @query('#detailTab') private detailTab!: TabsSk;
+  private detailTab: TabsSk | null = null;
 
-  @query('#formula') private formula!: HTMLTextAreaElement;
+  private formula: HTMLTextAreaElement | null = null;
 
-  @query('#json') private json!: HTMLTextAreaElement;
+  private json: HTMLTextAreaElement | null = null;
 
-  @query('#logEntry') private logEntry!: HTMLPreElement;
+  private logEntry: HTMLPreElement | null = null;
 
-  @query('#paramset') private paramset!: ParamSetSk;
+  private paramset: ParamSetSk | null = null;
 
-  @query('#percent') private percent!: HTMLSpanElement;
+  private percent: HTMLSpanElement | null = null;
 
   private googleChartPlot = createRef<PlotGoogleChartSk>();
 
   private plotSummary = createRef<PlotSummarySk>();
 
-  @query('#query') private query!: QuerySk;
+  private query: QuerySk | null = null;
 
-  @query('query-count-sk') private queryCount!: QueryCountSk;
+  private queryCount: QueryCountSk | null = null;
 
-  @query('#range') private range!: DomainPickerSk;
+  private range: DomainPickerSk | null = null;
 
-  @query('#spinner') private spinner!: SpinnerSk;
+  private spinner: SpinnerSk | null = null;
 
-  @query('#summary') private summary!: ParamSetSk;
+  private summary: ParamSetSk | null = null;
 
-  @query('#commit_time') private commitTime!: HTMLSpanElement;
+  private commitTime: HTMLSpanElement | null = null;
 
-  @query('pivot-query-sk') private pivotControl!: PivotQuerySk;
+  private pivotControl: PivotQuerySk | null = null;
 
-  @query('pivot-table-sk') private pivotTable!: PivotTableSk;
+  private pivotTable: PivotTableSk | null = null;
 
-  @query('#pivot-display-button') private pivotDisplayButton!: HTMLButtonElement;
+  private pivotDisplayButton: HTMLButtonElement | null = null;
 
-  @query('#query-dialog') private queryDialog!: HTMLDialogElement;
+  private queryDialog: HTMLDialogElement | null = null;
 
-  @query('#help') private helpDialog!: HTMLDialogElement;
+  private helpDialog: HTMLDialogElement | null = null;
 
   // TODO(b/372694234): consolidate the pinpoint and triage toasts.
-  @query('#pinpoint-job-toast') private pinpointJobToast!: ToastSk;
+  private pinpointJobToast: ToastSk | null = null;
 
-  @query('#triage-result-toast') private triageResultToast!: ToastSk;
+  private triageResultToast: ToastSk | null = null;
 
-  @query('#hide-pinpoint-toast') private closePinpointToastButton!: HTMLButtonElement;
+  private closePinpointToastButton: HTMLButtonElement | null = null;
 
-  @query('#hide-triage-toast') private closeTriageToastButton!: HTMLButtonElement;
+  private closeTriageToastButton: HTMLButtonElement | null = null;
 
-  @query('#collapseButton') private collapseButton!: HTMLButtonElement;
+  private collapseButton: HTMLButtonElement | null = null;
 
   private traceFormatter: TraceFormatter | null = null;
 
@@ -525,26 +522,20 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
 
   useTestPicker: boolean = false;
 
-  @state()
   is_chart_split: boolean = false;
 
-  @state()
-  private _navOpen: boolean = false;
+  is_anomaly_table: boolean = false;
 
-  @state() is_anomaly_table: boolean = false;
+  enableRemoveButton: boolean = true;
 
-  @state() enableRemoveButton: boolean = true;
+  disablePointLinks: boolean = false;
 
-  @state() disablePointLinks: boolean = false;
+  showHeader: boolean = true;
 
-  @state() showHeader: boolean = true;
+  showTabs: boolean = true;
 
-  @state() showTabs: boolean = true;
-
-  @state()
   private xAxisSwitch = false;
 
-  @state()
   private zoomDirectionSwitch = false;
 
   private summaryOptionsField: Ref<PickerFieldSk> = createRef();
@@ -564,9 +555,8 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
   // false - the tooltip is not selected but could be on via mouse hover
   private tooltipSelected = false;
 
-  @query('#graphTitle') private graphTitle!: GraphTitleSk;
+  private graphTitle: GraphTitleSk | null = null;
 
-  @state()
   tracesRendered = false;
 
   private selectedAnomaly: Anomaly | null = null;
@@ -574,7 +564,7 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
   private hoverTimeout: number = -1;
 
   // material UI
-  @query('#settings-dialog') private settingsDialog!: MdDialog;
+  private settingsDialog: MdDialog | null = null;
 
   private dfRepo = createRef<DataFrameRepository>();
 
@@ -591,14 +581,14 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
   public set dataLoading(value: boolean) {
     if (this.dfRepo.value) {
       this.dfRepo.value.loading = value;
-    }
-    if (!value) {
-      // Dispatch an event to notify that data is loaded for the previous range.
-      this.dispatchEvent(
-        new CustomEvent('data-loaded', {
-          bubbles: true,
-        })
-      );
+      if (!value) {
+        // Dispatch an event to notify that data is loaded for the previous range.
+        this.dispatchEvent(
+          new CustomEvent('data-loaded', {
+            bubbles: true,
+          })
+        );
+      }
     }
   }
 
@@ -607,39 +597,34 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
   }
 
   constructor(useTestPicker?: boolean) {
-    super();
+    super(ExploreSimpleSk.template);
     this.traceFormatter = GetTraceFormatter();
     this.useTestPicker = useTestPicker ?? false;
-  }
-
-  protected createRenderRoot() {
-    return this;
   }
 
   // TODO(b/380215495): The current implementation of splitting the chart by
   // an attribute is buggy and not very intuitive. The split-chart-menu module
   // has therefore been removed until the bugs are fixed.
-  render() {
-    return html`
-  <dataframe-repository-sk ${ref(this.dfRepo)}>
-  <div id=explore class=${this.displayMode}>
+  private static template = (ele: ExploreSimpleSk) => html`
+  <dataframe-repository-sk ${ref(ele.dfRepo)}>
+  <div id=explore class=${ele.displayMode}>
     <div id=buttons style="display: none">
       <button
         id=open_query_dialog
-        ?hidden=${this.useTestPicker}
-        @click=${this.openQuery}>
+        ?hidden=${ele.useTestPicker}
+        @click=${ele.openQuery}>
         Query
       </button>
     </div>
 
     <div id=chartHeader
-      ?hidden=${!this.showHeader}
+      ?hidden=${!ele.showHeader}
       class="hide_on_query_only hide_on_pivot_table hide_on_spinner">
       <graph-title-sk id=graphTitle style="flex-grow:  1;"></graph-title-sk>
       ${
-        this.isReportPage
+        ele.isReportPage
           ? html`
-              <a href="${this.testPickerUrl}">
+              <a href="${ele.testPickerUrl}">
                 <md-icon-button title="Open in Multigraph">
                   <md-icon id="icon">north_west</md-icon>
                 </md-icon-button>
@@ -648,17 +633,19 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
           : html`
               <md-icon-button
                 title="Load Test Picker with current Query"
-                ?disabled=${this.is_chart_split && !this.useTestPicker}
-                @click=${this.loadDataFromExistingChart}>
+                ?disabled=${ele.is_chart_split && !ele.useTestPicker}
+                @click=${ele.loadDataFromExistingChart}>
                 <md-icon id="icon">north_west</md-icon>
               </md-icon-button>
             `
       }
       <md-icon-button
         title="Show Zero on Axis"
-        @click=${this.showZero}>
+        @click=${() => {
+          ele.showZero();
+        }}>
         ${
-          this._state.showZero
+          ele._state.showZero
             ? html`<md-icon id="icon">radio_button_unchecked</md-icon>`
             : html`<md-icon id="icon">hide_source</md-icon>`
         }
@@ -666,20 +653,22 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
       <favorites-dialog-sk id="fav-dialog"></favorites-dialog-sk>
       <md-icon-button
         title="Add Chart to Favorites"
-        ?disabled=${!this._state!.enable_favorites}
-        @click=${this.openAddFavoriteDialog}>
+        ?disabled=${!ele._state!.enable_favorites}
+        @click=${() => {
+          ele.openAddFavoriteDialog();
+        }}>
         <md-icon id="icon">favorite</md-icon>
       </md-icon-button>
       <md-icon-button
       id="showSettingsDialog"
         title="Show Settings Dialog"
-        @click=${this.showSettingsDialog}>
+        @click=${ele.showSettingsDialog}>
         <md-icon id="icon">settings</md-icon>
       </md-icon-button>
       <md-icon-button
         id="removeAll"
-        ?disabled=${!this.enableRemoveButton}
-        @click=${() => this.closeExplore()}
+        ?disabled=${!ele.enableRemoveButton}
+        @click=${() => ele.closeExplore()}
         title='Remove all the traces.'>
         <close-icon-sk></close-icon-sk>
       </md-icon-button>
@@ -695,8 +684,8 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
                 <md-switch
                   form="form"
                   id="commit-switch"
-                  ?selected="${this.xAxisSwitch}"
-                  @change=${(e: InputEvent) => this.switchXAxis(e.target as MdSwitch)}></md-switch>
+                  ?selected="${ele.xAxisSwitch}"
+                  @change=${(e: InputEvent) => ele.switchXAxis(e.target as MdSwitch)}></md-switch>
                 X-Axis as Commit Date
               </label>
             </li>
@@ -705,8 +694,8 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
                 <md-switch
                   form="form"
                   id="zoom-direction-switch"
-                  ?selected="${this.zoomDirectionSwitch}"
-                  @change=${(e: InputEvent) => this.switchZoom(e.target as MdSwitch)}></md-switch>
+                  ?selected="${ele.zoomDirectionSwitch}"
+                  @change=${(e: InputEvent) => ele.switchZoom(e.target as MdSwitch)}></md-switch>
                 Switch Zoom Direction
               </label>
             </li>
@@ -715,9 +704,9 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
                 <md-switch
                   form="form"
                   id="even-x-axis-spacing-switch"
-                  ?selected="${this._state.evenXAxisSpacing}"
+                  ?selected="${ele._state.evenXAxisSpacing}"
                   @change=${(e: InputEvent) =>
-                    this.switchEvenXAxisSpacing(e.target as MdSwitch)}></md-switch>
+                    ele.switchEvenXAxisSpacing(e.target as MdSwitch)}></md-switch>
                 Even X-Axis Spacing
               </label>
             </li>
@@ -726,17 +715,17 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
       </md-dialog>
     </div>
 
-    <div id=spin-overlay @mouseleave=${this.mouseLeave}>
+    <div id=spin-overlay @mouseleave=${ele.mouseLeave}>
     <div class="chart-container">
         ${html`<plot-google-chart-sk
-          .domain=${this._state.domain}
-          ${ref(this.googleChartPlot)}
-          .highlightAnomalies=${this._state.highlight_anomalies}
-          .useDiscreteAxis=${this._state.evenXAxisSpacing}
-          @plot-data-select=${this.onChartSelect}
-          @plot-data-mouseover=${this.onChartOver}
-          @selection-changing=${this.OnSelectionRange}
-          @selection-changed=${this.OnSelectionRange}>
+          .domain=${ele._state.domain}
+          ${ref(ele.googleChartPlot)}
+          .highlightAnomalies=${ele._state.highlight_anomalies}
+          .useDiscreteAxis=${ele._state.evenXAxisSpacing}
+          @plot-data-select=${ele.onChartSelect}
+          @plot-data-mouseover=${ele.onChartOver}
+          @selection-changing=${ele.OnSelectionRange}
+          @selection-changed=${ele.OnSelectionRange}>
           <md-icon slot="untriage">help</md-icon>
           <md-icon slot="regression">report</md-icon>
           <md-icon slot="improvement">check_circle</md-icon>
@@ -746,7 +735,7 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
         </plot-google-chart-sk>`}
       <chart-tooltip-sk></chart-tooltip-sk>
       </div>
-      ${when(this._state.plotSummary && this.tracesRendered, () => this.plotSummaryTemplate())}
+      ${when(ele._state.plotSummary && ele.tracesRendered, () => ele.plotSummaryTemplate())}
       <div id=spin-container class="hide_on_query_only hide_on_pivot_table hide_on_pivot_plot hide_on_plot">
         <spinner-sk id=spinner active></spinner-sk>
         <pre id=percent></pre>
@@ -754,7 +743,7 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
   </div>
 
     <pivot-table-sk
-      @change=${this.pivotTableSortChange}
+      @change=${ele.pivotTableSortChange}
       disable_validation
       class="hide_on_plot hide_on_pivot_plot hide_on_query_only hide_on_spinner">
     </pivot-table-sk>
@@ -764,19 +753,19 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
       <div class=query-parts>
         <query-sk
           id=query
-          @query-change=${this.queryChangeHandler}
-          @query-change-delayed=${this.queryChangeDelayedHandler}
+          @query-change=${ele.queryChangeHandler}
+          @query-change-delayed=${ele.queryChangeDelayedHandler}
           > </query-sk>
           <div id=selections>
             <h3>Selections</h3>
-            <button id="closeQueryIcon" @click=${this.closeQueryDialog}>
+            <button id="closeQueryIcon" @click=${ele.closeQueryDialog}>
               <close-icon-sk></close-icon-sk>
             </button>
             <paramset-sk id=summary removable_values @paramset-value-remove-click=${
-              this.paramsetRemoveClick
+              ele.paramsetRemoveClick
             }></paramset-sk>
             <div class=query-counts>
-              Matches: <query-count-sk url='/_/count/' @paramset-changed=${this.paramsetChanged}>
+              Matches: <query-count-sk url='/_/count/' @paramset-changed=${ele.paramsetChanged}>
               </query-count-sk>
             </div>
           </div>
@@ -796,19 +785,19 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
       </tabs-sk>
       <tabs-panel-sk>
         <div>
-          <button @click=${() => this.add(true, 'query')} class=action>Plot</button>
-          <button @click=${() => this.add(false, 'query')}>Add to Plot</button>
+          <button @click=${() => ele.add(true, 'query')} class=action>Plot</button>
+          <button @click=${() => ele.add(false, 'query')}>Add to Plot</button>
         </div>
         <div>
           <div class=formulas>
             <label>
               Enter a formula:
-              <textarea id=formula rows=3 cols=80></textarea>
+              <textarea id=formula-${ele.uniqueId} rows=3 cols=80></textarea>
             </label>
             <div>
-              <button @click=${() => this.add(true, 'formula')} class=action>Plot</button>
-              <button @click=${() => this.add(false, 'formula')}>Add to Plot</button>
-              <button @click=${this.onOpenHelp} title="Keyboard Shortcuts">Shortcuts</button>
+              <button @click=${() => ele.add(true, 'formula')} class=action>Plot</button>
+              <button @click=${() => ele.add(false, 'formula')}>Add to Plot</button>
+              <button @click=${ele.onOpenHelp} title="Keyboard Shortcuts">Shortcuts</button>
               <a href=/help/ target=_blank title="Documentation">
                 <help-icon-sk></help-icon-sk>
               </a>
@@ -817,16 +806,16 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
         </div>
         <div>
           <pivot-query-sk
-            @pivot-changed=${this.pivotChanged}
-            .pivotRequest=${this._state.pivotRequest}
+            @pivot-changed=${ele.pivotChanged}
+            .pivotRequest=${ele._state.pivotRequest}
           >
           </pivot-query-sk>
           <div>
             <button
-              id=pivot-display-button
-              @click=${() => this.add(true, 'pivot')}
+              id=pivot-display-button-${ele.uniqueId}
+              @click=${() => ele.add(true, 'pivot')}
               class=action
-              .disabled=${validatePivotRequest(this._state.pivotRequest) !== ''}
+              .disabled=${validatePivotRequest(ele._state.pivotRequest) !== ''}
             >Display</button>
           </div>
         </div>
@@ -834,11 +823,11 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
           <div class=formulas>
             <label>
               Enter a JSON:
-              <textarea id=json rows=10 cols=80></textarea>
+              <textarea id=json-${ele.uniqueId} rows=10 cols=80></textarea>
             </label>
             <div>
-              <button @click=${() => this.add(true, 'json')} class=action>Plot</button>
-              <button @click=${() => this.add(false, 'json')}>Add to Plot</button>
+              <button @click=${() => ele.add(true, 'json')} class=action>Plot</button>
+              <button @click=${() => ele.add(false, 'json')}>Add to Plot</button>
               <a href=/help/ target=_blank>
                 <help-icon-sk></help-icon-sk>
               </a>
@@ -847,7 +836,7 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
         </div>
       </tabs-panel-sk>
       <div class=footer>
-        <button @click=${this.closeQueryDialog} id='close_query_dialog'>Close</button>
+        <button @click=${ele.closeQueryDialog} id='close_query_dialog'>Close</button>
       </div>
     </dialog>
 
@@ -870,26 +859,26 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
         <sup>1</sup> And Dvorak equivalents.
       </div>
       <div class=help-footer>
-        <button class=action @click=${this.closeHelp}>Close</button>
+        <button class=action @click=${ele.closeHelp}>Close</button>
       </div>
     </dialog>
 
-    <keyboard-shortcuts-help-sk .handler=${this}></keyboard-shortcuts-help-sk>
+    <keyboard-shortcuts-help-sk .handler=${ele}></keyboard-shortcuts-help-sk>
 
     ${
-      this.state.hide_paramset
+      ele.state.hide_paramset
         ? ''
         : html`
             <div id="tabs" class="hide_on_query_only hide_on_spinner hide_on_pivot_table">
               <button
                 class="collapser"
                 id="collapseButton"
-                @click=${(_e: Event) => this.toggleDetails()}>
-                ${this.navOpen
+                @click=${(_e: Event) => ele.toggleDetails()}>
+                ${ele.navOpen
                   ? html`<expand-less-icon-sk></expand-less-icon-sk>`
                   : html`<expand-more-icon-sk></expand-more-icon-sk>`}
               </button>
-              <collapse-sk id="collapseDetails" .closed=${!this.navOpen}>
+              <collapse-sk id="collapseDetails" .closed=${!ele.navOpen}>
                 <tabs-sk id="detailTab">
                   <button>Params</button>
                 </tabs-sk>
@@ -902,10 +891,10 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
                       clickable_values
                       checkbox_values
                       @paramset-key-value-click=${(e: CustomEvent<ParamSetSkClickEventDetail>) => {
-                        this.paramsetKeyValueClick(e);
+                        ele.paramsetKeyValueClick(e);
                       }}
-                      @paramset-checkbox-click=${this.paramsetCheckboxClick}
-                      @paramset-key-checkbox-click=${this.paramsetKeyCheckboxClick}>
+                      @paramset-checkbox-click=${ele.paramsetCheckboxClick}
+                      @paramset-key-checkbox-click=${ele.paramsetKeyCheckboxClick}>
                     </paramset-sk>
                   </div>
                 </tabs-panel-sk>
@@ -916,7 +905,7 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
   </div>
   </dataframe-repository-sk>
   <toast-sk id="pinpoint-job-toast" duration=10000>
-    Pinpoint bisection started: <a href=${this.jobUrl} target=_blank>${this.jobId}</a>.
+    Pinpoint bisection started: <a href=${ele.jobUrl} target=_blank>${ele.jobId}</a>.
     <button id="hide-pinpoint-toast" class="action">Close</button>
   </toast-sk>
   <toast-sk id="triage-result-toast" duration=5000>
@@ -924,7 +913,6 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
     <button id="hide-triage-toast" class="action">Close</button>
   </toast-sk>
   `;
-  }
 
   private plotSummaryTemplate() {
     return html` <plot-summary-sk
@@ -945,8 +933,7 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
   private showZero = () => {
     this._state.showZero = !this._state.showZero;
     this.googleChartPlot.value!.showZero = this._state.showZero;
-    this.requestUpdate();
-    this._stateHasChanged();
+    this.render();
   };
 
   private loadDataFromExistingChart = async () => {
@@ -1190,10 +1177,11 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
     this.setUseDiscreteAxis(this._state.evenXAxisSpacing);
 
     this._initialized = true;
-  }
+    this.render();
 
-  protected firstUpdated(changedProperties: any) {
-    super.firstUpdated(changedProperties);
+    this.detailTab = this.querySelector('#detailTab');
+    this.formula = this.querySelector(`#formula-${this.uniqueId}`);
+    this.json = this.querySelector(`#json-${this.uniqueId}`);
     if (this.json && this.json.value === '') {
       this.json.value = JSON.stringify(
         {
@@ -1209,6 +1197,26 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
         2
       );
     }
+    this.logEntry = this.querySelector('#logEntry');
+    this.paramset = this.querySelector('#paramset');
+    this.percent = this.querySelector('#percent');
+    this.pivotControl = this.querySelector('pivot-query-sk');
+    this.pivotDisplayButton = this.querySelector(`#pivot-display-button-${this.uniqueId}`);
+    this.pivotTable = this.querySelector('pivot-table-sk');
+    this.query = this.querySelector('#query');
+    this.queryCount = this.querySelector('query-count-sk');
+    this.range = this.querySelector('#range');
+    this.spinner = this.querySelector('#spinner');
+    this.summary = this.querySelector('#summary');
+    this.commitTime = this.querySelector('#commit_time');
+    this.queryDialog = this.querySelector('#query-dialog');
+    this.helpDialog = this.querySelector('#help');
+    this.pinpointJobToast = this.querySelector('#pinpoint-job-toast');
+    this.closePinpointToastButton = this.querySelector('#hide-pinpoint-toast');
+    this.triageResultToast = this.querySelector('#triage-result-toast');
+    this.closeTriageToastButton = this.querySelector('#hide-triage-toast');
+    this.collapseButton = this.querySelector('#collapseButton');
+    this.graphTitle = this.querySelector<GraphTitleSk>('#graphTitle');
     this.is_anomaly_table = document.querySelector('#anomaly-table') ? true : false;
 
     // Update the range picker's state from our own state, since our state may
@@ -1222,6 +1230,7 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
       };
     }
     // material UI stuff
+    this.settingsDialog = this.querySelector<MdDialog>('#settings-dialog');
 
     // Populate the query element.
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -1344,7 +1353,7 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
         }
         this.triageResultToast?.show();
         this._stateHasChanged();
-        this.requestUpdate();
+        this.render();
       }
     });
 
@@ -1371,14 +1380,12 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
     });
   }
 
-  updated(changedProperties: any) {
-    super.updated(changedProperties);
+  render(): void {
+    this._render();
+    // Determine if in split chart mode.
     const chartTotal = document.querySelectorAll('explore-simple-sk');
     const testPicker = document.querySelector('test-picker-sk');
-    const isSplit = chartTotal.length > 1 && testPicker ? true : false;
-    if (this.is_chart_split !== isSplit) {
-      this.is_chart_split = isSplit;
-    }
+    this.is_chart_split = chartTotal.length > 1 && testPicker ? true : false;
   }
 
   showSettingsDialog(_event: Event) {
@@ -1426,7 +1433,7 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
     if (this.plotSummary.value) {
       this.plotSummary.value.domain = domain as 'commit' | 'date';
     }
-    this.requestUpdate();
+    this.render();
     this._stateHasChanged();
   }
 
@@ -1502,7 +1509,7 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
     ) {
       if (this.testPickerUrl !== '#') {
         this.testPickerUrl = '#';
-        this.requestUpdate();
+        this._render();
       }
       return;
     }
@@ -1522,7 +1529,7 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
 
         if (this.testPickerUrl !== newUrl) {
           this.testPickerUrl = newUrl;
-          this.requestUpdate();
+          this._render();
         }
       })
       .catch((error) => {
@@ -1532,7 +1539,7 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
         console.error('Failed to update shortcut for Test Picker URL:', error);
         if (this.testPickerUrl !== '#') {
           this.testPickerUrl = '#';
-          this.requestUpdate();
+          this._render();
         }
       });
   }
@@ -1555,6 +1562,7 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
     } else {
       this.state.horizontal_zoom = false;
     }
+    this.render();
     const detail = {
       key: this.state.horizontal_zoom,
     };
@@ -1566,7 +1574,7 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
     this._state.evenXAxisSpacing = target.selected;
 
     this.setUseDiscreteAxis(this._state.evenXAxisSpacing);
-    this.requestUpdate();
+    this.render();
     this.dispatchEvent(
       new CustomEvent('even-x-axis-spacing-changed', {
         detail: { value: this._state.evenXAxisSpacing, graph_index: this._state.graph_index },
@@ -1919,7 +1927,7 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
 
   /** Open the query dialog box. */
   openQuery() {
-    this.requestUpdate();
+    this.render();
     this._dialogOn = true;
     this.queryDialog!.show();
     // If there is a query already plotted, update the counts on the query dialog.
@@ -1931,7 +1939,7 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
   private paramsetChanged(e: CustomEvent<ParamSet>) {
     this.query!.paramset = e.detail;
     this.pivotControl!.paramset = e.detail;
-    this.requestUpdate();
+    this.render();
   }
 
   private queryChangeDelayedHandler(e: CustomEvent<QuerySkQueryChangeEventDetail>) {
@@ -2322,7 +2330,7 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
       this.plotSummary.value!.selectedTrace = '';
     }
 
-    this.requestUpdate();
+    this.render();
   }
 
   /** Highlight a trace when it is clicked on. */
@@ -2390,7 +2398,7 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
 
     paramsets = [paramset as CommonSkParamSet];
 
-    this.requestUpdate();
+    this.render();
 
     this._state.selected.name = detail.name;
     this._state.selected.commit = commit;
@@ -2657,7 +2665,7 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
       }
     });
 
-    this.requestUpdate();
+    this.render();
   }
 
   private closeHelp() {
@@ -2737,9 +2745,6 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
         } else {
           errorMessage(msg);
         }
-      })
-      .finally(() => {
-        this.dataLoading = false;
       });
   }
 
@@ -2757,7 +2762,7 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
     extendRange: boolean = true,
     replaceAnomalies: boolean = false
   ): Promise<void> {
-    this.requestUpdate();
+    this.render();
     if (
       frameResponse.dataframe?.traceset &&
       Object.keys(frameResponse.dataframe.traceset).length === 0
@@ -2805,7 +2810,7 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
         this.traceSelected(e);
       }
     }
-    this.requestUpdate();
+    this.render();
     return await loadingMore;
   }
 
@@ -2902,7 +2907,7 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
     this._renderedTraces();
     if (this._state.plotSummary) {
       if (this.state.doNotQueryData || !loadExtendedRange) {
-        this.requestUpdate();
+        this.render();
         // The data is supposed to be already loaded.
         // Let's simply make the selection on the summary.
         this.plotSummary.value?.SelectRange(selectedRange!);
@@ -3360,7 +3365,7 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
     this.dfRepo.value?.clear();
     this.closeTooltip();
 
-    this.requestUpdate();
+    this.render();
     if (!skipHistory) {
       this.clearSelectedState();
       this._stateHasChanged();
@@ -3458,7 +3463,7 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
 
     if (!this.hasData()) {
       this.displayMode = 'display_query_only';
-      this.requestUpdate();
+      this.render();
     }
   }
 
@@ -3523,7 +3528,7 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
     if (b) {
       this.displayMode = 'display_spinner';
     }
-    this.requestUpdate();
+    this.render();
   }
 
   get spinning(): boolean {
@@ -3631,7 +3636,7 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
       };
     }
 
-    this.requestUpdate();
+    this.render();
 
     // If there is at least one query, the use the last one to repopulate the
     // query-sk dialog.
@@ -3694,16 +3699,20 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
   }
 
   get navOpen(): boolean {
-    return this._navOpen;
+    return this.hasAttribute('nav-open');
   }
 
   set navOpen(val: boolean) {
-    this._navOpen = val;
+    if (val) {
+      this.setAttribute('nav-open', '');
+    } else {
+      this.removeAttribute('nav-open');
+    }
   }
 
   private toggleDetails() {
     this.navOpen = !this.navOpen;
-    this.requestUpdate();
+    this.render();
   }
 
   getTraceset(): { [key: string]: number[] } | null {
@@ -3779,7 +3788,7 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
   public clearHighlightedCircles() {
     this._state.highlight_anomalies = [];
     this._stateHasChanged();
-    this.requestUpdate();
+    this.render();
   }
 
   public clearAnomalyMap() {
@@ -3808,3 +3817,5 @@ export class ExploreSimpleSk extends LitElement implements KeyboardShortcutHandl
     );
   }
 }
+
+define('explore-simple-sk', ExploreSimpleSk);

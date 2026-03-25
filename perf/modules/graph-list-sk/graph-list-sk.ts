@@ -70,12 +70,7 @@ export class GraphListSk extends LitElement {
         @x-axis-toggled=${this.syncXAxisLabel}
         @range-changing-in-multi=${this.syncExtendRangeOnSummaryBar}
         @selection-range-changed=${this.syncChartSelection}
-        @even-x-axis-spacing-changed=${this.syncEvenXAxisSpacing}>
-        ${this.items.slice(0, this._renderedCount).map((item) => {
-          const el = this._graphCache.get(item.id);
-          return el ?? '';
-        })}
-      </div>
+        @even-x-axis-spacing-changed=${this.syncEvenXAxisSpacing}></div>
       ${this.renderControls()}
     `;
   }
@@ -227,12 +222,15 @@ export class GraphListSk extends LitElement {
             this._graphCache.set(id, graphElement);
           }
         }
-      });
 
-      // Increment count sequentially so the declarative map can render this chunk.
-      // This preserves sequential loading while making DOM layout declarative.
-      this._renderedCount += chunk.length;
-      await this.updateComplete; // Wait for Lit to render this chunk into the DOM.
+        if (graphElement) {
+          // Calling appendChild ensures the node is moved to the end of the container,
+          // matching the array's exact sorted order.
+          this._graphDiv!.appendChild(graphElement);
+          const height = this.items.length === 1 ? '500px' : '250px';
+          graphElement.updateChartHeight(height);
+        }
+      });
 
       const promises = chunk.map(
         (item) =>

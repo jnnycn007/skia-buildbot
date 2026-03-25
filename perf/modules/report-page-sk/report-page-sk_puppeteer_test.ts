@@ -243,10 +243,6 @@ describe('report-page-sk', () => {
 
       const anomaliesTablePO = reportPageSkPO.anomaliesTable;
       await anomaliesTablePO.clickCheckbox(1);
-      await testBed.page.evaluate(async () => {
-        const graphs = document.querySelectorAll('explore-simple-sk');
-        await Promise.all(Array.from(graphs).map((el) => (el as any).updateComplete));
-      });
 
       await poll(async () => {
         const currentGraphs = await reportPageSkPO.graphs;
@@ -261,16 +257,8 @@ describe('report-page-sk', () => {
 
       const anomaliesTablePO = reportPageSkPO.anomaliesTable;
       await anomaliesTablePO.clickCheckbox(0);
-      await testBed.page.evaluate(async () => {
-        const graphs = document.querySelectorAll('explore-simple-sk');
-        await Promise.all(Array.from(graphs).map((el) => (el as any).updateComplete));
-      });
 
       await poll(async () => {
-        await testBed.page.evaluate(async () => {
-          const list = document.querySelector('graph-list-sk') as any;
-          if (list) await list.updateComplete;
-        });
         const currentGraphs = await reportPageSkPO.graphs;
         return (await currentGraphs.length) === 2;
       }, 'Two graphs should be displayed');
@@ -512,10 +500,6 @@ describe('report-page-sk', () => {
 
       // Changing the summary range verification
       await plotSummaryPO.resizeSelection(testBed.page, 'left', 0.75);
-      await testBed.page.evaluate(async () => {
-        const graphs = document.querySelectorAll('explore-simple-sk');
-        await Promise.all(Array.from(graphs).map((el) => (el as any).updateComplete));
-      });
       const finalRange = await plotSummaryPO.getSelectedRange();
       // https://screencast.googleplex.com/cast/NTEyNTg0Njc5NTgxMjg2NHw4ODA2ZDg5My0yYw
       expect(Math.round(finalRange!.begin)).to.greaterThan(

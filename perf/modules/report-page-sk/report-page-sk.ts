@@ -3,9 +3,9 @@
  * @description <h2><code>report-page-sk</code></h2>
  *
  */
-import { LitElement, html } from 'lit';
-import { state, query } from 'lit/decorators.js';
+import { html } from 'lit/html.js';
 import { define } from '../../../elements-sk/modules/define';
+import { ElementSk } from '../../../infra-sk/modules/ElementSk';
 import { State, ExploreSimpleSk } from '../explore-simple-sk/explore-simple-sk';
 import { Anomaly, Commit, CommitNumber, QueryConfig, Timerange } from '../json';
 import { jsonOrThrow } from '../../../infra-sk/modules/jsonOrThrow';
@@ -17,6 +17,7 @@ import '../anomalies-table-sk/anomalies-table-sk';
 import '../graph-list-sk/graph-list-sk';
 import { GraphListSk } from '../graph-list-sk/graph-list-sk';
 import { lookupCids } from '../cid/cid';
+import { upgradeProperty } from '../../../elements-sk/modules/upgradeProperty';
 import '../../../elements-sk/modules/icons/camera-roll-icon-sk';
 import { CountMetric, SummaryMetric, telemetry } from '../telemetry/telemetry';
 
@@ -89,7 +90,7 @@ class AnomalyTracker {
   }
 }
 
-export class ReportPageSk extends LitElement {
+export class ReportPageSk extends ElementSk {
   /**
    * Factory for creating ExploreSimpleSk instances. This allows for dependency
    * injection in tests.
@@ -100,16 +101,12 @@ export class ReportPageSk extends LitElement {
   private anomalyTracker = new AnomalyTracker();
 
   // Reference to anomalies table element.
-  @query('#anomaly-table')
-  anomaliesTable!: AnomaliesTableSk;
+  anomaliesTable: AnomaliesTableSk | null = null;
 
-  @query('#graph-list')
-  private graphList!: GraphListSk;
+  private graphList: GraphListSk | null = null;
 
-  @state()
   private _currentlyLoading: string = '';
 
-  @state()
   private _allGraphsLoaded: boolean = false;
 
   private pageLoadStart: number = 0;
@@ -118,7 +115,6 @@ export class ReportPageSk extends LitElement {
 
   private defaults: QueryConfig | null = null;
 
-  @state()
   private commitMap: Map<Commit, boolean> = new Map();
 
   private requestAnomalies: string[] = [];
@@ -127,42 +123,33 @@ export class ReportPageSk extends LitElement {
 
   private commitBodyPrefix = 'Body ';
 
-  render() {
-    return html`
-      ${this._currentlyLoading
-        ? html`
-            <div class="loading-status">
-              <spinner-sk id="loading-spinner" active></spinner-sk>
-              <span class="loading-message">${this._currentlyLoading}</span>
-            </div>
-          `
-        : ''}
-      <anomalies-table-sk
-        id="anomaly-table"
-        show-requested-groups-first
-        .loading=${!!this._currentlyLoading}>
-      </anomalies-table-sk>
-      ${this.showAllCommitsTemplate()}
-      <graph-list-sk id="graph-list" @graphs-loaded=${this.onGraphsLoaded}> </graph-list-sk>
-      <div id="bottom-spacer"></div>
-    `;
-  }
-
-  private onGraphsLoaded() {
-    this._allGraphsLoaded = true;
-  }
+  private static template = (ele: ReportPageSk) => html`
+    ${ele._currentlyLoading
+      ? html`
+          <div class="loading-status">
+            <spinner-sk id="loading-spinner" active></spinner-sk>
+            <span class="loading-message">${ele._currentlyLoading}</span>
+          </div>
+        `
+      : ''}
+    <anomalies-table-sk
+      id="anomaly-table"
+      show-requested-groups-first
+      .loading=${!!ele._currentlyLoading}>
+    </anomalies-table-sk>
+    ${ele.showAllCommitsTemplate()}
+    <graph-list-sk id="graph-list"></graph-list-sk>
+    <div id="bottom-spacer"></div>
+  `;
 
   constructor() {
-    super();
+    super(ReportPageSk.template);
     this.traceFormatter = new ChromeTraceFormatter();
-  }
-
-  createRenderRoot() {
-    return this;
   }
 
   private setCurrentlyLoading(value: string) {
     this._currentlyLoading = value;
+    this._render();
   }
 
   private stopTimerAndRecord(metric: SummaryMetric, tags: { [key: string]: string } = {}) {
@@ -184,7 +171,17 @@ export class ReportPageSk extends LitElement {
     if (this._currentlyLoading !== '' || this._allGraphsLoaded) {
       return;
     }
-    // Removed manual DOM queries and setters.
+    this._connected = true;
+    upgradeProperty(this, 'commitList');
+    this._render();
+
+    this.anomaliesTable = this.querySelector('#anomaly-table');
+    this.graphList = this.querySelector('#graph-list');
+    if (this.graphList) {
+      this.graphList.addEventListener('graphs-loaded', () => {
+        this._allGraphsLoaded = true;
+      });
+    }
 
     this.setCurrentlyLoading('Loading configuration...');
     await this.initializeDefaults();
@@ -252,6 +249,7 @@ export class ReportPageSk extends LitElement {
       .catch((msg: any) => {
         errorMessage(msg);
         this.setCurrentlyLoading('');
+        this._render();
       });
   }
 
