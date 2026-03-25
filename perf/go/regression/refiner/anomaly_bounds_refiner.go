@@ -26,20 +26,33 @@ func NewAnomalyBoundsRefiner(stdDevThreshold float32) regression.RegressionRefin
 
 // Process implements the regression.RegressionRefiner interface.
 func (r *AnomalyBoundsRefiner) Process(ctx context.Context, cfg *alerts.Alert, responses []*regression.RegressionDetectionResponse) ([]*regression.ConfirmedRegression, error) {
-	// Validate input.
 	if err := r.validateInput(cfg, responses); err != nil {
 		return nil, err
 	}
 
 	var confirmed []*regression.ConfirmedRegression
 
-	areas := findRegressionAreas(responses, cfg)
-	for _, area := range areas {
-		confirmedReg := r.mergeArea(cfg, area)
-		confirmed = append(confirmed, confirmedReg)
+	groups := groupResponsesByTraceName(responses)
+
+	for _, group := range groups {
+		areas := findRegressionAreas(group, cfg)
+		for _, area := range areas {
+			confirmedReg := r.mergeArea(cfg, area)
+			confirmed = append(confirmed, confirmedReg)
+		}
 	}
 
 	return confirmed, nil
+}
+
+func groupResponsesByTraceName(responses []*regression.RegressionDetectionResponse) map[string][]*regression.RegressionDetectionResponse {
+	// Create a map to instantly group responses by TraceName
+	groupedMap := make(map[string][]*regression.RegressionDetectionResponse)
+	for _, resp := range responses {
+		groupedMap[resp.TraceName] = append(groupedMap[resp.TraceName], resp)
+	}
+
+	return groupedMap
 }
 
 func (r *AnomalyBoundsRefiner) validateInput(cfg *alerts.Alert, responses []*regression.RegressionDetectionResponse) error {
@@ -58,6 +71,12 @@ func (r *AnomalyBoundsRefiner) validateInput(cfg *alerts.Alert, responses []*reg
 	for _, resp := range responses {
 		if resp.Summary == nil {
 			return fmt.Errorf("regression detection response summary is nil")
+		}
+		if resp.Frame == nil {
+			return fmt.Errorf("regression detection response frame is nil")
+		}
+		if resp.Frame.DataFrame == nil {
+			return fmt.Errorf("regression detection response dataframe is nil")
 		}
 		if len(resp.Summary.Clusters) > 1 {
 			return fmt.Errorf("StepFit expects at most 1 cluster per response, got %d", len(resp.Summary.Clusters))
@@ -78,19 +97,16 @@ func (r *AnomalyBoundsRefiner) validateInput(cfg *alerts.Alert, responses []*reg
 	return nil
 }
 
-// validateKeys ensures that all clusters across all responses have the same trace key.
+// validateKeys ensures that all cluster keys match the response's TraceName.
 func (r *AnomalyBoundsRefiner) validateKeys(responses []*regression.RegressionDetectionResponse) error {
-	keysFound := make(map[string]bool)
 	for _, resp := range responses {
 		for _, cluster := range resp.Summary.Clusters {
-			if len(cluster.Keys) > 0 {
-				keysFound[cluster.Keys[0]] = true
+			for _, key := range cluster.Keys {
+				if key != resp.TraceName {
+					return fmt.Errorf("Inconsistency: key %q does not match trace name %q", key, resp.TraceName)
+				}
 			}
 		}
-	}
-
-	if len(keysFound) > 1 {
-		return fmt.Errorf("AnomalyBoundsRefiner expects all responses to have the same trace key")
 	}
 	return nil
 }

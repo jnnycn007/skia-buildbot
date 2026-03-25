@@ -46,6 +46,7 @@ func createResponse(offset int, key string, status stepfit.StepFitStatus) *regre
 		Summary: &clustering2.ClusterSummaries{
 			Clusters: clusters,
 		},
+		TraceName: key,
 	}
 }
 
@@ -86,6 +87,7 @@ func createResponseV2(data types.Trace, key string, status stepfit.StepFitStatus
 		Summary: &clustering2.ClusterSummaries{
 			Clusters: clusters,
 		},
+		TraceName: key,
 	}
 }
 

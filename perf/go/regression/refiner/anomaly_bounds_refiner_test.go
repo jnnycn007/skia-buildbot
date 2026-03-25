@@ -240,12 +240,6 @@ func TestAnomalyBoundsRefinerValidateInput_ReturnsErrors(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "StepFit to be not nil")
 
-	// Case 7: Multiple different trace keys across responses
-	r1 := createResponse(100, "t1", stepfit.LOW)
-	r2 := createResponse(101, "t2", stepfit.LOW)
-	err = r.validateInput(&alerts.Alert{Algo: types.StepFitGrouping}, []*regression.RegressionDetectionResponse{r1, r2})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "all responses to have the same trace key")
 }
 
 func generateTracesFromStream(fullData []float32, windowSize int) [][]float32 {
@@ -394,4 +388,34 @@ func TestAnomalyBoundsRefinerExpandRange(t *testing.T) {
 		foundIndex2 := r.expandRangeToRight(baseline, 1, group2, cfg)
 		assert.Equal(t, 3, foundIndex2, "Should expand to index 3")
 	})
+}
+
+func TestAnomalyBoundsRefiner_MultipleTraces_GroupsSeparately(t *testing.T) {
+	r := NewAnomalyBoundsRefiner(defaultStdDevThreshold)
+
+	alert := &alerts.Alert{
+		Algo:        types.StepFitGrouping,
+		Step:        types.CohenStep,
+		Interesting: 2.5,
+		Radius:      4,
+	}
+
+	// Two traces with isolated peaks
+	// We want offset to be 100
+	traceData := []float32{10, 10, 10, 10, 20, 20, 20, 20}
+
+	inputs := []*regression.RegressionDetectionResponse{
+		createResponseV2(traceData, "trace-A", stepfit.UNINTERESTING, 99, 0),
+		createResponseV2(traceData, "trace-B", stepfit.UNINTERESTING, 99, 0),
+		createResponseV2(traceData, "trace-A", stepfit.LOW, 100, 10),
+		createResponseV2(traceData, "trace-B", stepfit.LOW, 100, 10),
+		createResponseV2(traceData, "trace-A", stepfit.UNINTERESTING, 101, 0),
+		createResponseV2(traceData, "trace-B", stepfit.UNINTERESTING, 101, 0),
+	}
+
+	res, err := r.Process(context.Background(), alert, inputs)
+	assert.NoError(t, err)
+	// Without grouping, the refiner would conflate trace-A and trace-B offsets and only emit 1 confirmed regression peak.
+	// With grouping by TraceName, it treats them entirely independently and finds 2 peaks.
+	assert.Len(t, res, 2, "Expected exactly 2 regressions, one for each trace")
 }

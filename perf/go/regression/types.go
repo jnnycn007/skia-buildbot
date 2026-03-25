@@ -158,6 +158,8 @@ type RegressionDetectionResponse struct {
 	// Message contains context about the detection for this specific response,
 	// such as trace filtering statistics.
 	Message string `json:"-"` // Using json:"-" prevents it from being serialized by default.
+
+	TraceName string `json:"-"`
 }
 
 // ConfirmedRegression represents a regression that has been validated and approved

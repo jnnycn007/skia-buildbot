@@ -149,7 +149,7 @@ func NewDataFrameIterator(
 	metrics2.GetCounter("perf_regression_detection_floats").Inc(int64(len(df.Header) * len(df.TraceSet)))
 
 	// The DfTraceSlicer will only work for stepfit (i.e individual and not kmeans)
-	if config.Config.Experiments.DfIterTraceSlicer && alert.Algo == types.StepFitGrouping {
+	if alert.Algo == types.StepFitGrouping {
 		return NewStepFitDfTraceSlicer(df, alert.Radius), nil
 	} else {
 		return NewKmeansDataframeSlicer(df, alert.Radius), nil

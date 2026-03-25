@@ -293,6 +293,16 @@ func (p *regressionDetectionProcess) detectRegressionsOnDataFrame(ctx context.Co
 		return nil, p.reportError(err, "Invalid regression detection.")
 	}
 
+	var traceName string
+	for k := range df.TraceSet {
+		// Grab the first trace name. This is required by AnomalyBoundsRefiner
+		// to group the detection responses by trace name.
+		// The default refiner will ignore this value so sleection first one is safe.
+		// AnomalyBoundsRefiner later checks that df.TraceSet contained only one key in RegressionDetectionResponse.
+		traceName = string(k)
+		break
+	}
+
 	df.TraceSet = types.TraceSet{}
 	frame, err := frame.ResponseFromDataFrame(ctx, nil, df, p.perfGit, false, p.request.Progress)
 	if err != nil {
@@ -300,9 +310,10 @@ func (p *regressionDetectionProcess) detectRegressionsOnDataFrame(ctx context.Co
 	}
 
 	cr := &RegressionDetectionResponse{
-		Summary: summary,
-		Frame:   frame,
-		Message: message, // Store the per-dataframe message here.
+		Summary:   summary,
+		Frame:     frame,
+		Message:   message, // Store the per-dataframe message here.
+		TraceName: traceName,
 	}
 	return cr, nil
 }
