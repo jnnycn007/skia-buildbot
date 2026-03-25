@@ -170,7 +170,7 @@ func (ui *userIssueApi) deleteUserIssueHandler(w http.ResponseWriter, r *http.Re
 }
 
 type CreateUserIssueResponse struct {
-	IssueId int64 `json:"issue_id"`
+	BugId int64 `json:"bug_id"`
 }
 
 // createUserIssueHandler creates a new user issue in Buganizer and saves it to the db
@@ -217,10 +217,11 @@ func (ui *userIssueApi) createUserIssueHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	resp := CreateUserIssueResponse{
-		IssueId: int64(issueId),
+		BugId: int64(issueId),
 	}
 
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		sklog.Errorf("Failed to encode response: %s", http.StatusInternalServerError)
 	}
+	sklog.Debugf("Create user issue b/%d is created.", resp.BugId)
 }

@@ -133,7 +133,7 @@ func TestFrontendCreateUserIssueHandler_Success(t *testing.T) {
 	var resp CreateUserIssueResponse
 	err := json.NewDecoder(w.Body).Decode(&resp)
 	require.NoError(t, err)
-	require.Equal(t, int64(12345), resp.IssueId)
+	require.Equal(t, int64(12345), resp.BugId)
 }
 
 func TestFrontendCreateUserIssueHandler_UnAuthorized(t *testing.T) {
