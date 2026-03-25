@@ -243,6 +243,59 @@ func TestGetParamSetKey_Success_OnMoreThanTwoKeys(t *testing.T) {
 	assert.Equal(t, "", key)
 }
 
+func TestGetParamSetForQuery_MissingCountTriggersFallback(t *testing.T) {
+	cache := mockCache.NewCache(t)
+
+	qValues := url.Values{"config": []string{"8888"}}
+	q, err := query.New(qValues)
+	require.NoError(t, err)
+
+	// Determine the cache key that will be requested
+	cacheKey, err := paramSetKey(qValues, []string{"config"})
+	require.NoError(t, err)
+
+	// 1. Simulate Cache HIT for the ParamSet
+	validParamSetJSON := `{"config":["8888"]}`
+	cache.On("GetValue", mock.Anything, cacheKey).Return(validParamSetJSON, nil)
+
+	// 2. Simulate Cache MISS for the Count
+	cache.On("GetValue", mock.Anything, countKey(cacheKey)).Return("", nil)
+
+	// 3. Set up the Database Fallback (DataFrameBuilder Mock)
+	// If the fallback works correctly, it will hit this mock. We return a distinct
+	// count (99) and a distinct paramset so we can assert the fallback was used.
+	dfbMock := &dfb.DataFrameBuilder{}
+	expectedFallbackPS := paramtools.ParamSet{"config": []string{"8888", "fallback_hit"}}
+	dfbMock.On("PreflightQuery", mock.Anything, mock.Anything, mock.Anything).Return(
+		int64(99), expectedFallbackPS, nil)
+
+	cacheConfig := &config.QueryCacheConfig{
+		Level1Key: "config",
+		Enabled:   true,
+	}
+
+	// Initialize our refreshers
+	pf := getPsRefresher(nil, cacheConfig, dfbMock)
+	refresher := NewCachedParamSetRefresher(pf, cache)
+
+	// 4. Execute the query
+	ctx := context.Background()
+	count, ps, err := refresher.GetParamSetForQuery(ctx, q, qValues)
+
+	// 5. Assertions
+	require.NoError(t, err)
+
+	// We should get 99 (from the DB fallback), NOT 0 (from the bug)
+	assert.Equal(t, int64(99), count, "Expected count to come from DB fallback, not default to 0")
+
+	// We should get the fallback paramset, NOT the cached one
+	assert.Equal(t, expectedFallbackPS, ps, "Expected paramset to come from DB fallback")
+
+	// Ensure our mocks were actually called as expected
+	cache.AssertExpectations(t)
+	dfbMock.AssertExpectations(t)
+}
+
 func assertCacheHit(t *testing.T, ctx context.Context, cache *local.Cache, psCacheKey string, expectedCount int) {
 	val, err := cache.GetValue(ctx, psCacheKey)
 	assert.Nil(t, err)

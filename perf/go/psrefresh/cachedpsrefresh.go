@@ -223,38 +223,39 @@ func (c *CachedParamSetRefresher) getParamSetKey(q url.Values) (string, error) {
 func (c *CachedParamSetRefresher) getParamSetForQueryInternal(ctx context.Context, query *query.Query, q url.Values) (int64, paramtools.ParamSet, error) {
 	key, err := c.getParamSetKey(q)
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, err // Bubbles up; caller handles DB fallback
 	}
 	if key == "" {
-		// We don't cache query results with more than 2 parameters,
-		// so let's do a full search instead.
-		return c.psRefresher.GetParamSetForQuery(ctx, query, q)
+		// We don't cache query results with more than 2 parameters.
+		// Return nil to trigger the caller's DB fallback safely.
+		return 0, nil, nil
 	}
 
 	cacheValue, err := c.cache.GetValue(ctx, key)
+	if err != nil || cacheValue == "" {
+		sklog.Infof("Cache miss/error for paramset key %s", key)
+		return 0, nil, err // Caller handles DB fallback
+	}
+
+	paramset, err := paramtools.FromString(cacheValue)
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, err // Caller handles DB fallback
 	}
 
-	if cacheValue != "" {
-		paramset, err := paramtools.FromString(cacheValue)
-
-		if err != nil {
-			return 0, nil, err
-		}
-		countStr, err := c.cache.GetValue(ctx, countKey(key))
-		var count int64
-		if countStr != "" {
-			count, err = strconv.ParseInt(countStr, 10, 64)
-		}
-
-		sklog.Infof("Cache hit for paramset key %s", key)
-		return count, paramset, err
+	countStr, err := c.cache.GetValue(ctx, countKey(key))
+	if err != nil || countStr == "" {
+		sklog.Warningf("Paramset cache hit but count missing/errored for key %s. Forcing DB fallback.", key)
+		return 0, nil, err // Caller handles DB fallback
 	}
 
-	// If nothing has been found in cache, let's default to getting it from the regular refresher.
-	sklog.Infof("Cache miss for paramset key %s", key)
-	return c.psRefresher.GetParamSetForQuery(ctx, query, q)
+	count, err := strconv.ParseInt(countStr, 10, 64)
+	if err != nil {
+		sklog.Warningf("Failed to parse count from cache for key %s: %v. Forcing DB fallback.", key, err)
+		return 0, nil, err // Caller handles DB fallback
+	}
+
+	sklog.Infof("Cache hit for paramset and count key %s", key)
+	return count, paramset, nil
 }
 
 // Start the refresher.
