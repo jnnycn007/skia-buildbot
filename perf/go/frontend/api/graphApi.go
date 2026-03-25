@@ -179,8 +179,7 @@ func (api graphApi) frameStartHandler(w http.ResponseWriter, r *http.Request) {
 			storeToUse = api.chromeperfAnomalyStore
 		}
 		if storeToUse == nil {
-			fr.Progress.Error("Anomaly store is uninitialized.")
-			sklog.Errorf("Anomaly store is uninitialized. Using legacy? %v", legacyUsed)
+			sklog.Warningf("Anomaly store is uninitialized. Using legacy? %v", legacyUsed)
 		}
 		err := frame.ProcessFrameRequest(timeoutCtx, fr, api.perfGit, dfBuilder, api.traceStore, api.metadataStore, api.shortcutStore, storeToUse, config.Config.GitRepoConfig.CommitNumberRegex == "")
 		if err != nil {
