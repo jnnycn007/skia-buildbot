@@ -1,0 +1,18 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "mcp_lib",
+    srcs = ["main.go"],
+    importpath = "go.skia.org/infra/cmd/autoreview/mcp",
+    visibility = ["//visibility:private"],
+    deps = [
+        "@com_github_mark3labs_mcp_go//mcp",
+        "@com_github_mark3labs_mcp_go//server",
+    ],
+)
+
+go_binary(
+    name = "mcp",
+    embed = [":mcp_lib"],
+    visibility = ["//visibility:public"],
+)
