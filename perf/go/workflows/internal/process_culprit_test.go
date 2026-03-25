@@ -15,7 +15,7 @@ import (
 )
 
 func setupCulpritService(t *testing.T) (string, *culprit_mock.CulpritServiceServer, func()) {
-	lis, err := net.Listen("tcp", "localhost:9000")
+	lis, err := net.Listen("tcp", "localhost:0")
 	require.NoError(t, err)
 	s := grpc.NewServer()
 	service := culprit_mock.NewCulpritServiceServer(t)

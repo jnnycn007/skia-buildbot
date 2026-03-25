@@ -2,13 +2,33 @@ package internal
 
 import (
 	"context"
+	"time"
 
+	"go.skia.org/infra/go/skerr"
 	pb "go.skia.org/infra/perf/go/anomalygroup/proto/v1"
 	backend "go.skia.org/infra/perf/go/backend/client"
+	"golang.org/x/time/rate"
 )
 
 type AnomalyGroupServiceActivity struct {
-	insecure_conn bool
+	insecure_conn             bool
+	legacyPinpointRateLimiter *rate.Limiter
+}
+
+func NewAnomalyGroupServiceActivity() *AnomalyGroupServiceActivity {
+	return &AnomalyGroupServiceActivity{
+		insecure_conn: false,
+		// Protects legacy Pinpoint from overloading with bisection job requests.
+		// Set to 1 hour for testing purposes.
+		legacyPinpointRateLimiter: rate.NewLimiter(rate.Every(time.Hour), 1),
+	}
+}
+
+func (agsa *AnomalyGroupServiceActivity) CheckBisectionAllowed(ctx context.Context) (bool, error) {
+	if agsa.legacyPinpointRateLimiter == nil {
+		return false, skerr.Fmt("Legacy Pinpoint rate limiter is not initialized")
+	}
+	return agsa.legacyPinpointRateLimiter.Allow(), nil
 }
 
 func (agsa *AnomalyGroupServiceActivity) LoadAnomalyGroupByID(ctx context.Context, anomalygroupServiceUrl string, req *pb.LoadAnomalyGroupByIDRequest) (*pb.LoadAnomalyGroupByIDResponse, error) {

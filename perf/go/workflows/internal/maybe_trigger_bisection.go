@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -58,6 +59,13 @@ func MaybeTriggerBisectionWorkflow(
 		"GroupAction",
 		anomalyGroupResponse.AnomalyGroup.GroupAction,
 	)
+
+	// Temporary code checking whether the rate limiter works as expected on production.
+	var bisectionAllowed bool
+	if err = workflow.ExecuteActivity(ctx, agsa.CheckBisectionAllowed).Get(ctx, &bisectionAllowed); err != nil {
+		logger.Error(fmt.Sprintf("Rate limiter error: %s", skerr.Wrap(err)))
+	}
+	logger.Info("MaybeTriggerBisectionWorkflow", "Bisection is allowed", bisectionAllowed)
 
 	if anomalyGroupResponse.AnomalyGroup.GroupAction == ag_pb.GroupActionType_BISECT {
 		// Step 3. Load Anomaly data

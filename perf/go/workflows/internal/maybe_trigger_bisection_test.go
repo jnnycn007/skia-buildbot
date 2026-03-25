@@ -20,7 +20,7 @@ import (
 )
 
 func setupAnomalyGroupService(t *testing.T) (string, *anomalygroup_mock.AnomalyGroupServiceServer, func()) {
-	lis, err := net.Listen("tcp", "localhost:9001")
+	lis, err := net.Listen("tcp", "localhost:0")
 	require.NoError(t, err)
 	s := grpc.NewServer()
 	service := anomalygroup_mock.NewAnomalyGroupServiceServer(t)
