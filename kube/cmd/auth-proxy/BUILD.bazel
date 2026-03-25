@@ -20,7 +20,7 @@ go_binary(
 
 skia_app_container(
     name = "auth-proxy-container",
-    base_image = "@basealpine",
+    base_image = "//kube/basealpine:basealpine",
     dirs = {
         "/usr/local/bin": [
             [
