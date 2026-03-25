@@ -72,7 +72,7 @@ build:remote --test_env=PATH=/bin:/usr/bin:/usr/local/bin:/usr/local/go/bin
 # See https://github.com/bazelbuild/rules_go/blob/master/go/modes.rst#id6.
 #
 # This prevents errors due to missing dynamic libraries, e.g. when running Bazel-built binaries
-# inside Docker containers based on the gcr.io/skia-public/basealpine image.
+# inside Docker containers based on the basealpine image.
 build --@rules_go//go/config:pure
 
 # Depending on how many machines are in the remote execution instance, setting

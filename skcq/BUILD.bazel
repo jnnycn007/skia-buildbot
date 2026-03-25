@@ -2,6 +2,7 @@ load("//bazel:skia_app_container.bzl", "skia_app_container")
 
 skia_app_container(
     name = "skcq_fe_container",
+    base_image = "@basealpine",
     dirs = {
         "/usr/local/bin": [
             [
@@ -35,6 +36,7 @@ skia_app_container(
 
 skia_app_container(
     name = "skcq_be_container",
+    base_image = "@basealpine",
     dirs = {
         "/usr/local/bin": [
             [

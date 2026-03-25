@@ -80,40 +80,35 @@ It is customary to have the following commands in a Makefile for the service.
 ## Docker
 
 Running apps in Docker makes deployment and local testing much much easier. It
-additionally allows integration with GKE. Some legacy apps are not yet run in
-Docker, but it is the goal to have everything on GKE+Docker.
+additionally allows integration with GKE.
 
-Create a Dockerfile for your app in the root of the project folder (e.g.
-`jsfiddle/Dockerfile`). If there are multiple services, put them in a named
-folder (e.g. `fiddlek/fiddle/Dockerfile`, `fiddlek/fiddler/Dockerfile`).
+Add an entry to the project BUILD.bazel file (e.g. `jsfiddle/Dockerfile`) to
+build the Docker image for your service using the `skia_app_container` macro.
 
-When choosing a base image, consider our light wrappers, found in `kube/*`. For
-example, `kube/basealpine/Dockerfile` which can be used by having
-`FROM gcr.io/skia-public/basealpine:latest` as the first line in a Dockerfile.
-
-We have a helper script for 'installing' an app into a Docker container,
-`bash/docker_build.sh`. A call to this script is customarily put in a bash
-script which is called by `make release`. See `jsfiddle/build_release` for an
-example. To integrate docker_build.sh into the actual container, add a
-`COPY . /` to copy the executable(s) and HTML/JS/CSS from the build context into
-the container. Legacy apps have a similar set-up, but for building a Debian
-package instead of a container.
+When choosing a base image, default to `//kube/basealpine:basealpine` unless
+you need a bunch of CIPD packages, in which case `//kube/base-cipd:base-cipd`
+can be used.
 
 It is customary to include an ENTRYPOINT and CMD with sensible defaults for the
 app. It's also a best practice to run the app as USER skia unless root is
 absolutely needed.
 
-Putting all the above together, a bare-bones Dockerfile would look something
+Putting all the above together, a bare-bones example would look something
 like:
 
-    FROM gcr.io/skia-public/basealpine:latest
-
-    COPY . /
-
-    USER skia
-
-    ENTRYPOINT ["/usr/local/bin/my_app_name"]
-    CMD ["--port=:8000", "--resources_dir=/usr/local/share/my_app_name/"]
+    skia_app_container(
+        name = "my_app_container",
+        dirs = {
+            "/usr/local/bin": [
+                [
+                    "//my-app/go/my-app:my-app",
+                    "0755",
+                ],
+            ],
+        },
+        entrypoint = "/usr/local/bin/my-app",
+        repository = "skia-public/my-app",
+    )
 
 ## Secrets and Service Accounts
 

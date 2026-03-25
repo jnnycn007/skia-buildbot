@@ -26,6 +26,7 @@ go_binary(
 
 skia_app_container(
     name = "grouping_workflow",
+    base_image = "@basealpine",
     dirs = {
         "/usr/local/bin": [
             [

@@ -25,6 +25,7 @@ git_override(
 
 bazel_dep(name = "protobuf", version = "33.0", repo_name = "com_google_protobuf")
 bazel_dep(name = "rules_browsers", version = "0.2.0")
+bazel_dep(name = "rules_apko", version = "1.4.0")
 bazel_dep(name = "rules_distroless", version = "0.6.1")
 bazel_dep(name = "rules_nodejs", version = "6.5.0")
 bazel_dep(name = "rules_pkg", version = "1.1.0")
@@ -45,6 +46,18 @@ http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "ht
 http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 
 gcs_mirror = use_extension("//bazel:gcs_mirror.bzl", "gcs_mirror")
+
+####################################################################################################
+# rules_apko setup
+####################################################################################################
+
+apko = use_extension("@rules_apko//apko:extensions.bzl", "apko")
+apko.toolchain(apko_version = "0.22.0")
+apko.translate_lock(
+    name = "basealpine-apk-install",
+    lock = "@@//kube/basealpine:basealpine.lock.json",
+)
+use_repo(apko, "basealpine-apk-install")
 
 ####################################################################################################
 # aspect_rules_ts setup
@@ -404,6 +417,14 @@ oci.pull(
     image = "gcr.io/skia-public/basealpine",
 )
 use_repo(oci, "basealpine")
+
+# Pulls a specific version of Alpine to be used as a base for basealpine.
+oci.pull(
+    name = "alpine",
+    digest = "sha256:e0baf8c394150ac5a14925e179100519f5e37c53547f647acbd9f8eb3e5c4528",
+    image = "alpine:3.22",
+)
+use_repo(oci, "alpine")
 
 # Pulls the debian:testing-slim image, needed by the skia_app_container macro.
 # Note: if using apt.install in conjunction with this or any other base image,

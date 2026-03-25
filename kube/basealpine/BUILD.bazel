@@ -1,0 +1,25 @@
+load("@rules_apko//apko:defs.bzl", "apko_image", "apko_lock")
+load("//bazel:skia_app_container.bzl", "skia_app_container")
+
+apko_image(
+    name = "basealpine_apko",
+    config = "basealpine.yaml",
+    contents = "@basealpine-apk-install//:contents",
+    tag = "basealpine:latest",
+)
+
+apko_lock(
+    name = "lock",
+    config = "basealpine.yaml",
+    lockfile_name = "basealpine.lock.json",
+)
+
+skia_app_container(
+    name = "basealpine",
+    base_image = ":basealpine_apko",
+    ca_certs = True,
+    create_skia_user = True,
+    dirs = {},
+    repository = "skia-public/basealpine",
+    visibility = ["//visibility:public"],
+)

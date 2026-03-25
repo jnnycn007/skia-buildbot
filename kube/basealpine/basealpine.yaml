@@ -1,0 +1,10 @@
+contents:
+  repositories:
+    - https://dl-cdn.alpinelinux.org/alpine/v3.22/main
+    - https://dl-cdn.alpinelinux.org/alpine/v3.22/community
+  packages:
+    - bash
+    - procps
+
+archs:
+  - x86_64

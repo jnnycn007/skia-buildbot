@@ -25,6 +25,7 @@ go_binary(
 
 skia_app_container(
     name = "sserexample",
+    base_image = "@basealpine",
     dirs = {
         "/usr/local/bin": [
             [
