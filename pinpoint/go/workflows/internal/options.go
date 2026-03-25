@@ -117,4 +117,16 @@ var (
 			MaximumAttempts: 1,
 		},
 	}
+
+	// Options used by CBB Runner workflow to run its child workflow (Single Commit Runner).
+	// Its timeout is set to be somewhat larger than the timeout in runBenchmarkWorkflowOptions.
+	// Retry is disabled, as Single Commit Runner is a time-consuming workflow and generally
+	// not appropriate for retrying. Instead, we will rely on failure notification provided by
+	// CBB New Release Detector workflow.
+	cbbRunnerChildWorkflowOptions = workflow.ChildWorkflowOptions{
+		WorkflowExecutionTimeout: 12 * time.Hour,
+		RetryPolicy: &temporal.RetryPolicy{
+			MaximumAttempts: 1,
+		},
+	}
 )

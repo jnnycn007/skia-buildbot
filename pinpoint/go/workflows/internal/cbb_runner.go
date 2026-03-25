@@ -246,7 +246,7 @@ func CbbRunnerWorkflow(ctx workflow.Context, cbb *CbbRunnerParams) (*map[string]
 	startTime := workflow.Now(ctx)
 
 	ctx = workflow.WithActivityOptions(ctx, regularActivityOptions)
-	ctx = workflow.WithChildOptions(ctx, runBenchmarkWorkflowOptions)
+	ctx = workflow.WithChildOptions(ctx, cbbRunnerChildWorkflowOptions)
 
 	err := validateParameters(cbb)
 	if err != nil {
@@ -297,6 +297,27 @@ func CbbRunnerWorkflow(ctx workflow.Context, cbb *CbbRunnerParams) (*map[string]
 		var cr *CommitRun
 		if err := workflow.ExecuteChildWorkflow(ctx, workflows.SingleCommitRunner, p).Get(ctx, &cr); err != nil {
 			return nil, skerr.Wrap(err)
+		}
+
+		// Check the success rate of swarming tasks. We require at least 80% of
+		// the tasks to succeed in order to accept the results.
+		numSuccess := 0
+		for _, run := range cr.Runs {
+			if run.Status.IsTaskSuccessful() && len(run.Values) > 0 {
+				numSuccess++
+			}
+		}
+		successRate := float64(numSuccess) / float64(b.Iterations)
+		requiredSuccessRate := 0.8
+		// TODO(b/433537961): Require lower success rate on Android until this bug
+		// is fixed.
+		if strings.HasPrefix(cbb.BotConfig, "android") {
+			requiredSuccessRate /= 2.0
+		}
+		if successRate < requiredSuccessRate {
+			return nil, skerr.Fmt(
+				"Benchmark %s on %s only had success rate of %.0f%%, rejecting the results",
+				b.Benchmark, cbb.BotConfig, successRate*100)
 		}
 
 		r := formatResult(ctx, cr, cbb.BotConfig, p.Benchmark, bi, cbb.SkipFinch, startTime, p.PinpointJobID)
