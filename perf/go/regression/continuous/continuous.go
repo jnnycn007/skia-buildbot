@@ -564,10 +564,12 @@ func (c *Continuous) ProcessAlertConfigForTraces(ctx context.Context, alertConfi
 		processAlertConfigForTracesChunkSize = 50
 	}
 
+	tracesProcessedCounter := metrics2.GetCounter("perf_continuous_traces_processed", map[string]string{"alert": alertConfig.DisplayName})
 	// Let's process the traces in parallel. Provide one trace per worker in parallel.
 	// TODO(ashwinpv): It may be more deterministic to have the ability to query by
 	// specific traceIds in dfbuilder instead of converting traceId to a query string.
 	err := util.ChunkIterParallelPool(ctx, len(traceIds), processAlertConfigForTracesChunkSize, processAlertConfigForTracesWorkerCount, func(ctx context.Context, startIdx, endIdx int) error {
+		defer metrics2.NewTimer("perf_continuous_process_alert_config_for_traces_latency", map[string]string{"alert": alertConfig.SubscriptionName}).Stop()
 		if config.Config.Experiments.DfIterTraceSlicer {
 			paramset := paramtools.NewParamSet()
 			// Group all traceIds into a single query for regression detection.
@@ -585,6 +587,7 @@ func (c *Continuous) ProcessAlertConfigForTraces(ctx context.Context, alertConfi
 				c.ProcessAlertConfig(ctx, &alertConfig, queryOverride, nil)
 			}
 		}
+		tracesProcessedCounter.Inc(int64(endIdx - startIdx))
 
 		return nil
 	})

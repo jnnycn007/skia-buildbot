@@ -324,7 +324,9 @@ func (p *regressionDetectionProcess) detectRegressionsOnDataFrame(ctx context.Co
 func (p *regressionDetectionProcess) refineAndReportRegressions(ctx context.Context, allResponses []*RegressionDetectionResponse) error {
 	// 1. Pass the complete, raw list and the alert config to the regression refiner.
 	// The refiner is now responsible for all filtering.
+	processTimer := metrics2.NewTimer("perf_regression_refiner_process")
 	confirmedRegressions, err := p.regressionRefiner.Process(ctx, p.request.Alert, allResponses)
+	processTimer.Stop()
 	if err != nil {
 		return p.reportError(err, "Failed during post-processing step.")
 	}
@@ -340,7 +342,9 @@ func (p *regressionDetectionProcess) refineAndReportRegressions(ctx context.Cont
 	if len(confirmedRegressions) > 0 {
 		// The summary message can still refer to the original count for clarity.
 		summaryMessage := fmt.Sprintf("Batch processing complete for %d dataframes.", len(allResponses))
+		handlerTimer := metrics2.NewTimer("perf_regression_confirmed_handler")
 		p.confirmedRegressionHandler(ctx, p.request, confirmedRegressions, summaryMessage)
+		handlerTimer.Stop()
 		// The refineAndReportRegressions callback should add the results to Progress if that's required.
 	}
 	return nil
