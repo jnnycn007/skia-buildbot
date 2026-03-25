@@ -7,7 +7,7 @@ filegroup(
 
 skia_app_container(
     name = "api_container",
-    base_image = "@basealpine",
+    base_image = "//kube/basealpine:basealpine",
     dirs = {
         "/usr/local/bin": [
             [
