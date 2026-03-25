@@ -41,13 +41,17 @@ import (
 // DO NOT DROP TABLES IN VAR BELOW.
 // FOR MODIFYING COLUMNS USE ADD/DROP COLUMN INSTEAD.
 var FromLiveToNextSpanner = `
-	CREATE INDEX by_trace_id_and_commit ON Regressions2(trace_id, commit_number);
+	CREATE TABLE RegressionsShortcuts (
+		sid TEXT PRIMARY KEY,
+		anomaly_ids TEXT ARRAY,
+		createdat timestamp WITH time zone DEFAULT CURRENT_TIMESTAMP
+	);
 `
 
 // ONLY DROP TABLE IF YOU JUST CREATED A NEW TABLE.
 // FOR MODIFYING COLUMNS USE ADD/DROP COLUMN INSTEAD.
 var FromNextToLiveSpanner = `
-	DROP INDEX by_trace_id_and_commit;
+	DROP TABLE RegressionsShortcuts;
 `
 
 // This function will check whether there's a new schema checked-in,
