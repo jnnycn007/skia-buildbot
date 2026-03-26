@@ -32,21 +32,22 @@ func MaybeTriggerBisectionWorkflow(
 	ctx = workflow.WithChildOptions(ctx, childWorkflowOptions)
 	ctx = workflow.WithActivityOptions(ctx, regularActivityOptions)
 	logger := workflow.GetLogger(ctx)
-	var anomalyGroupResponse *ag_pb.LoadAnomalyGroupByIDResponse
 	var err error
 	var agsa AnomalyGroupServiceActivity
 	var gsa GerritServiceActivity
 	var csa CulpritServiceActivity
 
-	// Step 1. wait for some time so that more anomalies can be detected and grouped.
-	if err = workflow.Sleep(ctx, _WAIT_TIME_FOR_ANOMALIES); err != nil {
+	if err = waitForAnomalyClusteringWindow(ctx); err != nil {
 		return nil, skerr.Wrap(err)
 	}
 
-	// Step 2. Load Anomalygroup data
-	if err = workflow.ExecuteActivity(ctx, agsa.LoadAnomalyGroupByID, input.AnomalyGroupServiceUrl, &ag_pb.LoadAnomalyGroupByIDRequest{
-		AnomalyGroupId: input.AnomalyGroupId,
-	}).Get(ctx, &anomalyGroupResponse); err != nil {
+	anomalyGroupResponse, err := loadAnomalyGroupByID(
+		ctx,
+		agsa,
+		input.AnomalyGroupServiceUrl,
+		input.AnomalyGroupId,
+	)
+	if err != nil {
 		return nil, skerr.Wrap(err)
 	}
 
@@ -241,4 +242,31 @@ func parseStatisticNameFromChart(chart_name string) (string, string) {
 		}
 	}
 	return chart_name, ""
+}
+
+// waitForAnomalyClusteringWindow waits for some time so that more anomalies can
+// be detected and grouped.
+func waitForAnomalyClusteringWindow(ctx workflow.Context) error {
+	if err := workflow.Sleep(ctx, _WAIT_TIME_FOR_ANOMALIES); err != nil {
+		return skerr.Wrap(err)
+	}
+	return nil
+}
+
+func loadAnomalyGroupByID(
+	ctx workflow.Context,
+	agsa AnomalyGroupServiceActivity,
+	url string,
+	anomalyGroupID string,
+) (*ag_pb.LoadAnomalyGroupByIDResponse, error) {
+	var anomalyGroupResponse *ag_pb.LoadAnomalyGroupByIDResponse
+	err := workflow.ExecuteActivity(ctx, agsa.LoadAnomalyGroupByID, url,
+		&ag_pb.LoadAnomalyGroupByIDRequest{
+			AnomalyGroupId: anomalyGroupID,
+		}).
+		Get(ctx, &anomalyGroupResponse)
+	if err != nil {
+		return nil, skerr.Wrap(err)
+	}
+	return anomalyGroupResponse, nil
 }
