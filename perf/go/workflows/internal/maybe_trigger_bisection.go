@@ -82,14 +82,11 @@ func MaybeTriggerBisectionWorkflow(
 		}
 		topAnomaly := topAnomaliesResponse.Anomalies[0]
 
-		// Step 4. Convert start and end commit postions to commit hash
-		var startHash, endHash string
-		if err = workflow.ExecuteActivity(ctx, gsa.GetCommitRevision, topAnomaly.StartCommit).Get(ctx, &startHash); err != nil {
+		startHash, endHash, err := getCommitHashes(ctx, gsa, topAnomaly.StartCommit, topAnomaly.EndCommit)
+		if err != nil {
 			return nil, skerr.Wrap(err)
 		}
-		if err = workflow.ExecuteActivity(ctx, gsa.GetCommitRevision, topAnomaly.EndCommit).Get(ctx, &endHash); err != nil {
-			return nil, skerr.Wrap(err)
-		}
+
 		// Step 5. Invoke Bisection conditionally
 		child_wf_id := uuid.New().String()
 		// Childworkflow options includes:
@@ -299,4 +296,21 @@ func findTopAnomalies(
 		return nil, skerr.Fmt("No anomalies found for anomalygroup %s", anomalyGroupID)
 	}
 	return topAnomaliesResponse, nil
+}
+
+// getCommitHashes converts start and end commit postions to commit hash.
+func getCommitHashes(
+	ctx workflow.Context,
+	gsa GerritServiceActivity,
+	startCommit int64,
+	endCommit int64,
+) (string, string, error) {
+	var startHash, endHash string
+	if err := workflow.ExecuteActivity(ctx, gsa.GetCommitRevision, startCommit).Get(ctx, &startHash); err != nil {
+		return "", "", skerr.Wrap(err)
+	}
+	if err := workflow.ExecuteActivity(ctx, gsa.GetCommitRevision, endCommit).Get(ctx, &endHash); err != nil {
+		return "", "", skerr.Wrap(err)
+	}
+	return startHash, endHash, nil
 }
