@@ -10,6 +10,9 @@
         },
         "use_anomaly_localization": {
           "type": "boolean"
+        },
+        "process_alert_configs_worker_count": {
+          "type": "integer"
         }
       },
       "additionalProperties": false,

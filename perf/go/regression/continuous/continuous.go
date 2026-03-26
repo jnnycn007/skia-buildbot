@@ -53,9 +53,9 @@ const (
 	// given alert config.
 	processAlertConfigForTracesWorkerCount = 20
 
-	// This is the no of parallel goroutines that will process alert configs for
+	// This is the default no of parallel goroutines that will process alert configs for
 	// the incoming event.
-	processAlertConfigsWorkerCount = 20
+	defaultProcessAlertConfigsWorkerCount = 20
 
 	// Timeout is very large because k-means sometimes requires more time and resources to finish the alert config.
 	// This large value is used because we can have child context that use a 10-minute timeout.
@@ -525,10 +525,15 @@ func (c *Continuous) RunEventDrivenClustering(parentCtx context.Context) {
 
 			dfProvider := dfiter.NewDfProvider()
 
+			configsWorkerCount := c.instanceConfig.AnomalyConfig.ProcessAlertConfigsWorkerCount
+			if configsWorkerCount <= 0 {
+				configsWorkerCount = defaultProcessAlertConfigsWorkerCount
+			}
+
 			// At this point we have N alert configs matching the event, with T(n) matching traces per config.
 			// We spawn $processAlertConfigsWorkerCount threads to process these in parallel (1 config per thread).
 			// Each of these threads can spawn $processAlertConfigForTracesWorkerCount to gather trace data.
-			err := util.ChunkIterParallelPool(ctx, len(alertConfigs), 1, processAlertConfigsWorkerCount, func(ctx context.Context, startIdx, endIdx int) error {
+			err := util.ChunkIterParallelPool(ctx, len(alertConfigs), 1, configsWorkerCount, func(ctx context.Context, startIdx, endIdx int) error {
 				config := alertConfigs[startIdx]
 				if traces, ok := traceConfigMap[config]; ok {
 					// If the alert specifies StepFitGrouping (i.e Individual instead of KMeans)

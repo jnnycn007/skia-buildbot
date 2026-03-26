@@ -428,6 +428,9 @@ type AnomalyConfig struct {
 	// UseAnomalyLocalization enables the new AnomalyBoundsRefiner logic.
 	// If false, the traditional DefaultRegressionRefiner is used.
 	UseAnomalyLocalization bool `json:"use_anomaly_localization,omitempty"`
+
+	// ProcessAlertConfigsWorkerCount is the number of parallel goroutines that will process alert configs for the incoming event.
+	ProcessAlertConfigsWorkerCount int `json:"process_alert_configs_worker_count,omitempty"`
 }
 
 // BackendFlags provide commandline flags for the Backend Service.
