@@ -97,12 +97,12 @@ func MaybeTriggerBisectionWorkflow(
 			return nil, skerr.Wrap(err)
 		}
 
-		// Step 6. Update the anomaly group with the bisection id.
-		var updateAnomalyGroupResponse *ag_pb.UpdateAnomalyGroupResponse
-		if err = workflow.ExecuteActivity(ctx, agsa.UpdateAnomalyGroup, input.AnomalyGroupServiceUrl, &ag_pb.UpdateAnomalyGroupRequest{
+		// Update the anomaly group with the bisection id.
+		updateRequest := ag_pb.UpdateAnomalyGroupRequest{
 			AnomalyGroupId: input.AnomalyGroupId,
 			BisectionId:    child_wf_id,
-		}).Get(ctx, &updateAnomalyGroupResponse); err != nil {
+		}
+		if err = updateAnomalyGroup(ctx, agsa, input.AnomalyGroupServiceUrl, &updateRequest); err != nil {
 			return nil, skerr.Wrap(err)
 		}
 		metrics2.GetCounter("anomalygroup_bisected").Inc(1)
@@ -144,13 +144,13 @@ func MaybeTriggerBisectionWorkflow(
 			return nil, err
 		}
 
-		// Step 5. Update the anomaly group with the reported issue id.
+		// Update the anomaly group with the reported issue id.
 		if notifyUserOfAnomalyResponse != nil && notifyUserOfAnomalyResponse.IssueId != "" {
-			var updateAnomalyGroupResponse *ag_pb.UpdateAnomalyGroupResponse
-			if err = workflow.ExecuteActivity(ctx, agsa.UpdateAnomalyGroup, input.AnomalyGroupServiceUrl, &ag_pb.UpdateAnomalyGroupRequest{
+			updateRequest := ag_pb.UpdateAnomalyGroupRequest{
 				AnomalyGroupId: input.AnomalyGroupId,
 				IssueId:        notifyUserOfAnomalyResponse.IssueId,
-			}).Get(ctx, &updateAnomalyGroupResponse); err != nil {
+			}
+			if err = updateAnomalyGroup(ctx, agsa, input.AnomalyGroupServiceUrl, &updateRequest); err != nil {
 				return nil, skerr.Wrap(err)
 			}
 		}
@@ -330,4 +330,18 @@ func invokeBisection(
 		return "", skerr.Wrapf(err, "Child workflow failed to start.")
 	}
 	return child_wf_id, nil
+}
+
+func updateAnomalyGroup(
+	ctx workflow.Context,
+	agsa AnomalyGroupServiceActivity,
+	url string,
+	req *ag_pb.UpdateAnomalyGroupRequest,
+) error {
+	var updateAnomalyGroupResponse *ag_pb.UpdateAnomalyGroupResponse
+	future := workflow.ExecuteActivity(ctx, agsa.UpdateAnomalyGroup, url, req)
+	if err := future.Get(ctx, &updateAnomalyGroupResponse); err != nil {
+		return skerr.Wrap(err)
+	}
+	return nil
 }
