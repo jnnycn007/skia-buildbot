@@ -69,16 +69,16 @@ func MaybeTriggerBisectionWorkflow(
 	logger.Info("MaybeTriggerBisectionWorkflow", "Bisection is allowed", bisectionAllowed)
 
 	if anomalyGroupResponse.AnomalyGroup.GroupAction == ag_pb.GroupActionType_BISECT {
-		// Step 3. Load Anomaly data
-		var topAnomaliesResponse *ag_pb.FindTopAnomaliesResponse
-		if err = workflow.ExecuteActivity(ctx, agsa.FindTopAnomalies, input.AnomalyGroupServiceUrl, &ag_pb.FindTopAnomaliesRequest{
-			AnomalyGroupId: input.AnomalyGroupId,
-			Limit:          1,
-		}).Get(ctx, &topAnomaliesResponse); err != nil {
+		anomaliesCount := 1
+		topAnomaliesResponse, err := findTopAnomalies(
+			ctx,
+			agsa,
+			input.AnomalyGroupServiceUrl,
+			input.AnomalyGroupId,
+			anomaliesCount,
+		)
+		if err != nil {
 			return nil, skerr.Wrap(err)
-		}
-		if topAnomaliesResponse != nil && len(topAnomaliesResponse.Anomalies) == 0 {
-			return nil, skerr.Fmt("No anomalies found for anomalygroup %s", input.AnomalyGroupId)
 		}
 		topAnomaly := topAnomaliesResponse.Anomalies[0]
 
@@ -150,15 +150,16 @@ func MaybeTriggerBisectionWorkflow(
 		}, nil
 	} else if anomalyGroupResponse.AnomalyGroup.GroupAction == ag_pb.GroupActionType_REPORT {
 		// Step 3. Load Anomalies data
-		var topAnomaliesResponse *ag_pb.FindTopAnomaliesResponse
-		if err = workflow.ExecuteActivity(ctx, agsa.FindTopAnomalies, input.AnomalyGroupServiceUrl, &ag_pb.FindTopAnomaliesRequest{
-			AnomalyGroupId: input.AnomalyGroupId,
-			Limit:          10,
-		}).Get(ctx, &topAnomaliesResponse); err != nil {
+		anomaliesCount := 10
+		topAnomaliesResponse, err := findTopAnomalies(
+			ctx,
+			agsa,
+			input.AnomalyGroupServiceUrl,
+			input.AnomalyGroupId,
+			anomaliesCount,
+		)
+		if err != nil {
 			return nil, skerr.Wrap(err)
-		}
-		if topAnomaliesResponse != nil && len(topAnomaliesResponse.Anomalies) == 0 {
-			return nil, skerr.Fmt("No anomalies found for anomalygroup %s", input.AnomalyGroupId)
 		}
 		topAnomalies := make([]*c_pb.Anomaly, len(topAnomaliesResponse.Anomalies))
 		// Currently the protos in culprit service and anomaly service are having two identical
@@ -269,4 +270,24 @@ func loadAnomalyGroupByID(
 		return nil, skerr.Wrap(err)
 	}
 	return anomalyGroupResponse, nil
+}
+
+func findTopAnomalies(
+	ctx workflow.Context,
+	agsa AnomalyGroupServiceActivity,
+	url string,
+	anomalyGroupID string,
+	limit int,
+) (*ag_pb.FindTopAnomaliesResponse, error) {
+	var topAnomaliesResponse *ag_pb.FindTopAnomaliesResponse
+	if err := workflow.ExecuteActivity(ctx, agsa.FindTopAnomalies, url, &ag_pb.FindTopAnomaliesRequest{
+		AnomalyGroupId: anomalyGroupID,
+		Limit:          int64(limit),
+	}).Get(ctx, &topAnomaliesResponse); err != nil {
+		return nil, skerr.Wrap(err)
+	}
+	if topAnomaliesResponse != nil && len(topAnomaliesResponse.Anomalies) == 0 {
+		return nil, skerr.Fmt("No anomalies found for anomalygroup %s", anomalyGroupID)
+	}
+	return topAnomaliesResponse, nil
 }
