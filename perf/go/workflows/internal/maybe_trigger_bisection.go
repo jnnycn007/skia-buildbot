@@ -62,11 +62,11 @@ func MaybeTriggerBisectionWorkflow(
 	)
 
 	// Temporary code checking whether the rate limiter works as expected on production.
-	var bisectionAllowed bool
-	if err = workflow.ExecuteActivity(ctx, agsa.CheckBisectionAllowed).Get(ctx, &bisectionAllowed); err != nil {
+	bisectionAllowed, err := isBisectionAllowed(ctx, agsa)
+	if err != nil {
 		logger.Error(fmt.Sprintf("Rate limiter error: %s", skerr.Wrap(err)))
 	}
-	logger.Info("MaybeTriggerBisectionWorkflow", "Bisection is allowed", bisectionAllowed)
+	logger.Info("MaybeTriggerBisectionWorkflow", "Bisection allowed", bisectionAllowed)
 
 	if anomalyGroupResponse.AnomalyGroup.GroupAction == ag_pb.GroupActionType_BISECT {
 		anomaliesCount := 1
@@ -270,6 +270,15 @@ func loadAnomalyGroupByID(
 		return nil, skerr.Wrap(err)
 	}
 	return anomalyGroupResponse, nil
+}
+
+func isBisectionAllowed(ctx workflow.Context, agsa AnomalyGroupServiceActivity) (bool, error) {
+	var bisectionAllowed bool
+	err := workflow.ExecuteActivity(ctx, agsa.CheckBisectionAllowed).Get(ctx, &bisectionAllowed)
+	if err != nil {
+		return false, skerr.Wrap(err)
+	}
+	return bisectionAllowed, nil
 }
 
 func findTopAnomalies(
