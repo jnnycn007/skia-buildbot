@@ -323,6 +323,15 @@ export class DataFrameRepository extends LitElement {
       this._baseRequest = this.generateFrameRequest(range);
     }
     const req = structuredClone(this._baseRequest);
+
+    const now = Math.floor(Date.now() / 1000);
+    if (range.begin > now) {
+      return {} as FrameResponse;
+    }
+    if (range.end > now) {
+      range.end = now;
+    }
+
     req.begin = range.begin;
     req.end = range.end;
     if (req.begin === req.end) {
