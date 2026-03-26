@@ -82,55 +82,19 @@ func MaybeTriggerBisectionWorkflow(
 		}
 		topAnomaly := topAnomaliesResponse.Anomalies[0]
 
-		startHash, endHash, err := getCommitHashes(ctx, gsa, topAnomaly.StartCommit, topAnomaly.EndCommit)
+		startHash, endHash, err := getCommitHashes(
+			ctx,
+			gsa,
+			topAnomaly.StartCommit,
+			topAnomaly.EndCommit,
+		)
 		if err != nil {
 			return nil, skerr.Wrap(err)
 		}
 
-		// Step 5. Invoke Bisection conditionally
-		child_wf_id := uuid.New().String()
-		// Childworkflow options includes:
-		//   WorkflowID: 		The UUID to be used as the Pinpoint job id. We pre-assigne it
-		//				 		here to avoid extra calls to get it from the spawned workflow.
-		//	 TaskQueue:  		Assign the cihld workflow to the correct task queue. If this is
-		//				 		empty, it will be assigned to the current grouping queue.
-		//   ParentClosePolicy: Using _ABANDON option to ensure the child workflow will
-		//    					continue even if the parent workflow exits.
-		child_wf_options := workflow.ChildWorkflowOptions{
-			WorkflowID:        child_wf_id,
-			TaskQueue:         input.PinpointTaskQueue,
-			ParentClosePolicy: enums.PARENT_CLOSE_POLICY_ABANDON,
-		}
-		c_ctx := workflow.WithChildOptions(ctx, child_wf_options)
-
-		chart, stat := parseStatisticNameFromChart(topAnomaly.Paramset["measurement"])
-
-		benchmark := topAnomaly.Paramset["benchmark"]
-		story := topAnomaly.Paramset["story"]
-		if benchmarkStoriesNeedUpdate(benchmark) {
-			story = updateStoryDescriptorName(story)
-		}
-		find_culprit_wf := workflow.ExecuteChildWorkflow(c_ctx, pinpoint.CulpritFinderWorkflow,
-			&pinpoint.CulpritFinderParams{
-				Request: &pp_pb.ScheduleCulpritFinderRequest{
-					StartGitHash:         startHash,
-					EndGitHash:           endHash,
-					Configuration:        topAnomaly.Paramset["bot"],
-					Benchmark:            benchmark,
-					Story:                story,
-					Chart:                chart,
-					Statistic:            stat,
-					ImprovementDirection: topAnomaly.ImprovementDirection,
-				},
-				CallbackParams: &pp_pb.CulpritProcessingCallbackParams{
-					AnomalyGroupId:        input.AnomalyGroupId,
-					CulpritServiceUrl:     input.CulpritServiceUrl,
-					TemporalTaskQueueName: input.GroupingTaskQueue,
-				},
-			})
-		// This Get() call will wait for the child workflow to start.
-		if err = find_culprit_wf.GetChildWorkflowExecution().Get(ctx, nil); err != nil {
-			return nil, skerr.Wrapf(err, "Child workflow failed to start.")
+		child_wf_id, err := invokeBisection(ctx, input, topAnomaly, startHash, endHash)
+		if err != nil {
+			return nil, skerr.Wrap(err)
 		}
 
 		// Step 6. Update the anomaly group with the bisection id.
@@ -313,4 +277,57 @@ func getCommitHashes(
 		return "", "", skerr.Wrap(err)
 	}
 	return startHash, endHash, nil
+}
+
+func invokeBisection(
+	ctx workflow.Context,
+	input *workflows.MaybeTriggerBisectionParam,
+	anomaly *ag_pb.Anomaly,
+	startHash, endHash string,
+) (string, error) {
+	child_wf_id := uuid.New().String()
+	// Childworkflow options includes:
+	//   WorkflowID: 		The UUID to be used as the Pinpoint job id. We pre-assigne it
+	//				 		here to avoid extra calls to get it from the spawned workflow.
+	//	 TaskQueue:  		Assign the cihld workflow to the correct task queue. If this is
+	//				 		empty, it will be assigned to the current grouping queue.
+	//   ParentClosePolicy: Using _ABANDON option to ensure the child workflow will
+	//    					continue even if the parent workflow exits.
+	child_wf_options := workflow.ChildWorkflowOptions{
+		WorkflowID:        child_wf_id,
+		TaskQueue:         input.PinpointTaskQueue,
+		ParentClosePolicy: enums.PARENT_CLOSE_POLICY_ABANDON,
+	}
+	c_ctx := workflow.WithChildOptions(ctx, child_wf_options)
+
+	chart, stat := parseStatisticNameFromChart(anomaly.Paramset["measurement"])
+
+	benchmark := anomaly.Paramset["benchmark"]
+	story := anomaly.Paramset["story"]
+	if benchmarkStoriesNeedUpdate(benchmark) {
+		story = updateStoryDescriptorName(story)
+	}
+	find_culprit_wf := workflow.ExecuteChildWorkflow(c_ctx, pinpoint.CulpritFinderWorkflow,
+		&pinpoint.CulpritFinderParams{
+			Request: &pp_pb.ScheduleCulpritFinderRequest{
+				StartGitHash:         startHash,
+				EndGitHash:           endHash,
+				Configuration:        anomaly.Paramset["bot"],
+				Benchmark:            benchmark,
+				Story:                story,
+				Chart:                chart,
+				Statistic:            stat,
+				ImprovementDirection: anomaly.ImprovementDirection,
+			},
+			CallbackParams: &pp_pb.CulpritProcessingCallbackParams{
+				AnomalyGroupId:        input.AnomalyGroupId,
+				CulpritServiceUrl:     input.CulpritServiceUrl,
+				TemporalTaskQueueName: input.GroupingTaskQueue,
+			},
+		})
+	// This Get() call will wait for the child workflow to start.
+	if err := find_culprit_wf.GetChildWorkflowExecution().Get(ctx, nil); err != nil {
+		return "", skerr.Wrapf(err, "Child workflow failed to start.")
+	}
+	return child_wf_id, nil
 }
