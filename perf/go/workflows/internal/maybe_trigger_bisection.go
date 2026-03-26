@@ -135,13 +135,16 @@ func MaybeTriggerBisectionWorkflow(
 				MedianAfter:          anomaly.MedianAfter,
 			}
 		}
-		// Step 4. Notify the user of the top anomalies
-		var notifyUserOfAnomalyResponse *c_pb.NotifyUserOfAnomalyResponse
-		if err = workflow.ExecuteActivity(ctx, csa.NotifyUserOfAnomaly, input.CulpritServiceUrl, &c_pb.NotifyUserOfAnomalyRequest{
-			AnomalyGroupId: input.AnomalyGroupId,
-			Anomaly:        topAnomalies,
-		}).Get(ctx, &notifyUserOfAnomalyResponse); err != nil {
-			return nil, err
+
+		notifyUserOfAnomalyResponse, err := notifyUserOfAnomalies(
+			ctx,
+			csa,
+			topAnomalies,
+			input.CulpritServiceUrl,
+			input.AnomalyGroupId,
+		)
+		if err != nil {
+			return nil, skerr.Wrap(err)
 		}
 
 		// Update the anomaly group with the reported issue id.
@@ -344,4 +347,22 @@ func updateAnomalyGroup(
 		return skerr.Wrap(err)
 	}
 	return nil
+}
+
+func notifyUserOfAnomalies(
+	ctx workflow.Context,
+	csa CulpritServiceActivity,
+	anomalies []*c_pb.Anomaly,
+	culpritServiceUrl, anomalyGroupId string,
+) (*c_pb.NotifyUserOfAnomalyResponse, error) {
+	var notifyUserOfAnomalyResponse *c_pb.NotifyUserOfAnomalyResponse
+	request := c_pb.NotifyUserOfAnomalyRequest{
+		AnomalyGroupId: anomalyGroupId,
+		Anomaly:        anomalies,
+	}
+	future := workflow.ExecuteActivity(ctx, csa.NotifyUserOfAnomaly, culpritServiceUrl, &request)
+	if err := future.Get(ctx, &notifyUserOfAnomalyResponse); err != nil {
+		return nil, skerr.Wrap(err)
+	}
+	return notifyUserOfAnomalyResponse, nil
 }
