@@ -76,6 +76,7 @@ static bool install_syscall_filter() {
         ALLOW_SYSCALL(newfstatat),
         ALLOW_SYSCALL(pread64),
         ALLOW_SYSCALL(getdents64),
+        ALLOW_SYSCALL(rseq),
 
         TRACE_SYSCALL(mknod),
         TRACE_SYSCALL(link),
@@ -185,6 +186,7 @@ char *read_string(pid_t child, unsigned long addr) {
             val = (char *) realloc(val, allocated);
         }
 
+        errno = 0;
         tmp = ptrace(PTRACE_PEEKDATA, child, addr + read);
         if (errno != 0) {
             val[read] = 0;
