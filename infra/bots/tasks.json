@@ -45,7 +45,7 @@
         {
           "name": "skia/tools/command_wrapper/${platform}",
           "path": "task_drivers",
-          "version": "git_revision:0e8c0a2d22422093c6bb106b7368b993073f8f3c"
+          "version": "git_revision:4d1bfc34a660fe52dae0956940528152534f4be7"
         }
       ],
       "command": [
