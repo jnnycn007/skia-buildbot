@@ -476,19 +476,29 @@ func TestRangeFiltered_Overlap(t *testing.T) {
 		queryCommit types.CommitNumber
 		shouldMatch bool
 	}{
-		{"database [2, 10] vs query [5, 15] (overlap)", 5, 15, true},
-		{"database [2, 10] vs query [0, 5] (overlap)", 0, 5, true},
-		{"database [2, 10] vs query [3, 8] (full enclosed)", 3, 8, true},
-		{"database [2, 10] vs query [0, 15] (fully enclosing)", 0, 15, true},
-		{"database [2, 10] vs query [0, 1] (no overlap, strictly before)", 0, 1, false},
-		{"database [2, 10] vs query [11, 15] (no overlap, strictly after)", 11, 15, false},
+		{"database (2, 10] vs query (5, 15] (overlap)", 5, 15, true},
+		{"database (2, 10] vs query (0, 5] (overlap)", 0, 5, true},
+		{"database (2, 10] vs query (3, 8] (full enclosed)", 3, 8, true},
+		{"database (2, 10] vs query (0, 15] (fully enclosing)", 0, 15, true},
+		{"database (2, 10] vs query (0, 1] (no overlap, strictly before)", 0, 1, false},
+		{"database (2, 10] vs query (11, 15] (no overlap, strictly after)", 11, 15, false},
+		{"database (2, 10] vs query (10, 15] (boundary overlap left)", 10, 15, false},
+		{"database (2, 10] vs query (0, 2] (boundary overlap right)", 0, 2, false},
+		{"database (2, 10] vs query (2, 10] (exact match)", 2, 10, true},
+		{"database (2, 10] vs query (5, 10] (right aligned overlap)", 5, 10, true},
+		{"database (2, 10] vs query (2, 5] (left aligned overlap)", 2, 5, true},
+		{"database (2, 10] vs query (Bad, 5] (overlap inside)", types.BadCommitNumber, 5, true},
+		{"database (2, 10] vs query (Bad, 1] (no overlap, strictly before)", types.BadCommitNumber, 1, false},
+		{"database (2, 10] vs query (Bad, 11] (no overlap, strictly after)", types.BadCommitNumber, 11, false},
+		{"database (2, 10] vs query (Bad, 2] (no overlap, strictly after)", types.BadCommitNumber, 2, false},
+		{"database (2, 10] vs query (Bad, 10] (no overlap, strictly after)", types.BadCommitNumber, 10, true},
 	}
 
 	for _, tc := range queryPairs {
 		t.Run(tc.name, func(t *testing.T) {
 			// readModifyWriteCompat exercises the query with the specific traceName.
 			found := false
-			_, err := store.readModifyWriteCompat(ctx, tc.queryCommit, tc.queryPrev, alerts.IDToString(alertId), traceKey1, false, func(r *regression.Regression) (bool, error) {
+			_, err := store.readModifyWriteCompat(ctx, tc.queryCommit, tc.queryPrev, alerts.IDToString(alertId), "", traceKey1, false, func(r *regression.Regression) (bool, error) {
 				// If cb is called with an existing regression (PrevCommitNumber = 2, CommitNumber = 10), then it found it.
 				// If cb is called with a NewRegression (PrevCommitNumber = 0, CommitNumber = queryCommit), then it wasn't found.
 				if r.PrevCommitNumber == 2 && r.CommitNumber == 10 {

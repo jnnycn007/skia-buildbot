@@ -53,10 +53,10 @@ const (
 	// The identifiers for all the SQL statements used.
 	write statementFormat = iota
 	readCompat
-	readRegressionsByCommitAlertAndTraceName
-	readRegressionsByCommitAlertAndTraceId
 	readRegressionsByCommitRangeAlertAndTraceName
 	readRegressionsByCommitRangeAlertAndTraceId
+	readRegressionsByCommitRangeSubNameAndTraceName
+	readRegressionsByCommitRangeSubNameAndTraceId
 	readOldest
 	readRange
 	readByRev
@@ -93,34 +93,14 @@ var statementFormats = map[statementFormat]string{
 		WHERE
 			commit_number=$1 AND alert_id=$2
 		`,
-	readRegressionsByCommitAlertAndTraceName: `
-		SELECT
-			{{ .Columns }}
-		FROM
-			Regressions2
-		WHERE
-			commit_number=$1
-			AND alert_id=$2
-			AND (frame->'dataframe'->'traceset') ? $3
-		`,
-	readRegressionsByCommitAlertAndTraceId: `
-		SELECT
-			{{ .Columns }}
-		FROM
-			Regressions2
-		WHERE
-			commit_number=$1
-			AND alert_id=$2
-			AND trace_id=$3
-		`,
 	readRegressionsByCommitRangeAlertAndTraceName: `
 		SELECT
 			{{ .Columns }}
 		FROM
 			Regressions2
 		WHERE
-			prev_commit_number <= $1
-			AND commit_number >= $2
+			prev_commit_number < $1
+			AND commit_number > $2
 			AND alert_id=$3
 			AND (frame->'dataframe'->'traceset') ? $4
 		`,
@@ -130,9 +110,31 @@ var statementFormats = map[statementFormat]string{
 		FROM
 			Regressions2
 		WHERE
-			prev_commit_number <= $1
-			AND commit_number >= $2
+			prev_commit_number < $1
+			AND commit_number > $2
 			AND alert_id=$3
+			AND trace_id=$4
+		`,
+	readRegressionsByCommitRangeSubNameAndTraceName: `
+		SELECT
+			{{ .Columns }}
+		FROM
+			Regressions2
+		WHERE
+			prev_commit_number < $1
+			AND commit_number > $2
+			AND sub_name=$3
+			AND (frame->'dataframe'->'traceset') ? $4
+		`,
+	readRegressionsByCommitRangeSubNameAndTraceId: `
+		SELECT
+			{{ .Columns }}
+		FROM
+			Regressions2
+		WHERE
+			prev_commit_number < $1
+			AND commit_number > $2
+			AND sub_name=$3
 			AND trace_id=$4
 		`,
 	readOldest: `
@@ -458,7 +460,7 @@ func (s *SQLRegression2Store) TriageLow(ctx context.Context, commitNumber types.
 	// TODO(ashwinpv): This code will update all regressions with the <commit_id, alert_id> pair.
 	// Once we move all the data to the new db, this will need to be updated to take in a specific
 	// regression id and update only that.
-	_, err := s.readModifyWriteCompat(ctx, commitNumber, types.BadCommitNumber, alertID, "", true, func(r *regression.Regression) (bool, error) {
+	_, err := s.readModifyWriteCompat(ctx, commitNumber, types.BadCommitNumber, alertID, "", "", true, func(r *regression.Regression) (bool, error) {
 		r.LowStatus = tr
 		return true, nil
 	})
@@ -470,7 +472,7 @@ func (s *SQLRegression2Store) TriageHigh(ctx context.Context, commitNumber types
 	// TODO(ashwinpv): This code will update all regressions with the <commit_id, alert_id> pair.
 	// Once we move all the data to the new db, this will need to be updated to take in a specific
 	// regression id and update only that.
-	_, err := s.readModifyWriteCompat(ctx, commitNumber, types.BadCommitNumber, alertID, "", true, func(r *regression.Regression) (bool, error) {
+	_, err := s.readModifyWriteCompat(ctx, commitNumber, types.BadCommitNumber, alertID, "", "", true, func(r *regression.Regression) (bool, error) {
 		r.HighStatus = tr
 		return true, nil
 	})
@@ -856,7 +858,7 @@ func (s *SQLRegression2Store) updateBasedOnAlertAlgo(ctx context.Context, commit
 	}
 
 	if alertConfig.Algo == types.KMeansGrouping {
-		regressionID, err = s.readModifyWriteCompat(ctx, commitNumber, prevCommitNumber, alertID, "", mustExist /* mustExist*/, func(r *regression.Regression) (bool, error) {
+		regressionID, err = s.readModifyWriteCompat(ctx, commitNumber, prevCommitNumber, alertID, alertConfig.SubscriptionName, "", mustExist /* mustExist*/, func(r *regression.Regression) (bool, error) {
 			if r.SubscriptionName == "" {
 				r.SubscriptionName = alertConfig.SubscriptionName
 			}
@@ -871,7 +873,7 @@ func (s *SQLRegression2Store) updateBasedOnAlertAlgo(ctx context.Context, commit
 		if traceName == "" {
 			sklog.Errorf("An empty trace name is not expected when running stepfit grouping.")
 		}
-		regressionID, err = s.readModifyWriteCompat(ctx, commitNumber, prevCommitNumber, alertID, traceName, mustExist /* mustExist*/, func(r *regression.Regression) (bool, error) {
+		regressionID, err = s.readModifyWriteCompat(ctx, commitNumber, prevCommitNumber, alertID, alertConfig.SubscriptionName, traceName, mustExist /* mustExist*/, func(r *regression.Regression) (bool, error) {
 			if r.Frame != nil {
 				// Do not update existing regressions when the algo is stepfit.
 				return false, nil
@@ -900,7 +902,7 @@ func (s *SQLRegression2Store) updateBasedOnAlertAlgo(ctx context.Context, commit
 // If mustExist is true then the read must be successful, otherwise a new
 // default Regression will be used and stored back to the database after the
 // callback is called.
-func (s *SQLRegression2Store) readModifyWriteCompat(ctx context.Context, commitNumber types.CommitNumber, prevCommitNumber types.CommitNumber, alertIDString string, traceName string, mustExist bool, cb func(r *regression.Regression) (bool, error)) (string, error) {
+func (s *SQLRegression2Store) readModifyWriteCompat(ctx context.Context, commitNumber types.CommitNumber, prevCommitNumber types.CommitNumber, alertIDString string, subName string, traceName string, mustExist bool, cb func(r *regression.Regression) (bool, error)) (string, error) {
 	alertID := alerts.IDAsStringToInt(alertIDString)
 	if alertID == alerts.BadAlertID {
 		return "", skerr.Fmt("Failed to convert alertIDString %q to an int.", alertIDString)
@@ -916,23 +918,30 @@ func (s *SQLRegression2Store) readModifyWriteCompat(ctx context.Context, commitN
 
 	// An empty trace_name indicates that we are processing a k-means alert, which requires a query without a trace name filter.
 	if s.instanceConfig.AllowMultipleRegressionsPerAlertId && traceName != "" {
-		if s.instanceConfig.AnomalyConfig.UseAnomalyLocalization && prevCommitNumber != types.BadCommitNumber {
-			if s.instanceConfig.Experiments.RegressionsTraceIdField {
-				traceId := types.TraceIDForSQLInBytesFromTraceName(traceName)
-				traceIdAsBytes := traceId[:]
-				rows, err = tx.Query(ctx, s.statements[readRegressionsByCommitRangeAlertAndTraceId], commitNumber, prevCommitNumber, alertID, traceIdAsBytes)
+		pCommit := prevCommitNumber
+		// If we only have a single commit rather than a range (indicated by BadCommitNumber),
+		// we set pCommit to commitNumber - 1 so that we can find any existing regressions
+		// that overlap specifically with this single commit.
+		if pCommit == types.BadCommitNumber {
+			pCommit = commitNumber - 1
+		}
+
+		if s.instanceConfig.Experiments.RegressionsTraceIdField {
+			traceId := types.TraceIDForSQLInBytesFromTraceName(traceName)
+			traceIdAsBytes := traceId[:]
+			if subName != "" {
+				rows, err = tx.Query(ctx, s.statements[readRegressionsByCommitRangeSubNameAndTraceId], commitNumber, pCommit, subName, traceIdAsBytes)
 			} else {
-				rows, err = tx.Query(ctx, s.statements[readRegressionsByCommitRangeAlertAndTraceName], commitNumber, prevCommitNumber, alertID, traceName)
+				rows, err = tx.Query(ctx, s.statements[readRegressionsByCommitRangeAlertAndTraceId], commitNumber, pCommit, alertID, traceIdAsBytes)
 			}
 		} else {
-			if s.instanceConfig.Experiments.RegressionsTraceIdField {
-				traceId := types.TraceIDForSQLInBytesFromTraceName(traceName)
-				traceIdAsBytes := traceId[:]
-				rows, err = tx.Query(ctx, s.statements[readRegressionsByCommitAlertAndTraceId], commitNumber, alertID, traceIdAsBytes)
+			if subName != "" {
+				rows, err = tx.Query(ctx, s.statements[readRegressionsByCommitRangeSubNameAndTraceName], commitNumber, pCommit, subName, traceName)
 			} else {
-				rows, err = tx.Query(ctx, s.statements[readRegressionsByCommitAlertAndTraceName], commitNumber, alertID, traceName)
+				rows, err = tx.Query(ctx, s.statements[readRegressionsByCommitRangeAlertAndTraceName], commitNumber, pCommit, alertID, traceName)
 			}
 		}
+
 	} else {
 		rows, err = tx.Query(ctx, s.statements[readCompat], commitNumber, alertID)
 	}
@@ -1001,9 +1010,6 @@ func (s *SQLRegression2Store) readModifyWriteCompat(ctx context.Context, commitN
 // logSuspectAnomalyOverlap logs a warning and counter metric if an anomaly loaded from the database
 // has a larger starting commit range than the requested range.
 func (s *SQLRegression2Store) logSuspectAnomalyOverlap(r *regression.Regression, inputCommitNumber types.CommitNumber, inputPrevCommitNumber types.CommitNumber, traceName string) {
-	if !s.instanceConfig.AnomalyConfig.UseAnomalyLocalization {
-		return
-	}
 	if inputPrevCommitNumber == types.BadCommitNumber {
 		return
 	}
