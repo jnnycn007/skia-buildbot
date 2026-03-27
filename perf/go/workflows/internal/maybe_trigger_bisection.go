@@ -57,7 +57,8 @@ func MaybeTriggerBisectionWorkflow(
 		anomalyGroupResponse.AnomalyGroup.GroupAction,
 	)
 
-	if anomalyGroupResponse.AnomalyGroup.GroupAction == ag_pb.GroupActionType_BISECT {
+	switch anomalyGroupResponse.AnomalyGroup.GroupAction {
+	case ag_pb.GroupActionType_BISECT:
 		bisectionAllowed, err := isBisectionAllowed(ctx, agsa)
 		if err != nil {
 			return nil, skerr.Wrap(err)
@@ -68,16 +69,17 @@ func MaybeTriggerBisectionWorkflow(
 			// Fallback to reporting if the rate limiter prevents creating bisect jobs.
 			return processAnomaliesAsReporting(ctx, agsa, input)
 		}
-	}
-
-	if anomalyGroupResponse.AnomalyGroup.GroupAction == ag_pb.GroupActionType_REPORT {
+	case ag_pb.GroupActionType_REPORT:
 		return processAnomaliesAsReporting(ctx, agsa, input)
+	case ag_pb.GroupActionType_NOACTION:
+		metrics2.GetCounter("anomalygroup_ignored").Inc(1)
+		return nil, nil
+	default:
+		return nil, skerr.Fmt(
+			"Unhandled GroupAction type %s",
+			anomalyGroupResponse.AnomalyGroup.GroupAction,
+		)
 	}
-
-	return nil, skerr.Fmt(
-		"Unhandled GroupAction type %s",
-		anomalyGroupResponse.AnomalyGroup.GroupAction,
-	)
 }
 
 func processAnomaliesAsBisection(
