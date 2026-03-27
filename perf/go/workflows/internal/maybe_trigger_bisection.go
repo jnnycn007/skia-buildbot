@@ -29,15 +29,12 @@ func MaybeTriggerBisectionWorkflow(
 	ctx workflow.Context,
 	input *workflows.MaybeTriggerBisectionParam,
 ) (*workflows.MaybeTriggerBisectionResult, error) {
+	var agsa AnomalyGroupServiceActivity
+
 	ctx = workflow.WithChildOptions(ctx, childWorkflowOptions)
 	ctx = workflow.WithActivityOptions(ctx, regularActivityOptions)
-	logger := workflow.GetLogger(ctx)
-	var err error
-	var agsa AnomalyGroupServiceActivity
-	var gsa GerritServiceActivity
-	var csa CulpritServiceActivity
 
-	if err = waitForAnomalyClusteringWindow(ctx); err != nil {
+	if err := waitForAnomalyClusteringWindow(ctx); err != nil {
 		return nil, skerr.Wrap(err)
 	}
 
@@ -51,6 +48,7 @@ func MaybeTriggerBisectionWorkflow(
 		return nil, skerr.Wrap(err)
 	}
 
+	logger := workflow.GetLogger(ctx)
 	logger.Info(
 		"MaybeTriggerBisectionWorkflow",
 		"WorkflowID",
@@ -69,91 +67,109 @@ func MaybeTriggerBisectionWorkflow(
 	logger.Info("MaybeTriggerBisectionWorkflow", "Bisection allowed", bisectionAllowed)
 
 	if anomalyGroupResponse.AnomalyGroup.GroupAction == ag_pb.GroupActionType_BISECT {
-		anomaliesCount := 1
-		topAnomaliesResponse, err := findTopAnomalies(
-			ctx,
-			agsa,
-			input.AnomalyGroupServiceUrl,
-			input.AnomalyGroupId,
-			anomaliesCount,
-		)
-		if err != nil {
-			return nil, skerr.Wrap(err)
-		}
-		topAnomaly := topAnomaliesResponse.Anomalies[0]
-
-		startHash, endHash, err := getCommitHashes(
-			ctx,
-			gsa,
-			topAnomaly.StartCommit,
-			topAnomaly.EndCommit,
-		)
-		if err != nil {
-			return nil, skerr.Wrap(err)
-		}
-
-		child_wf_id, err := invokeBisection(ctx, input, topAnomaly, startHash, endHash)
-		if err != nil {
-			return nil, skerr.Wrap(err)
-		}
-
-		// Update the anomaly group with the bisection id.
-		updateRequest := ag_pb.UpdateAnomalyGroupRequest{
-			AnomalyGroupId: input.AnomalyGroupId,
-			BisectionId:    child_wf_id,
-		}
-		if err = updateAnomalyGroup(ctx, agsa, input.AnomalyGroupServiceUrl, &updateRequest); err != nil {
-			return nil, skerr.Wrap(err)
-		}
-		metrics2.GetCounter("anomalygroup_bisected").Inc(1)
-		return &workflows.MaybeTriggerBisectionResult{
-			JobId: child_wf_id,
-		}, nil
+		return processAnomaliesAsBisection(ctx, agsa, input)
 	} else if anomalyGroupResponse.AnomalyGroup.GroupAction == ag_pb.GroupActionType_REPORT {
-		// Step 3. Load Anomalies data
-		anomaliesCount := 10
-		topAnomaliesResponse, err := findTopAnomalies(
-			ctx,
-			agsa,
-			input.AnomalyGroupServiceUrl,
-			input.AnomalyGroupId,
-			anomaliesCount,
-		)
-		if err != nil {
-			return nil, skerr.Wrap(err)
-		}
-		topAnomalies := convertToCulpritAnomalies(topAnomaliesResponse.Anomalies)
-
-		notifyUserOfAnomalyResponse, err := notifyUserOfAnomalies(
-			ctx,
-			csa,
-			topAnomalies,
-			input.CulpritServiceUrl,
-			input.AnomalyGroupId,
-		)
-		if err != nil {
-			return nil, skerr.Wrap(err)
-		}
-
-		// Update the anomaly group with the reported issue id.
-		if notifyUserOfAnomalyResponse != nil && notifyUserOfAnomalyResponse.IssueId != "" {
-			updateRequest := ag_pb.UpdateAnomalyGroupRequest{
-				AnomalyGroupId: input.AnomalyGroupId,
-				IssueId:        notifyUserOfAnomalyResponse.IssueId,
-			}
-			if err = updateAnomalyGroup(ctx, agsa, input.AnomalyGroupServiceUrl, &updateRequest); err != nil {
-				return nil, skerr.Wrap(err)
-			}
-		}
-
-		metrics2.GetCounter("anomalygroup_reported").Inc(1)
-		return &workflows.MaybeTriggerBisectionResult{}, nil
+		return processAnomaliesAsReporting(ctx, agsa, input)
 	}
 
 	return nil, skerr.Fmt(
 		"Unhandled GroupAction type %s",
 		anomalyGroupResponse.AnomalyGroup.GroupAction,
 	)
+}
+
+func processAnomaliesAsBisection(
+	ctx workflow.Context,
+	agsa AnomalyGroupServiceActivity,
+	input *workflows.MaybeTriggerBisectionParam,
+) (*workflows.MaybeTriggerBisectionResult, error) {
+	var gsa GerritServiceActivity
+	anomaliesCount := 1
+	topAnomaliesResponse, err := findTopAnomalies(
+		ctx,
+		agsa,
+		input.AnomalyGroupServiceUrl,
+		input.AnomalyGroupId,
+		anomaliesCount,
+	)
+	if err != nil {
+		return nil, skerr.Wrap(err)
+	}
+
+	topAnomaly := topAnomaliesResponse.Anomalies[0]
+	startHash, endHash, err := getCommitHashes(
+		ctx,
+		gsa,
+		topAnomaly.StartCommit,
+		topAnomaly.EndCommit,
+	)
+	if err != nil {
+		return nil, skerr.Wrap(err)
+	}
+
+	jobId, err := invokeBisection(ctx, input, topAnomaly, startHash, endHash)
+	if err != nil {
+		return nil, skerr.Wrap(err)
+	}
+
+	// Update the anomaly group with the bisection id.
+	updateRequest := ag_pb.UpdateAnomalyGroupRequest{
+		AnomalyGroupId: input.AnomalyGroupId,
+		BisectionId:    jobId,
+	}
+	if err = updateAnomalyGroup(ctx, agsa, input.AnomalyGroupServiceUrl, &updateRequest); err != nil {
+		return nil, skerr.Wrap(err)
+	}
+	metrics2.GetCounter("anomalygroup_bisected").Inc(1)
+	return &workflows.MaybeTriggerBisectionResult{
+		JobId: jobId,
+	}, nil
+}
+
+func processAnomaliesAsReporting(
+	ctx workflow.Context,
+	agsa AnomalyGroupServiceActivity,
+	input *workflows.MaybeTriggerBisectionParam,
+) (*workflows.MaybeTriggerBisectionResult, error) {
+	var csa CulpritServiceActivity
+	// Load Anomalies data
+	anomaliesCount := 10
+	topAnomaliesResponse, err := findTopAnomalies(
+		ctx,
+		agsa,
+		input.AnomalyGroupServiceUrl,
+		input.AnomalyGroupId,
+		anomaliesCount,
+	)
+	if err != nil {
+		return nil, skerr.Wrap(err)
+	}
+	topAnomalies := convertToCulpritAnomalies(topAnomaliesResponse.Anomalies)
+
+	notifyUserOfAnomalyResponse, err := notifyUserOfAnomalies(
+		ctx,
+		csa,
+		topAnomalies,
+		input.CulpritServiceUrl,
+		input.AnomalyGroupId,
+	)
+	if err != nil {
+		return nil, skerr.Wrap(err)
+	}
+
+	// Update the anomaly group with the reported issue id.
+	if notifyUserOfAnomalyResponse != nil && notifyUserOfAnomalyResponse.IssueId != "" {
+		updateRequest := ag_pb.UpdateAnomalyGroupRequest{
+			AnomalyGroupId: input.AnomalyGroupId,
+			IssueId:        notifyUserOfAnomalyResponse.IssueId,
+		}
+		if err = updateAnomalyGroup(ctx, agsa, input.AnomalyGroupServiceUrl, &updateRequest); err != nil {
+			return nil, skerr.Wrap(err)
+		}
+	}
+
+	metrics2.GetCounter("anomalygroup_reported").Inc(1)
+	return &workflows.MaybeTriggerBisectionResult{}, nil
 }
 
 // Mimic the story name update in the legacy descriptor logic.
