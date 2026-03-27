@@ -350,7 +350,7 @@ func CollectBrowserVersionsActivity(ctx context.Context, browser string, platfor
 }
 
 func callCbbRunner(ctx workflow.Context, p *CbbRunnerParams, workflowID string) {
-	options := runBenchmarkWorkflowOptions
+	options := cbbRunnerWorkflowOptions
 	options.WorkflowID = workflowID
 	ctx = workflow.WithChildOptions(ctx, options)
 	var cr *CommitRun
