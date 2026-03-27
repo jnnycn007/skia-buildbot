@@ -2,6 +2,7 @@ module go.skia.org/infra
 
 require (
 	cloud.google.com/go v0.121.4
+	cloud.google.com/go/auth v0.16.5
 	cloud.google.com/go/bigquery v1.69.0
 	cloud.google.com/go/bigtable v1.38.0
 	cloud.google.com/go/binaryauthorization v1.9.5
@@ -55,6 +56,7 @@ require (
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/invopop/jsonschema v0.7.0
 	github.com/jackc/pgconn v1.14.3
+	github.com/jackc/pgerrcode v0.0.0-20250907135507-afb5586c32a6
 	github.com/jackc/pgtype v1.14.0
 	github.com/jackc/pgx/v4 v4.18.2
 	github.com/jcgregorio/logger v0.1.3
@@ -62,6 +64,7 @@ require (
 	github.com/kisielk/errcheck v1.5.0
 	github.com/mark3labs/mcp-go v0.31.0
 	github.com/miekg/dns v1.1.41
+	github.com/mikefarah/yq/v4 v4.28.1
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/nlpodyssey/gopickle v0.3.0
 	github.com/olekukonko/tablewriter v0.0.5
@@ -130,7 +133,6 @@ require (
 
 require (
 	cel.dev/expr v0.24.0 // indirect
-	cloud.google.com/go/auth v0.16.5 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	cloud.google.com/go/container v1.44.0 // indirect
 	cloud.google.com/go/longrunning v0.6.7 // indirect
@@ -209,7 +211,6 @@ require (
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
-	github.com/mikefarah/yq/v4 v4.28.1 // indirect
 	github.com/mitchellh/copystructure v1.0.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect

@@ -117,6 +117,7 @@ use_repo(
     "com_github_hashicorp_golang_lru",
     "com_github_invopop_jsonschema",
     "com_github_jackc_pgconn",
+    "com_github_jackc_pgerrcode",
     "com_github_jackc_pgtype",
     "com_github_jackc_pgx_v4",
     "com_github_jcgregorio_logger",

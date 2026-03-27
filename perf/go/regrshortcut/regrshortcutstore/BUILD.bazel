@@ -1,4 +1,5 @@
 load("@rules_go//go:def.bzl", "go_library")
+load("//bazel/go:go_test.bzl", "go_test")
 
 go_library(
     name = "regrshortcutstore",
@@ -9,5 +10,18 @@ go_library(
         "//go/skerr",
         "//go/sql/pool",
         "//perf/go/types",
+        "@com_github_jackc_pgconn//:pgconn",
+        "@com_github_jackc_pgerrcode//:pgerrcode",
+    ],
+)
+
+go_test(
+    name = "regrshortcutstore_test",
+    srcs = ["store_test.go"],
+    embed = [":regrshortcutstore"],
+    deps = [
+        "//perf/go/sql/sqltest",
+        "@com_github_stretchr_testify//assert",
+        "@com_github_stretchr_testify//require",
     ],
 )
