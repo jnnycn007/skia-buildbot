@@ -122,19 +122,7 @@ func MaybeTriggerBisectionWorkflow(
 		if err != nil {
 			return nil, skerr.Wrap(err)
 		}
-		topAnomalies := make([]*c_pb.Anomaly, len(topAnomaliesResponse.Anomalies))
-		// Currently the protos in culprit service and anomaly service are having two identical
-		// copies of definition on Anomaly. We should merge them into one.
-		for i, anomaly := range topAnomaliesResponse.Anomalies {
-			topAnomalies[i] = &c_pb.Anomaly{
-				StartCommit:          anomaly.StartCommit,
-				EndCommit:            anomaly.EndCommit,
-				Paramset:             anomaly.Paramset,
-				ImprovementDirection: anomaly.ImprovementDirection,
-				MedianBefore:         anomaly.MedianBefore,
-				MedianAfter:          anomaly.MedianAfter,
-			}
-		}
+		topAnomalies := convertToCulpritAnomalies(topAnomaliesResponse.Anomalies)
 
 		notifyUserOfAnomalyResponse, err := notifyUserOfAnomalies(
 			ctx,
@@ -259,10 +247,27 @@ func findTopAnomalies(
 	}).Get(ctx, &topAnomaliesResponse); err != nil {
 		return nil, skerr.Wrap(err)
 	}
-	if topAnomaliesResponse != nil && len(topAnomaliesResponse.Anomalies) == 0 {
+	if topAnomaliesResponse == nil || len(topAnomaliesResponse.Anomalies) == 0 {
 		return nil, skerr.Fmt("No anomalies found for anomalygroup %s", anomalyGroupID)
 	}
 	return topAnomaliesResponse, nil
+}
+
+// Currently the protos in culprit service and anomaly service are having two identical
+// copies of definition on Anomaly. We should merge them into one.
+func convertToCulpritAnomalies(anomalies []*ag_pb.Anomaly) []*c_pb.Anomaly {
+	result := make([]*c_pb.Anomaly, len(anomalies))
+	for i, anomaly := range anomalies {
+		result[i] = &c_pb.Anomaly{
+			StartCommit:          anomaly.StartCommit,
+			EndCommit:            anomaly.EndCommit,
+			Paramset:             anomaly.Paramset,
+			ImprovementDirection: anomaly.ImprovementDirection,
+			MedianBefore:         anomaly.MedianBefore,
+			MedianAfter:          anomaly.MedianAfter,
+		}
+	}
+	return result
 }
 
 // getCommitHashes converts start and end commit postions to commit hash.
