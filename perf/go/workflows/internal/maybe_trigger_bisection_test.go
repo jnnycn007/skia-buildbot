@@ -81,6 +81,7 @@ func TestMaybeTriggerBisection_GroupActionBisect_HappyPath(t *testing.T) {
 			&anomalygroup_proto.FindTopAnomaliesResponse{Anomalies: []*anomalygroup_proto.Anomaly{mockAnomaly}}, nil)
 	mockStartRevision := "revision1"
 	mockEndRevision := "revision10"
+	env.OnActivity(agsa.CheckBisectionAllowed, mock.Anything).Return(true, nil).Once()
 	env.OnActivity(gsa.GetCommitRevision, mock.Anything, startCommit).Return(mockStartRevision, nil).Once()
 	env.OnActivity(gsa.GetCommitRevision, mock.Anything, endCommit).Return(mockEndRevision, nil).Once()
 
@@ -166,6 +167,7 @@ func TestMaybeTriggerBisection_GroupActionBisect_ParseChartStat(t *testing.T) {
 			&anomalygroup_proto.FindTopAnomaliesResponse{Anomalies: []*anomalygroup_proto.Anomaly{mockAnomaly}}, nil)
 	mockStartRevision := "revision1"
 	mockEndRevision := "revision10"
+	env.OnActivity(agsa.CheckBisectionAllowed, mock.Anything).Return(true, nil).Once()
 	env.OnActivity(gsa.GetCommitRevision, mock.Anything, startCommit).Return(mockStartRevision, nil).Once()
 	env.OnActivity(gsa.GetCommitRevision, mock.Anything, endCommit).Return(mockEndRevision, nil).Once()
 
@@ -313,6 +315,117 @@ func TestMaybeTriggerBisection_GroupActionReport_HappyPath(t *testing.T) {
 	env.AssertExpectations(t)
 }
 
+func TestMaybeTriggerBisection_GroupActionBisect_BisectionNotAllowed(t *testing.T) {
+	ag_addr, ag_server, ag_cleanup := setupAnomalyGroupService(t)
+	defer ag_cleanup()
+	c_addr, c_server, c_cleanup := setupCulpritService(t)
+	defer c_cleanup()
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+	agsa := &AnomalyGroupServiceActivity{insecure_conn: true}
+	gsa := &GerritServiceActivity{insecure_conn: true}
+	csa := &CulpritServiceActivity{insecure_conn: true}
+	env.RegisterActivity(agsa)
+	env.RegisterActivity(gsa)
+	env.RegisterActivity(csa)
+	env.RegisterWorkflowWithOptions(catapult.CulpritFinderWorkflow, workflow.RegisterOptions{Name: pinpoint.CulpritFinderWorkflow})
+
+	anomalyGroupId := "group_id1"
+	mockAnomalyIds := []string{"anomaly1"}
+	ag_server.On("LoadAnomalyGroupByID", mock.Anything, &anomalygroup_proto.LoadAnomalyGroupByIDRequest{
+		AnomalyGroupId: anomalyGroupId}).
+		Return(
+			&anomalygroup_proto.LoadAnomalyGroupByIDResponse{
+				AnomalyGroup: &anomalygroup_proto.AnomalyGroup{
+					GroupId:     anomalyGroupId,
+					GroupAction: anomalygroup_proto.GroupActionType_BISECT,
+					AnomalyIds:  mockAnomalyIds,
+				},
+			}, nil)
+	env.OnActivity(agsa.CheckBisectionAllowed, mock.Anything).Return(false, nil).Once()
+	mockAnomalies := []*anomalygroup_proto.Anomaly{
+		{
+			StartCommit: int64(100),
+			EndCommit:   int64(300),
+			Paramset: map[string]string{
+				"bot":         "linux-perf",
+				"benchmark":   "speedometer",
+				"story":       "speedometer",
+				"measurement": "runsperminute",
+				"stat":        "error",
+			},
+			ImprovementDirection: "UP",
+		},
+		{
+			StartCommit: int64(130),
+			EndCommit:   int64(500),
+			Paramset: map[string]string{
+				"bot":         "win-10-perf",
+				"benchmark":   "speedometer2",
+				"story":       "speedometer2",
+				"measurement": "runsperminute",
+				"stat":        "value",
+			},
+			ImprovementDirection: "UP",
+		},
+	}
+	mockCulpritAnomalies := []*culprit_proto.Anomaly{
+		{
+			StartCommit: int64(100),
+			EndCommit:   int64(300),
+			Paramset: map[string]string{
+				"bot":         "linux-perf",
+				"benchmark":   "speedometer",
+				"story":       "speedometer",
+				"measurement": "runsperminute",
+				"stat":        "error",
+			},
+			ImprovementDirection: "UP",
+		},
+		{
+			StartCommit: int64(130),
+			EndCommit:   int64(500),
+			Paramset: map[string]string{
+				"bot":         "win-10-perf",
+				"benchmark":   "speedometer2",
+				"story":       "speedometer2",
+				"measurement": "runsperminute",
+				"stat":        "value",
+			},
+			ImprovementDirection: "UP",
+		},
+	}
+	ag_server.On("FindTopAnomalies", mock.Anything, &anomalygroup_proto.FindTopAnomaliesRequest{
+		AnomalyGroupId: anomalyGroupId,
+		Limit:          10}).
+		Return(
+			&anomalygroup_proto.FindTopAnomaliesResponse{Anomalies: mockAnomalies}, nil)
+	mockIssueId := "mock_issue_id"
+	c_server.On("NotifyUserOfAnomaly", mock.Anything, &culprit_proto.NotifyUserOfAnomalyRequest{
+		AnomalyGroupId: anomalyGroupId,
+		Anomaly:        mockCulpritAnomalies,
+	}).Return(
+		&culprit_proto.NotifyUserOfAnomalyResponse{IssueId: mockIssueId}, nil)
+
+	ag_server.On("UpdateAnomalyGroup", mock.Anything, &anomalygroup_proto.UpdateAnomalyGroupRequest{
+		AnomalyGroupId: anomalyGroupId,
+		IssueId:        mockIssueId,
+	}).Return(
+		&anomalygroup_proto.UpdateAnomalyGroupResponse{}, nil)
+
+	env.ExecuteWorkflow(MaybeTriggerBisectionWorkflow, &workflows.MaybeTriggerBisectionParam{
+		AnomalyGroupServiceUrl: ag_addr,
+		CulpritServiceUrl:      c_addr,
+		AnomalyGroupId:         anomalyGroupId,
+	})
+
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+	var resp *workflows.MaybeTriggerBisectionResult
+	require.NoError(t, env.GetWorkflowResult(&resp))
+	env.AssertExpectations(t)
+}
+
 func TestMaybeTriggerBisection_GroupActionBisect_HappyPath_StoryNameUpdate(t *testing.T) {
 	addr, server, cleanup := setupAnomalyGroupService(t)
 	defer cleanup()
@@ -361,6 +474,7 @@ func TestMaybeTriggerBisection_GroupActionBisect_HappyPath_StoryNameUpdate(t *te
 			&anomalygroup_proto.FindTopAnomaliesResponse{Anomalies: []*anomalygroup_proto.Anomaly{mockAnomaly}}, nil)
 	mockStartRevision := "revision1"
 	mockEndRevision := "revision10"
+	env.OnActivity(agsa.CheckBisectionAllowed, mock.Anything).Return(true, nil).Once()
 	env.OnActivity(gsa.GetCommitRevision, mock.Anything, startCommit).Return(mockStartRevision, nil).Once()
 	env.OnActivity(gsa.GetCommitRevision, mock.Anything, endCommit).Return(mockEndRevision, nil).Once()
 

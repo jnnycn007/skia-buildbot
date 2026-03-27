@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
@@ -48,8 +47,7 @@ func MaybeTriggerBisectionWorkflow(
 		return nil, skerr.Wrap(err)
 	}
 
-	logger := workflow.GetLogger(ctx)
-	logger.Info(
+	workflow.GetLogger(ctx).Info(
 		"MaybeTriggerBisectionWorkflow",
 		"WorkflowID",
 		workflow.GetInfo(ctx).WorkflowExecution.ID,
@@ -59,16 +57,20 @@ func MaybeTriggerBisectionWorkflow(
 		anomalyGroupResponse.AnomalyGroup.GroupAction,
 	)
 
-	// Temporary code checking whether the rate limiter works as expected on production.
-	bisectionAllowed, err := isBisectionAllowed(ctx, agsa)
-	if err != nil {
-		logger.Error(fmt.Sprintf("Rate limiter error: %s", skerr.Wrap(err)))
-	}
-	logger.Info("MaybeTriggerBisectionWorkflow", "Bisection allowed", bisectionAllowed)
-
 	if anomalyGroupResponse.AnomalyGroup.GroupAction == ag_pb.GroupActionType_BISECT {
-		return processAnomaliesAsBisection(ctx, agsa, input)
-	} else if anomalyGroupResponse.AnomalyGroup.GroupAction == ag_pb.GroupActionType_REPORT {
+		bisectionAllowed, err := isBisectionAllowed(ctx, agsa)
+		if err != nil {
+			return nil, skerr.Wrap(err)
+		}
+		if bisectionAllowed {
+			return processAnomaliesAsBisection(ctx, agsa, input)
+		} else {
+			// Fallback to reporting if the rate limiter prevents creating bisect jobs.
+			return processAnomaliesAsReporting(ctx, agsa, input)
+		}
+	}
+
+	if anomalyGroupResponse.AnomalyGroup.GroupAction == ag_pb.GroupActionType_REPORT {
 		return processAnomaliesAsReporting(ctx, agsa, input)
 	}
 
@@ -246,6 +248,8 @@ func isBisectionAllowed(ctx workflow.Context, agsa AnomalyGroupServiceActivity) 
 	if err != nil {
 		return false, skerr.Wrap(err)
 	}
+	logger := workflow.GetLogger(ctx)
+	logger.Info("MaybeTriggerBisectionWorkflow", "Bisection allowed:", bisectionAllowed)
 	return bisectionAllowed, nil
 }
 
