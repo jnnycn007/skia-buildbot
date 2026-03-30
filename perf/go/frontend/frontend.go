@@ -63,6 +63,7 @@ import (
 	"go.skia.org/infra/perf/go/regression"
 	"go.skia.org/infra/perf/go/regression/continuous"
 	"go.skia.org/infra/perf/go/regression/refiner"
+	"go.skia.org/infra/perf/go/regrshortcut"
 	"go.skia.org/infra/perf/go/shortcut"
 	"go.skia.org/infra/perf/go/subscription"
 	"go.skia.org/infra/perf/go/tracecache"
@@ -133,6 +134,8 @@ type Frontend struct {
 	culpritStore culprit.Store
 
 	regStore regression.Store
+
+	regrShortcutStore regrshortcut.Store
 
 	subStore subscription.Store
 
@@ -625,6 +628,11 @@ func (f *Frontend) initialize() {
 	f.regStore, err = builders.NewRegressionStoreFromConfig(ctx, cfg, f.configProvider)
 	if err != nil {
 		sklog.Fatalf("Failed to build regression.Store: %s", err)
+	}
+
+	f.regrShortcutStore, err = builders.NewRegressionsShortcutStoreFromConfig(ctx, cfg)
+	if err != nil {
+		sklog.Fatalf("Failed to build regrShortcutStore.Store: %s", err)
 	}
 
 	f.notifier, err = notify.New(ctx, &config.Config.NotifyConfig, &config.Config.IssueTrackerConfig, config.Config.URL, f.flags.CommitRangeURL, f.traceStore, f.regStore, f.userIssueStore, f.ingestedFS, f.flags.DevMode)
@@ -1188,7 +1196,7 @@ func (f *Frontend) getFrontendApis() []api.FrontendApi {
 	return []api.FrontendApi{
 		api.NewFavoritesApi(f.loginProvider, f.favStore),
 		api.NewAlertsApi(f.loginProvider, f.configProvider, f.alertStore, f.notifier, f.subStore, f.dryrunRequests),
-		api.NewAnomaliesApi(f.loginProvider, f.chromeperfClient, f.perfGit, f.subStore, f.alertStore, f.culpritStore, f.regStore, f.anomalygroupStore),
+		api.NewAnomaliesApi(f.loginProvider, f.chromeperfClient, f.perfGit, f.subStore, f.alertStore, f.culpritStore, f.regStore, f.regrShortcutStore, f.anomalygroupStore),
 		api.NewRegressionsApi(f.loginProvider, f.configProvider, f.alertStore, f.regStore, f.perfGit, f.anomalyApiClient, f.urlProvider, f.graphsShortcutStore, f.alertGroupClient, f.progressTracker, f.shortcutStore, f.dfBuilder, f.paramsetRefresher),
 		api.NewQueryApi(f.paramsetRefresher),
 		api.NewShortCutsApi(f.shortcutStore, f.graphsShortcutStore),

@@ -39,6 +39,8 @@ import (
 	"go.skia.org/infra/perf/go/regression"
 	"go.skia.org/infra/perf/go/regression/sqlregression2store"
 	"go.skia.org/infra/perf/go/regression/sqlregressionstore"
+	"go.skia.org/infra/perf/go/regrshortcut"
+	"go.skia.org/infra/perf/go/regrshortcut/regrshortcutstore"
 	"go.skia.org/infra/perf/go/shortcut"
 	"go.skia.org/infra/perf/go/shortcut/sqlshortcutstore"
 	"go.skia.org/infra/perf/go/sql"
@@ -224,6 +226,16 @@ func NewRegressionStoreFromConfig(ctx context.Context, instanceConfig *config.In
 	} else {
 		return sqlregressionstore.New(db)
 	}
+}
+
+// NewRegressionsShortcutStoreFromConfig creates a new regrShortcutStore.RegressionsShortcutStore from
+// the InstanceConfig.
+func NewRegressionsShortcutStoreFromConfig(ctx context.Context, instanceConfig *config.InstanceConfig) (regrshortcut.Store, error) {
+	db, err := getDBPool(ctx, instanceConfig)
+	if err != nil {
+		return nil, err
+	}
+	return regrshortcutstore.New(db), nil
 }
 
 // NewShortcutStoreFromConfig creates a new shortcut.Store from the

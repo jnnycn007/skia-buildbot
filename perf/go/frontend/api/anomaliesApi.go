@@ -26,6 +26,7 @@ import (
 	"go.skia.org/infra/perf/go/culprit"
 	perfgit "go.skia.org/infra/perf/go/git"
 	"go.skia.org/infra/perf/go/regression"
+	"go.skia.org/infra/perf/go/regrshortcut"
 	"go.skia.org/infra/perf/go/subscription"
 	pb "go.skia.org/infra/perf/go/subscription/proto/v1"
 	"go.skia.org/infra/perf/go/types"
@@ -44,7 +45,18 @@ type anomaliesApi struct {
 	alertStore        alerts.Store
 	culpritStore      culprit.Store
 	regStore          regression.Store
+	regrShortcutStore regrshortcut.Store
 	anomalygroupStore anomalygroup.Store
+}
+
+type CalculateRegrShortcutRequest struct {
+	// Comma-separated list of urlsafe Anomaly keys.
+	AnomalyIDs string `json:"anomalyIDs"`
+}
+
+type CalculateRegrShortcutResponse struct {
+	// Shortcut value
+	Sid string `json:"sid"`
 }
 
 // Response object for the request from sheriff list UI.
@@ -121,9 +133,10 @@ func (api anomaliesApi) RegisterHandlers(router *chi.Mux) {
 	// Endpoints for using data from the instance database.
 	router.Get("/_/anomalies/sheriff_list_skia", api.GetSheriffList)
 	router.Get("/_/anomalies/anomaly_list_skia", api.GetAnomalyList)
+	router.Post("/_/anomalies/calculate_regr_shortcut", api.CalculateRegrShortcutHandler)
 }
 
-func NewAnomaliesApi(loginProvider alogin.Login, chromeperfClient chromeperf.ChromePerfClient, perfGit perfgit.Git, subStore subscription.Store, alertStore alerts.Store, culpritStore culprit.Store, regStore regression.Store, anomalygroupStore anomalygroup.Store) anomaliesApi {
+func NewAnomaliesApi(loginProvider alogin.Login, chromeperfClient chromeperf.ChromePerfClient, perfGit perfgit.Git, subStore subscription.Store, alertStore alerts.Store, culpritStore culprit.Store, regStore regression.Store, regrShortcutStore regrshortcut.Store, anomalygroupStore anomalygroup.Store) anomaliesApi {
 	return anomaliesApi{
 		loginProvider:     loginProvider,
 		chromeperfClient:  chromeperfClient,
@@ -132,7 +145,56 @@ func NewAnomaliesApi(loginProvider alogin.Login, chromeperfClient chromeperf.Chr
 		alertStore:        alertStore,
 		culpritStore:      culpritStore,
 		regStore:          regStore,
+		regrShortcutStore: regrShortcutStore,
 		anomalygroupStore: anomalygroupStore,
+	}
+}
+
+func (api anomaliesApi) CalculateRegrShortcutHandler(w http.ResponseWriter, r *http.Request) {
+	if api.loginProvider.LoggedInAs(r) == "" {
+		httputils.ReportError(w, errors.New("Not logged in"), "You must be logged in to complete this action.", http.StatusUnauthorized)
+		return
+	}
+
+	if preferLegacy(r) {
+		errMessage := "Calculate Shortcut is not supported for chromeperf"
+		sklog.Error(errMessage)
+		httputils.ReportError(w, errors.ErrUnsupported, errMessage, http.StatusForbidden)
+		return
+	}
+
+	sklog.Debug("[SkiaTriage] Calculate Shortcut request received from frontend.")
+
+	w.Header().Set("Content-Type", "application/json")
+
+	ctx, cancel := context.WithTimeout(r.Context(), defaultAnomaliesRequestTimeout)
+	defer cancel()
+
+	var request CalculateRegrShortcutRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		httputils.ReportError(w, err, "Failed to decode JSON on calculate regression shortcut request.", http.StatusInternalServerError)
+		return
+	}
+
+	if request.AnomalyIDs == "" {
+		httputils.ReportError(w, errors.New("AnomalyIDs is empty"), "AnomalyIDs is required.", http.StatusBadRequest)
+		return
+	}
+
+	anomalyIDs := strings.Split(request.AnomalyIDs, ",")
+	sid, err := api.regrShortcutStore.Create(ctx, anomalyIDs)
+	if err != nil {
+		httputils.ReportError(w, err, "Failed to write regression shortcut.", http.StatusInternalServerError)
+		return
+	}
+
+	response := CalculateRegrShortcutResponse{
+		Sid: sid,
+	}
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		httputils.ReportError(w, err, "Failed to encode response.", http.StatusInternalServerError)
+		return
 	}
 }
 

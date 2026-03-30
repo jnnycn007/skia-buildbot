@@ -53,6 +53,7 @@ go_library(
         "//perf/go/regression",
         "//perf/go/regression/continuous",
         "//perf/go/regression/refiner",
+        "//perf/go/regrshortcut",
         "//perf/go/shortcut",
         "//perf/go/subscription:store",
         "//perf/go/tracecache",
