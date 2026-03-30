@@ -1,14 +1,11 @@
 import { ReactiveController, ReactiveControllerHost } from 'lit';
-import { Anomaly, GetGroupReportResponse, Timerange } from '../json';
+import { Anomaly, CalculateRegrShortcutResponse, GetGroupReportResponse, Timerange } from '../json';
 import { errorMessage } from '../errorMessage';
 import { GraphConfig, updateShortcut } from '../common/graph-config';
 import { ChromeTraceFormatter } from '../trace-details-formatter/traceformatter';
 
 import { jsonOrThrow } from '../../../infra-sk/modules/jsonOrThrow';
-import { CountMetric, telemetry } from '../telemetry/telemetry';
 
-// Just below the 2000 limit - we need to leave some space for the instance address.
-const urlMaxLength = 1900;
 const weekInSeconds = 7 * 24 * 60 * 60;
 
 export class ReportNavigationController implements ReactiveController {
@@ -38,34 +35,17 @@ export class ReportNavigationController implements ReactiveController {
       return !!newTab;
     }
 
-    if (window.perf.fetch_anomalies_from_sql) {
-      const idString = idList.join(',');
-      const urlForAnomalyIDsList = `/u/?anomalyIDs=${encodeURIComponent(idString)}`;
-      if (urlForAnomalyIDsList.length < urlMaxLength) {
-        newTab = window.open(urlForAnomalyIDsList, '_blank');
-        return !!newTab;
-      }
-
-      errorMessage(
-        'Tried to open a report page with too many anomalies. Please file a bug to request access.'
-      );
-      console.warn('anomalyIDs url would be too long, need to use SID');
-      telemetry.increaseCounter(CountMetric.SIDRequiringActionTaken, {
-        module: 'anomalies-table-sk',
-        function: 'openReportForAnomalyId',
-      });
+    const idString = idList.join(',');
+    const response = window.perf.fetch_anomalies_from_sql
+      ? await this.fetchCreateShortcutApi(idString)
+      : await this.fetchGroupReportApi(idString);
+    if (!response) {
       return true;
-    } else {
-      const idString = idList.join(',');
-      const response = await this.fetchGroupReportApi(idString);
-      if (!response) {
-        return true;
-      }
-      const sid: string = response.sid || '';
-      const url = `/u/?sid=${sid}`;
-      newTab = window.open(url, '_blank');
-      return !!newTab;
     }
+    const sid: string = response.sid || '';
+    const url = `/u/?sid=${sid}`;
+    newTab = window.open(url, '_blank');
+    return !!newTab;
   }
 
   // openMultiGraphLink generates a multi-graph url for the given parameters
@@ -91,6 +71,26 @@ export class ReportNavigationController implements ReactiveController {
 
     // Navigate the already-opened tab to the final destination.
     newTab.location.href = url;
+  }
+
+  private async fetchCreateShortcutApi(
+    idString: string
+  ): Promise<CalculateRegrShortcutResponse | null> {
+    try {
+      const response = await fetch('/_/anomalies/calculate_regr_shortcut', {
+        method: 'POST',
+        body: JSON.stringify({
+          anomalyIDs: idString,
+        }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      return jsonOrThrow(response);
+    } catch (msg) {
+      errorMessage(msg as string);
+      return null;
+    }
   }
 
   private async fetchGroupReportApi(idString: string): Promise<GetGroupReportResponse | null> {

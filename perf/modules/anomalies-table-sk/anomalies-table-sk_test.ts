@@ -172,6 +172,7 @@ describe('anomalies-table-sk', () => {
 
       const openSpy = sinon.spy(window, 'open');
       fetchMock.post('/_/shortcut/update', { id: 'test_shortcut' });
+      fetchMock.post('/_/anomalies/calculate_regr_shortcut', { sid: 'test_sid' });
 
       const anomalies = [
         dummyAnomaly('1', 12345, 100, 200, 'master/bot/suite/test1'),
@@ -189,10 +190,12 @@ describe('anomalies-table-sk', () => {
 
       await element.openAnomalyGroupReportPage();
 
-      assert.isTrue(openSpy.calledWith(`/u/?anomalyIDs=${encodeURIComponent('1,2')}`, '_blank'));
-      assert.isTrue(openSpy.calledWith(`/u/?anomalyIDs=${encodeURIComponent('3,4')}`, '_blank'));
-      assert.isTrue(openSpy.calledWith(`/u/?anomalyIDs=${encodeURIComponent('5')}`, '_blank'));
-      assert.isTrue(openSpy.calledWith(`/u/?anomalyIDs=${encodeURIComponent('6')}`, '_blank'));
+      assert.isTrue(openSpy.calledWith('/u/?sid=test_sid', '_blank'));
+      // There are 4 groups (two multi, two single).
+      // Multi-groups call calculate_regr_shortcut which returns 'test_sid' (mocked).
+      // Single groups open /u/?anomalyIDs=X directly.
+      assert.isTrue(openSpy.calledWith('/u/?anomalyIDs=5', '_blank'));
+      assert.isTrue(openSpy.calledWith('/u/?anomalyIDs=6', '_blank'));
       assert.equal(openSpy.callCount, 4);
     });
 
@@ -238,6 +241,7 @@ describe('anomalies-table-sk', () => {
 
       const openSpy = sinon.spy(window, 'open');
       fetchMock.post('/_/shortcut/update', { id: 'test_shortcut' });
+      fetchMock.post('/_/anomalies/calculate_regr_shortcut', { sid: 'test_sid' });
 
       const anomalies = [
         dummyAnomaly('1', 12345, 100, 200, 'master/bot/suite/test1'),
@@ -251,7 +255,7 @@ describe('anomalies-table-sk', () => {
 
       await element.openAnomalyGroupReportPage();
 
-      assert.isTrue(openSpy.calledWith(`/u/?anomalyIDs=${encodeURIComponent('1,2')}`, '_blank'));
+      assert.isTrue(openSpy.calledWith('/u/?sid=test_sid', '_blank'));
       assert.isTrue(openSpy.calledOnce);
     });
 
@@ -283,6 +287,7 @@ describe('anomalies-table-sk', () => {
 
       const openSpy = sinon.spy(window, 'open');
       fetchMock.post('/_/shortcut/update', { id: 'test_shortcut' });
+      fetchMock.post('/_/anomalies/calculate_regr_shortcut', { sid: 'test_sid' });
 
       const anomalies = [
         dummyAnomaly('1', 12345, 100, 200, 'master/bot/suite/test1'),
@@ -298,9 +303,9 @@ describe('anomalies-table-sk', () => {
 
       await element.openAnomalyGroupReportPage();
 
-      assert.isTrue(openSpy.calledTwice);
-      assert.isTrue(openSpy.calledWith(`/u/?anomalyIDs=${encodeURIComponent('1,2')}`, '_blank'));
+      assert.isTrue(openSpy.calledWith('/u/?sid=test_sid', '_blank'));
       assert.isTrue(openSpy.calledWith('/u/?anomalyIDs=3', '_blank'));
+      assert.isTrue(openSpy.calledTwice);
     });
   });
 

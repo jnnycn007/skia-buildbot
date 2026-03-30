@@ -70,6 +70,8 @@ func main() {
 		frame.FrameRequest{},
 		frame.FrameResponse{},
 		frontendApi.AlertUpdateResponse{},
+		frontendApi.CalculateRegrShortcutRequest{},
+		frontendApi.CalculateRegrShortcutResponse{},
 		frontendApi.CIDHandlerResponse{},
 		frontendApi.ClusterStartResponse{},
 		frontendApi.CommitDetailsRequest{},

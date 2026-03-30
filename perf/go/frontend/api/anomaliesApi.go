@@ -520,9 +520,7 @@ func (api anomaliesApi) GetGroupReport(w http.ResponseWriter, r *http.Request) {
 	} else if groupReportRequest.BugID != "" {
 		groupReportResponse, err = api.getGroupReportByBugId(ctx, groupReportRequest)
 	} else if groupReportRequest.Sid != "" {
-		httputils.ReportError(w, errors.New("not implemented"), "This API is not implemented for this parameter.", http.StatusInternalServerError)
-		sklog.Debugf("Unsupported parameters for group report: %v", groupReportRequest)
-		return
+		groupReportResponse, err = api.getGroupReportBySid(ctx, groupReportRequest)
 	} else if groupReportRequest.Revison != "" {
 		groupReportResponse, err = api.getGroupReportByRevision(ctx, groupReportRequest)
 	} else if groupReportRequest.AnomalyGroupID != "" {

@@ -272,6 +272,14 @@ export interface AlertUpdateResponse {
 	IDAsString: string;
 }
 
+export interface CalculateRegrShortcutRequest {
+	anomalyIDs: string;
+}
+
+export interface CalculateRegrShortcutResponse {
+	sid: string;
+}
+
 export interface CIDHandlerResponse {
 	commitSlice: Commit[] | null;
 	logEntry: string;
