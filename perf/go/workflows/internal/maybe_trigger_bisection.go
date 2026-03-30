@@ -337,23 +337,23 @@ func createBisectJob(
 	if isLegacyPinpointEnabled {
 		return createLegacyBisectJob(ctx, agsa, anomaly, startHash, endHash)
 	}
-	child_wf_id := uuid.New().String()
+	jobId := uuid.New().String()
 	// Childworkflow options includes:
 	//   WorkflowID: 		The UUID to be used as the Pinpoint job id. We pre-assigne it
 	//				 		here to avoid extra calls to get it from the spawned workflow.
-	//	 TaskQueue:  		Assign the cihld workflow to the correct task queue. If this is
+	//	 TaskQueue:  		Assign the child workflow to the correct task queue. If this is
 	//				 		empty, it will be assigned to the current grouping queue.
 	//   ParentClosePolicy: Using _ABANDON option to ensure the child workflow will
 	//    					continue even if the parent workflow exits.
-	child_wf_options := workflow.ChildWorkflowOptions{
-		WorkflowID:        child_wf_id,
+	options := workflow.ChildWorkflowOptions{
+		WorkflowID:        jobId,
 		TaskQueue:         input.PinpointTaskQueue,
 		ParentClosePolicy: enums.PARENT_CLOSE_POLICY_ABANDON,
 	}
-	c_ctx := workflow.WithChildOptions(ctx, child_wf_options)
-
 	story, chart, stat := parseStoryChartStat(anomaly)
-	find_culprit_wf := workflow.ExecuteChildWorkflow(c_ctx, pinpoint.CulpritFinderWorkflow,
+	wf := workflow.ExecuteChildWorkflow(
+		workflow.WithChildOptions(ctx, options),
+		pinpoint.CulpritFinderWorkflow,
 		&pinpoint.CulpritFinderParams{
 			Request: &pp_pb.ScheduleCulpritFinderRequest{
 				StartGitHash:         startHash,
@@ -370,12 +370,13 @@ func createBisectJob(
 				CulpritServiceUrl:     input.CulpritServiceUrl,
 				TemporalTaskQueueName: input.GroupingTaskQueue,
 			},
-		})
+		},
+	)
 	// This Get() call will wait for the child workflow to start.
-	if err := find_culprit_wf.GetChildWorkflowExecution().Get(ctx, nil); err != nil {
+	if err := wf.GetChildWorkflowExecution().Get(ctx, nil); err != nil {
 		return "", skerr.Wrapf(err, "Child workflow failed to start.")
 	}
-	return child_wf_id, nil
+	return jobId, nil
 }
 
 func createLegacyBisectJob(ctx workflow.Context,
