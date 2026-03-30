@@ -125,14 +125,9 @@ type GetGroupReportResponse struct {
 }
 
 func (api anomaliesApi) RegisterHandlers(router *chi.Mux) {
-	// Endpoints for using Chromeperf data.
 	router.Get("/_/anomalies/sheriff_list", api.GetSheriffListDefault)
 	router.Get("/_/anomalies/anomaly_list", api.GetAnomalyListDefault)
 	router.Post("/_/anomalies/group_report", api.GetGroupReportDefault)
-
-	// Endpoints for using data from the instance database.
-	router.Get("/_/anomalies/sheriff_list_skia", api.GetSheriffList)
-	router.Get("/_/anomalies/anomaly_list_skia", api.GetAnomalyList)
 	router.Post("/_/anomalies/calculate_regr_shortcut", api.CalculateRegrShortcutHandler)
 }
 

@@ -447,6 +447,14 @@ func TestGetGroupReport_SelectedKeys(t *testing.T) {
 }
 
 func TestGetAnomalyList_Pagination(t *testing.T) {
+	configFileBytes := testutils.ReadFileBytes(t, "config.json")
+	err := json.Unmarshal(configFileBytes, &config.Config)
+	anomBefore := config.Config.FetchAnomaliesFromSql
+	config.Config.FetchAnomaliesFromSql = true
+	defer func() {
+		config.Config.FetchAnomaliesFromSql = anomBefore
+	}()
+
 	loginMock := alogin_mocks.NewLogin(t)
 	subStore := subscription_mocks.NewStore(t)
 	alertStore := alerts_mock.NewStore(t)
@@ -488,13 +496,13 @@ func TestGetAnomalyList_Pagination(t *testing.T) {
 	regStore.On("GetRegressionsBySubName", mock.Anything, req, regressionsPageSize).Return(regressions, nil)
 
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest("GET", fmt.Sprintf("/_/anomalies/anomaly_list_skia?sheriff=%s&pagination_offset=%d", sheriff, paginationOffset), nil)
+	r := httptest.NewRequest("GET", fmt.Sprintf("/_/anomalies/anomaly_list?sheriff=%s&pagination_offset=%d", sheriff, paginationOffset), nil)
 
-	api.GetAnomalyList(w, r)
+	api.GetAnomalyListDefault(w, r)
 
 	require.Equal(t, http.StatusOK, w.Result().StatusCode)
 	var resp GetAnomaliesResponse
-	err := json.NewDecoder(w.Body).Decode(&resp)
+	err = json.NewDecoder(w.Body).Decode(&resp)
 	require.NoError(t, err)
 	assert.Equal(t, "maybe_more_anomalies", resp.QueryCursor)
 
@@ -505,6 +513,14 @@ func TestGetAnomalyList_Pagination(t *testing.T) {
 }
 
 func TestGetAnomalyList_DefaultPagination(t *testing.T) {
+	configFileBytes := testutils.ReadFileBytes(t, "config.json")
+	err := json.Unmarshal(configFileBytes, &config.Config)
+	anomBefore := config.Config.FetchAnomaliesFromSql
+	config.Config.FetchAnomaliesFromSql = true
+	defer func() {
+		config.Config.FetchAnomaliesFromSql = anomBefore
+	}()
+
 	loginMock := alogin_mocks.NewLogin(t)
 	subStore := subscription_mocks.NewStore(t)
 	alertStore := alerts_mock.NewStore(t)
@@ -545,13 +561,13 @@ func TestGetAnomalyList_DefaultPagination(t *testing.T) {
 	regStore.On("GetRegressionsBySubName", mock.Anything, req, regressionsPageSize).Return(regressions, nil)
 
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest("GET", fmt.Sprintf("/_/anomalies/anomaly_list_skia?sheriff=%s", sheriff), nil)
+	r := httptest.NewRequest("GET", fmt.Sprintf("/_/anomalies/anomaly_list?sheriff=%s", sheriff), nil)
 
-	api.GetAnomalyList(w, r)
+	api.GetAnomalyListDefault(w, r)
 
 	require.Equal(t, http.StatusOK, w.Result().StatusCode)
 	var resp GetAnomaliesResponse
-	err := json.NewDecoder(w.Body).Decode(&resp)
+	err = json.NewDecoder(w.Body).Decode(&resp)
 	require.NoError(t, err)
 	assert.Equal(t, "maybe_more_anomalies", resp.QueryCursor)
 
