@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"go.skia.org/infra/go/skerr"
 	ag_pb "go.skia.org/infra/perf/go/anomalygroup/proto/v1"
 	c_pb "go.skia.org/infra/perf/go/culprit/proto/v1"
+	legacyPinpoint "go.skia.org/infra/perf/go/pinpoint"
 	"go.skia.org/infra/perf/go/types"
 	"go.skia.org/infra/perf/go/workflows"
 	pinpoint "go.skia.org/infra/pinpoint/go/workflows"
@@ -111,10 +113,18 @@ func processAnomaliesAsBisection(
 		return nil, skerr.Wrap(err)
 	}
 
-	jobId, err := invokeBisection(ctx, input, topAnomaly, startHash, endHash)
+	jobId, err := createBisectJob(
+		ctx,
+		agsa,
+		input,
+		topAnomaly,
+		startHash,
+		endHash,
+	)
 	if err != nil {
 		return nil, skerr.Wrap(err)
 	}
+	workflow.GetLogger(ctx).Info("Pinpoint Job created", "jobId", jobId)
 
 	// Update the anomaly group with the bisection id.
 	updateRequest := ag_pb.UpdateAnomalyGroupRequest{
@@ -250,8 +260,11 @@ func isBisectionAllowed(ctx workflow.Context, agsa AnomalyGroupServiceActivity) 
 	if err != nil {
 		return false, skerr.Wrap(err)
 	}
-	logger := workflow.GetLogger(ctx)
-	logger.Info("MaybeTriggerBisectionWorkflow", "Bisection allowed:", bisectionAllowed)
+	workflow.GetLogger(ctx).Info(
+		"MaybeTriggerBisectionWorkflow",
+		"Bisection allowed",
+		bisectionAllowed,
+	)
 	return bisectionAllowed, nil
 }
 
@@ -309,12 +322,21 @@ func getCommitHashes(
 	return startHash, endHash, nil
 }
 
-func invokeBisection(
+func createBisectJob(
 	ctx workflow.Context,
+	agsa AnomalyGroupServiceActivity,
 	input *workflows.MaybeTriggerBisectionParam,
 	anomaly *ag_pb.Anomaly,
 	startHash, endHash string,
 ) (string, error) {
+	var isLegacyPinpointEnabled bool
+	if err := workflow.ExecuteActivity(ctx, agsa.ShouldUseLegacyPinpoint).
+		Get(ctx, &isLegacyPinpointEnabled); err != nil {
+		return "", skerr.Wrap(err)
+	}
+	if isLegacyPinpointEnabled {
+		return createLegacyBisectJob(ctx, agsa, anomaly, startHash, endHash)
+	}
 	child_wf_id := uuid.New().String()
 	// Childworkflow options includes:
 	//   WorkflowID: 		The UUID to be used as the Pinpoint job id. We pre-assigne it
@@ -330,20 +352,14 @@ func invokeBisection(
 	}
 	c_ctx := workflow.WithChildOptions(ctx, child_wf_options)
 
-	chart, stat := parseStatisticNameFromChart(anomaly.Paramset["measurement"])
-
-	benchmark := anomaly.Paramset["benchmark"]
-	story := anomaly.Paramset["story"]
-	if benchmarkStoriesNeedUpdate(benchmark) {
-		story = updateStoryDescriptorName(story)
-	}
+	story, chart, stat := parseStoryChartStat(anomaly)
 	find_culprit_wf := workflow.ExecuteChildWorkflow(c_ctx, pinpoint.CulpritFinderWorkflow,
 		&pinpoint.CulpritFinderParams{
 			Request: &pp_pb.ScheduleCulpritFinderRequest{
 				StartGitHash:         startHash,
 				EndGitHash:           endHash,
 				Configuration:        anomaly.Paramset["bot"],
-				Benchmark:            benchmark,
+				Benchmark:            anomaly.Paramset["benchmark"],
 				Story:                story,
 				Chart:                chart,
 				Statistic:            stat,
@@ -360,6 +376,45 @@ func invokeBisection(
 		return "", skerr.Wrapf(err, "Child workflow failed to start.")
 	}
 	return child_wf_id, nil
+}
+
+func createLegacyBisectJob(ctx workflow.Context,
+	agsa AnomalyGroupServiceActivity,
+	anomaly *ag_pb.Anomaly,
+	startHash, endHash string,
+) (string, error) {
+	story, chart, stat := parseStoryChartStat(anomaly)
+	req := legacyPinpoint.BisectJobCreateRequest{
+		ComparisonMode: "performance",
+		StartGitHash:   startHash,
+		EndGitHash:     endHash,
+		Configuration:  anomaly.Paramset["bot"],
+		Benchmark:      anomaly.Paramset["benchmark"],
+		Story:          story,
+		Chart:          chart,
+		Statistic:      stat,
+		// TODO(b/495782839): Remove this workaround by providing a test path as a
+		// paramset parameter.
+		TestPath: getAnomalyTestPath(anomaly),
+	}
+	var resp *legacyPinpoint.CreatePinpointResponse
+	err := workflow.ExecuteActivity(ctx, agsa.CreateLegacyBisectJob, &req).Get(ctx, &resp)
+	if err != nil {
+		return "", skerr.Wrap(err)
+	}
+	return resp.JobID, nil
+}
+
+func getAnomalyTestPath(anomaly *ag_pb.Anomaly) string {
+	if testPath, ok := anomaly.Paramset["test_path"]; ok && testPath != "" {
+		return testPath
+	}
+
+	bot := anomaly.Paramset["bot"]
+	benchmark := anomaly.Paramset["benchmark"]
+	measurement := anomaly.Paramset["measurement"]
+	story := anomaly.Paramset["story"]
+	return fmt.Sprintf("ChromiumPerf/%s/%s/%s/%s", bot, benchmark, measurement, story)
 }
 
 func updateAnomalyGroup(
@@ -392,4 +447,14 @@ func notifyUserOfAnomalies(
 		return nil, skerr.Wrap(err)
 	}
 	return notifyUserOfAnomalyResponse, nil
+}
+
+func parseStoryChartStat(anomaly *ag_pb.Anomaly) (string, string, string) {
+	chart, stat := parseStatisticNameFromChart(anomaly.Paramset["measurement"])
+
+	story := anomaly.Paramset["story"]
+	if benchmarkStoriesNeedUpdate(anomaly.Paramset["benchmark"]) {
+		story = updateStoryDescriptorName(story)
+	}
+	return story, chart, stat
 }

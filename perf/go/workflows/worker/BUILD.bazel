@@ -9,6 +9,7 @@ go_library(
     deps = [
         "//go/common",
         "//go/sklog",
+        "//perf/go/pinpoint",
         "//perf/go/workflows",
         "//perf/go/workflows/internal",
         "//temporal/go/metrics",

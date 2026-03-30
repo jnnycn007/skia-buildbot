@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"flag"
 
 	"go.skia.org/infra/go/common"
 	"go.skia.org/infra/go/sklog"
+	"go.skia.org/infra/perf/go/pinpoint"
 	"go.skia.org/infra/perf/go/workflows"
 	"go.skia.org/infra/perf/go/workflows/internal"
 	"go.skia.org/infra/temporal/go/metrics"
@@ -19,7 +21,11 @@ var (
 	hostPort  = flag.String("hostPort", "localhost:7233", "Host the worker connects to.")
 	promPort  = flag.String("promPort", ":8000", "Prometheus port that it listens on.")
 	namespace = flag.String("namespace", "default", "The namespace the worker registered to.")
-	taskQueue = flag.String("taskQueue", "localhost.dev", "Task queue name registered to worker services.")
+	taskQueue = flag.String(
+		"taskQueue",
+		"localhost.dev",
+		"Task queue name registered to worker services.",
+	)
 )
 
 func main() {
@@ -43,11 +49,24 @@ func main() {
 	w := worker.New(c, *taskQueue, worker.Options{})
 	csa := &internal.CulpritServiceActivity{}
 	w.RegisterActivity(csa)
-	w.RegisterWorkflowWithOptions(internal.ProcessCulpritWorkflow, workflow.RegisterOptions{Name: workflows.ProcessCulprit})
+	w.RegisterWorkflowWithOptions(
+		internal.ProcessCulpritWorkflow,
+		workflow.RegisterOptions{Name: workflows.ProcessCulprit},
+	)
 
-	agsa := internal.NewAnomalyGroupServiceActivity()
+	legacyPinpointClient, err := pinpoint.New(context.Background())
+	if err != nil {
+		// TODO(b/495782839): Make fatal a pinpoint client initialization failure.
+		// Temporary log an error in order to not crash the service.
+		sklog.Errorf("Unable to create pinpoint client: %s", err)
+	}
+
+	agsa := internal.NewAnomalyGroupServiceActivity(legacyPinpointClient)
 	w.RegisterActivity(agsa)
-	w.RegisterWorkflowWithOptions(internal.MaybeTriggerBisectionWorkflow, workflow.RegisterOptions{Name: workflows.MaybeTriggerBisection})
+	w.RegisterWorkflowWithOptions(
+		internal.MaybeTriggerBisectionWorkflow,
+		workflow.RegisterOptions{Name: workflows.MaybeTriggerBisection},
+	)
 
 	gsa := &internal.GerritServiceActivity{}
 	w.RegisterActivity(gsa)

@@ -9,6 +9,7 @@ import (
 	anomalygroup_proto "go.skia.org/infra/perf/go/anomalygroup/proto/v1"
 	anomalygroup_mock "go.skia.org/infra/perf/go/anomalygroup/proto/v1/mocks"
 	culprit_proto "go.skia.org/infra/perf/go/culprit/proto/v1"
+	legacyPinpoint "go.skia.org/infra/perf/go/pinpoint"
 	"go.skia.org/infra/perf/go/workflows"
 	pinpoint "go.skia.org/infra/pinpoint/go/workflows"
 	"go.skia.org/infra/pinpoint/go/workflows/catapult"
@@ -82,6 +83,7 @@ func TestMaybeTriggerBisection_GroupActionBisect_HappyPath(t *testing.T) {
 	mockStartRevision := "revision1"
 	mockEndRevision := "revision10"
 	env.OnActivity(agsa.CheckBisectionAllowed, mock.Anything).Return(true, nil).Once()
+	env.OnActivity(agsa.ShouldUseLegacyPinpoint, mock.Anything).Return(false, nil).Once()
 	env.OnActivity(gsa.GetCommitRevision, mock.Anything, startCommit).Return(mockStartRevision, nil).Once()
 	env.OnActivity(gsa.GetCommitRevision, mock.Anything, endCommit).Return(mockEndRevision, nil).Once()
 
@@ -168,6 +170,7 @@ func TestMaybeTriggerBisection_GroupActionBisect_ParseChartStat(t *testing.T) {
 	mockStartRevision := "revision1"
 	mockEndRevision := "revision10"
 	env.OnActivity(agsa.CheckBisectionAllowed, mock.Anything).Return(true, nil).Once()
+	env.OnActivity(agsa.ShouldUseLegacyPinpoint, mock.Anything).Return(false, nil).Once()
 	env.OnActivity(gsa.GetCommitRevision, mock.Anything, startCommit).Return(mockStartRevision, nil).Once()
 	env.OnActivity(gsa.GetCommitRevision, mock.Anything, endCommit).Return(mockEndRevision, nil).Once()
 
@@ -475,6 +478,7 @@ func TestMaybeTriggerBisection_GroupActionBisect_HappyPath_StoryNameUpdate(t *te
 	mockStartRevision := "revision1"
 	mockEndRevision := "revision10"
 	env.OnActivity(agsa.CheckBisectionAllowed, mock.Anything).Return(true, nil).Once()
+	env.OnActivity(agsa.ShouldUseLegacyPinpoint, mock.Anything).Return(false, nil).Once()
 	env.OnActivity(gsa.GetCommitRevision, mock.Anything, startCommit).Return(mockStartRevision, nil).Once()
 	env.OnActivity(gsa.GetCommitRevision, mock.Anything, endCommit).Return(mockEndRevision, nil).Once()
 
@@ -511,5 +515,100 @@ func TestMaybeTriggerBisection_GroupActionBisect_HappyPath_StoryNameUpdate(t *te
 	require.NoError(t, env.GetWorkflowError())
 	var resp *workflows.MaybeTriggerBisectionResult
 	require.NoError(t, env.GetWorkflowResult(&resp))
+	env.AssertExpectations(t)
+}
+
+func TestGetAnomalyTestPath(t *testing.T) {
+	testCases := []struct {
+		name     string
+		anomaly  *anomalygroup_proto.Anomaly
+		expected string
+	}{
+		{
+			name: "With test_path in paramset",
+			anomaly: &anomalygroup_proto.Anomaly{
+				Paramset: map[string]string{
+					"test_path": "ChromiumPerf/bot/benchmark/meas/story",
+				},
+			},
+			expected: "ChromiumPerf/bot/benchmark/meas/story",
+		},
+		{
+			name: "Constructed from components",
+			anomaly: &anomalygroup_proto.Anomaly{
+				Paramset: map[string]string{
+					"bot":         "my-bot",
+					"benchmark":   "my-bench",
+					"measurement": "my-meas",
+					"story":       "my-story",
+				},
+			},
+			expected: "ChromiumPerf/my-bot/my-bench/my-meas/my-story",
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			actual := getAnomalyTestPath(tc.anomaly)
+			require.Equal(t, tc.expected, actual)
+		})
+	}
+}
+
+func TestCreateLegacyBisectJob(t *testing.T) {
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+	agsa := &AnomalyGroupServiceActivity{insecure_conn: true}
+	env.RegisterActivity(agsa)
+
+	mockAnomaly := &anomalygroup_proto.Anomaly{
+		StartCommit: 1,
+		EndCommit:   10,
+		Paramset: map[string]string{
+			"bot":         "linux-perf",
+			"benchmark":   "speedometer",
+			"story":       "speedometer",
+			"measurement": "runsperminute",
+			"stat":        "sum",
+		},
+		ImprovementDirection: "UP",
+	}
+	mockStartRevision := "revision1"
+	mockEndRevision := "revision10"
+
+	env.OnActivity(agsa.ShouldUseLegacyPinpoint, mock.Anything).Return(true, nil).Once()
+
+	expectedReq := &legacyPinpoint.BisectJobCreateRequest{
+		ComparisonMode: "performance",
+		StartGitHash:   mockStartRevision,
+		EndGitHash:     mockEndRevision,
+		Configuration:  mockAnomaly.Paramset["bot"],
+		Benchmark:      mockAnomaly.Paramset["benchmark"],
+		Story:          mockAnomaly.Paramset["story"],
+		Chart:          mockAnomaly.Paramset["measurement"],
+		Statistic:      "",
+		TestPath:       "ChromiumPerf/linux-perf/speedometer/runsperminute/speedometer",
+	}
+
+	env.OnActivity(agsa.CreateLegacyBisectJob, mock.Anything, expectedReq).
+		Return(&legacyPinpoint.CreatePinpointResponse{JobID: "legacyBisectionId"}, nil).Once()
+
+	var actualJobId string
+	env.ExecuteWorkflow(func(ctx workflow.Context) error {
+		ctx = workflow.WithActivityOptions(ctx, regularActivityOptions)
+		jobId, err := createBisectJob(
+			ctx,
+			*agsa,
+			&workflows.MaybeTriggerBisectionParam{},
+			mockAnomaly,
+			mockStartRevision,
+			mockEndRevision,
+		)
+		actualJobId = jobId
+		return err
+	})
+
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+	require.Equal(t, "legacyBisectionId", actualJobId)
 	env.AssertExpectations(t)
 }
