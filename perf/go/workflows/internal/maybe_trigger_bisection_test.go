@@ -597,7 +597,6 @@ func TestCreateLegacyBisectJob(t *testing.T) {
 		ctx = workflow.WithActivityOptions(ctx, regularActivityOptions)
 		jobId, err := createBisectJob(
 			ctx,
-			*agsa,
 			&workflows.MaybeTriggerBisectionParam{},
 			mockAnomaly,
 			mockStartRevision,

@@ -23,6 +23,18 @@ const (
 	_WAIT_TIME_FOR_ANOMALIES = 30 * time.Minute
 )
 
+func agsaToken() *AnomalyGroupServiceActivity {
+	return &AnomalyGroupServiceActivity{}
+}
+
+func gsaToken() *GerritServiceActivity {
+	return &GerritServiceActivity{}
+}
+
+func csaToken() *CulpritServiceActivity {
+	return &CulpritServiceActivity{}
+}
+
 // MaybeTriggerBisectionWorkflow is the entry point for the workflow which handles anomaly group
 // processing. It is responsible for triggering a bisection if the anomalygroup's
 // group action = BISECT. If group action = REPORT, files a bug notifying user of the anomalies.
@@ -30,8 +42,6 @@ func MaybeTriggerBisectionWorkflow(
 	ctx workflow.Context,
 	input *workflows.MaybeTriggerBisectionParam,
 ) (*workflows.MaybeTriggerBisectionResult, error) {
-	var agsa AnomalyGroupServiceActivity
-
 	ctx = workflow.WithChildOptions(ctx, childWorkflowOptions)
 	ctx = workflow.WithActivityOptions(ctx, regularActivityOptions)
 
@@ -41,7 +51,6 @@ func MaybeTriggerBisectionWorkflow(
 
 	anomalyGroupResponse, err := loadAnomalyGroupByID(
 		ctx,
-		agsa,
 		input.AnomalyGroupServiceUrl,
 		input.AnomalyGroupId,
 	)
@@ -61,18 +70,18 @@ func MaybeTriggerBisectionWorkflow(
 
 	switch anomalyGroupResponse.AnomalyGroup.GroupAction {
 	case ag_pb.GroupActionType_BISECT:
-		bisectionAllowed, err := isBisectionAllowed(ctx, agsa)
+		bisectionAllowed, err := isBisectionAllowed(ctx)
 		if err != nil {
 			return nil, skerr.Wrap(err)
 		}
 		if bisectionAllowed {
-			return processAnomaliesAsBisection(ctx, agsa, input)
+			return processAnomaliesAsBisection(ctx, input)
 		} else {
 			// Fallback to reporting if the rate limiter prevents creating bisect jobs.
-			return processAnomaliesAsReporting(ctx, agsa, input)
+			return processAnomaliesAsReporting(ctx, input)
 		}
 	case ag_pb.GroupActionType_REPORT:
-		return processAnomaliesAsReporting(ctx, agsa, input)
+		return processAnomaliesAsReporting(ctx, input)
 	case ag_pb.GroupActionType_NOACTION:
 		metrics2.GetCounter("anomalygroup_ignored").Inc(1)
 		return nil, nil
@@ -86,14 +95,11 @@ func MaybeTriggerBisectionWorkflow(
 
 func processAnomaliesAsBisection(
 	ctx workflow.Context,
-	agsa AnomalyGroupServiceActivity,
 	input *workflows.MaybeTriggerBisectionParam,
 ) (*workflows.MaybeTriggerBisectionResult, error) {
-	var gsa GerritServiceActivity
 	anomaliesCount := 1
 	topAnomaliesResponse, err := findTopAnomalies(
 		ctx,
-		agsa,
 		input.AnomalyGroupServiceUrl,
 		input.AnomalyGroupId,
 		anomaliesCount,
@@ -105,7 +111,6 @@ func processAnomaliesAsBisection(
 	topAnomaly := topAnomaliesResponse.Anomalies[0]
 	startHash, endHash, err := getCommitHashes(
 		ctx,
-		gsa,
 		topAnomaly.StartCommit,
 		topAnomaly.EndCommit,
 	)
@@ -115,7 +120,6 @@ func processAnomaliesAsBisection(
 
 	jobId, err := createBisectJob(
 		ctx,
-		agsa,
 		input,
 		topAnomaly,
 		startHash,
@@ -131,7 +135,7 @@ func processAnomaliesAsBisection(
 		AnomalyGroupId: input.AnomalyGroupId,
 		BisectionId:    jobId,
 	}
-	if err = updateAnomalyGroup(ctx, agsa, input.AnomalyGroupServiceUrl, &updateRequest); err != nil {
+	if err = updateAnomalyGroup(ctx, input.AnomalyGroupServiceUrl, &updateRequest); err != nil {
 		return nil, skerr.Wrap(err)
 	}
 	metrics2.GetCounter("anomalygroup_bisected").Inc(1)
@@ -142,15 +146,12 @@ func processAnomaliesAsBisection(
 
 func processAnomaliesAsReporting(
 	ctx workflow.Context,
-	agsa AnomalyGroupServiceActivity,
 	input *workflows.MaybeTriggerBisectionParam,
 ) (*workflows.MaybeTriggerBisectionResult, error) {
-	var csa CulpritServiceActivity
 	// Load Anomalies data
 	anomaliesCount := 10
 	topAnomaliesResponse, err := findTopAnomalies(
 		ctx,
-		agsa,
 		input.AnomalyGroupServiceUrl,
 		input.AnomalyGroupId,
 		anomaliesCount,
@@ -162,7 +163,6 @@ func processAnomaliesAsReporting(
 
 	notifyUserOfAnomalyResponse, err := notifyUserOfAnomalies(
 		ctx,
-		csa,
 		topAnomalies,
 		input.CulpritServiceUrl,
 		input.AnomalyGroupId,
@@ -177,7 +177,7 @@ func processAnomaliesAsReporting(
 			AnomalyGroupId: input.AnomalyGroupId,
 			IssueId:        notifyUserOfAnomalyResponse.IssueId,
 		}
-		if err = updateAnomalyGroup(ctx, agsa, input.AnomalyGroupServiceUrl, &updateRequest); err != nil {
+		if err = updateAnomalyGroup(ctx, input.AnomalyGroupServiceUrl, &updateRequest); err != nil {
 			return nil, skerr.Wrap(err)
 		}
 	}
@@ -238,12 +238,11 @@ func waitForAnomalyClusteringWindow(ctx workflow.Context) error {
 
 func loadAnomalyGroupByID(
 	ctx workflow.Context,
-	agsa AnomalyGroupServiceActivity,
 	url string,
 	anomalyGroupID string,
 ) (*ag_pb.LoadAnomalyGroupByIDResponse, error) {
 	var anomalyGroupResponse *ag_pb.LoadAnomalyGroupByIDResponse
-	err := workflow.ExecuteActivity(ctx, agsa.LoadAnomalyGroupByID, url,
+	err := workflow.ExecuteActivity(ctx, agsaToken().LoadAnomalyGroupByID, url,
 		&ag_pb.LoadAnomalyGroupByIDRequest{
 			AnomalyGroupId: anomalyGroupID,
 		}).
@@ -254,9 +253,10 @@ func loadAnomalyGroupByID(
 	return anomalyGroupResponse, nil
 }
 
-func isBisectionAllowed(ctx workflow.Context, agsa AnomalyGroupServiceActivity) (bool, error) {
+func isBisectionAllowed(ctx workflow.Context) (bool, error) {
 	var bisectionAllowed bool
-	err := workflow.ExecuteActivity(ctx, agsa.CheckBisectionAllowed).Get(ctx, &bisectionAllowed)
+	err := workflow.ExecuteActivity(ctx, agsaToken().CheckBisectionAllowed).
+		Get(ctx, &bisectionAllowed)
 	if err != nil {
 		return false, skerr.Wrap(err)
 	}
@@ -270,13 +270,12 @@ func isBisectionAllowed(ctx workflow.Context, agsa AnomalyGroupServiceActivity) 
 
 func findTopAnomalies(
 	ctx workflow.Context,
-	agsa AnomalyGroupServiceActivity,
 	url string,
 	anomalyGroupID string,
 	limit int,
 ) (*ag_pb.FindTopAnomaliesResponse, error) {
 	var topAnomaliesResponse *ag_pb.FindTopAnomaliesResponse
-	if err := workflow.ExecuteActivity(ctx, agsa.FindTopAnomalies, url, &ag_pb.FindTopAnomaliesRequest{
+	if err := workflow.ExecuteActivity(ctx, agsaToken().FindTopAnomalies, url, &ag_pb.FindTopAnomaliesRequest{
 		AnomalyGroupId: anomalyGroupID,
 		Limit:          int64(limit),
 	}).Get(ctx, &topAnomaliesResponse); err != nil {
@@ -308,15 +307,16 @@ func convertToCulpritAnomalies(anomalies []*ag_pb.Anomaly) []*c_pb.Anomaly {
 // getCommitHashes converts start and end commit postions to commit hash.
 func getCommitHashes(
 	ctx workflow.Context,
-	gsa GerritServiceActivity,
 	startCommit int64,
 	endCommit int64,
 ) (string, string, error) {
 	var startHash, endHash string
-	if err := workflow.ExecuteActivity(ctx, gsa.GetCommitRevision, startCommit).Get(ctx, &startHash); err != nil {
+	if err := workflow.ExecuteActivity(ctx, gsaToken().GetCommitRevision, startCommit).
+		Get(ctx, &startHash); err != nil {
 		return "", "", skerr.Wrap(err)
 	}
-	if err := workflow.ExecuteActivity(ctx, gsa.GetCommitRevision, endCommit).Get(ctx, &endHash); err != nil {
+	if err := workflow.ExecuteActivity(ctx, gsaToken().GetCommitRevision, endCommit).
+		Get(ctx, &endHash); err != nil {
 		return "", "", skerr.Wrap(err)
 	}
 	return startHash, endHash, nil
@@ -324,18 +324,17 @@ func getCommitHashes(
 
 func createBisectJob(
 	ctx workflow.Context,
-	agsa AnomalyGroupServiceActivity,
 	input *workflows.MaybeTriggerBisectionParam,
 	anomaly *ag_pb.Anomaly,
 	startHash, endHash string,
 ) (string, error) {
 	var isLegacyPinpointEnabled bool
-	if err := workflow.ExecuteActivity(ctx, agsa.ShouldUseLegacyPinpoint).
+	if err := workflow.ExecuteActivity(ctx, agsaToken().ShouldUseLegacyPinpoint).
 		Get(ctx, &isLegacyPinpointEnabled); err != nil {
 		return "", skerr.Wrap(err)
 	}
 	if isLegacyPinpointEnabled {
-		return createLegacyBisectJob(ctx, agsa, anomaly, startHash, endHash)
+		return createLegacyBisectJob(ctx, anomaly, startHash, endHash)
 	}
 	jobId := uuid.New().String()
 	// Childworkflow options includes:
@@ -380,7 +379,6 @@ func createBisectJob(
 }
 
 func createLegacyBisectJob(ctx workflow.Context,
-	agsa AnomalyGroupServiceActivity,
 	anomaly *ag_pb.Anomaly,
 	startHash, endHash string,
 ) (string, error) {
@@ -399,7 +397,7 @@ func createLegacyBisectJob(ctx workflow.Context,
 		TestPath: getAnomalyTestPath(anomaly),
 	}
 	var resp *legacyPinpoint.CreatePinpointResponse
-	err := workflow.ExecuteActivity(ctx, agsa.CreateLegacyBisectJob, &req).Get(ctx, &resp)
+	err := workflow.ExecuteActivity(ctx, agsaToken().CreateLegacyBisectJob, &req).Get(ctx, &resp)
 	if err != nil {
 		return "", skerr.Wrap(err)
 	}
@@ -420,12 +418,11 @@ func getAnomalyTestPath(anomaly *ag_pb.Anomaly) string {
 
 func updateAnomalyGroup(
 	ctx workflow.Context,
-	agsa AnomalyGroupServiceActivity,
 	url string,
 	req *ag_pb.UpdateAnomalyGroupRequest,
 ) error {
 	var updateAnomalyGroupResponse *ag_pb.UpdateAnomalyGroupResponse
-	future := workflow.ExecuteActivity(ctx, agsa.UpdateAnomalyGroup, url, req)
+	future := workflow.ExecuteActivity(ctx, agsaToken().UpdateAnomalyGroup, url, req)
 	if err := future.Get(ctx, &updateAnomalyGroupResponse); err != nil {
 		return skerr.Wrap(err)
 	}
@@ -434,7 +431,6 @@ func updateAnomalyGroup(
 
 func notifyUserOfAnomalies(
 	ctx workflow.Context,
-	csa CulpritServiceActivity,
 	anomalies []*c_pb.Anomaly,
 	culpritServiceUrl, anomalyGroupId string,
 ) (*c_pb.NotifyUserOfAnomalyResponse, error) {
@@ -443,7 +439,12 @@ func notifyUserOfAnomalies(
 		AnomalyGroupId: anomalyGroupId,
 		Anomaly:        anomalies,
 	}
-	future := workflow.ExecuteActivity(ctx, csa.NotifyUserOfAnomaly, culpritServiceUrl, &request)
+	future := workflow.ExecuteActivity(
+		ctx,
+		csaToken().NotifyUserOfAnomaly,
+		culpritServiceUrl,
+		&request,
+	)
 	if err := future.Get(ctx, &notifyUserOfAnomalyResponse); err != nil {
 		return nil, skerr.Wrap(err)
 	}
