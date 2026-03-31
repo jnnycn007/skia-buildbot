@@ -28,6 +28,8 @@ import { property, state, customElement, query } from 'lit/decorators.js';
 import { CheckOrRadio } from '../../../elements-sk/modules/checkbox-sk/checkbox-sk';
 import '@vaadin/multi-select-combo-box/theme/lumo/vaadin-multi-select-combo-box.js';
 import { MultiSelectComboBox } from '@vaadin/multi-select-combo-box';
+import { DEFAULT_OPTION_LABEL } from '../common/test-picker';
+import '../../../elements-sk/modules/icons/help-icon-sk/help-icon-sk';
 
 export interface SplitChartSelectionEventDetails {
   attribute: string;
@@ -125,6 +127,11 @@ export class PickerFieldSk extends LitElement {
         <div class="header-row">
           <label id="${labelId}">${this.label}</label>
           <div id="split-by-container">
+            <help-icon-sk
+              id="help-default-sentinel"
+              title="'Default' selects traces without ${this.label} traceparam."
+              ?hidden=${!this.defaultOptionPresent}>
+            </help-icon-sk>
             <checkbox-sk
               title="Split the chart by attribute."
               name=${this.label}
@@ -314,6 +321,13 @@ export class PickerFieldSk extends LitElement {
     // return this._primaryOptions.length === this.selectedItems.length && show;
     // This allows exact match only.
     return this._primaryOptions.length === this.selectedItems.length && show;
+  }
+
+  /**
+   * Returns true if one of selected values is DEFAULT_OPTION_LABEL.
+   */
+  get defaultOptionPresent(): boolean {
+    return this.selectedItems.includes(DEFAULT_OPTION_LABEL);
   }
 
   /**

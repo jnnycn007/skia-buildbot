@@ -11,10 +11,14 @@ sk_element(
         "//perf/modules/themes:themes_sass_lib",
     ],
     sass_srcs = ["picker-field-sk.scss"],
-    sk_element_deps = ["//elements-sk/modules/checkbox-sk"],
+    sk_element_deps = [
+        "//elements-sk/modules/checkbox-sk",
+        "//elements-sk/modules/icons/help-icon-sk",
+    ],
     ts_deps = [
         "//:node_modules/@vaadin/multi-select-combo-box",
         "//:node_modules/lit",
+        "//perf/modules/common:test-picker_ts_lib",
     ],
     ts_srcs = [
         "picker-field-sk.ts",
@@ -57,6 +61,7 @@ karma_test(
         "//:node_modules/chai",
         "//elements-sk/modules/checkbox-sk",
         "//infra-sk/modules:test_util_ts_lib",
+        "//perf/modules/common:test-picker_ts_lib",
     ],
 )
 

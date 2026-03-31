@@ -4,6 +4,7 @@ import { PickerFieldSk } from './picker-field-sk';
 
 import { setUpElementUnderTest } from '../../../infra-sk/modules/test_util';
 import { CheckOrRadio } from '../../../elements-sk/modules/checkbox-sk/checkbox-sk';
+import { DEFAULT_OPTION_LABEL } from '../common/test-picker';
 
 describe('picker-field-sk', () => {
   const newInstance = setUpElementUnderTest<PickerFieldSk>('picker-field-sk');
@@ -155,6 +156,25 @@ describe('picker-field-sk', () => {
       expect(comboBox).to.not.equal(null);
       expect(comboBox!.offsetWidth).to.be.greaterThan(0);
       expect(comboBox!.offsetHeight).to.be.greaterThan(0);
+    });
+  });
+
+  describe('help icon', () => {
+    it('is hidden by default when no default option is selected', async () => {
+      await element.updateComplete;
+      const helpIcon = element.querySelector<HTMLElement>('#help-default-sentinel');
+      expect(helpIcon!.hasAttribute('hidden')).to.be.true;
+    });
+
+    it('is visible when default option is selected', async () => {
+      element.options = [DEFAULT_OPTION_LABEL, 'other'];
+      element.selectedItems = [DEFAULT_OPTION_LABEL];
+      await element.updateComplete;
+      const helpIcon = element.querySelector<HTMLElement>('#help-default-sentinel');
+      expect(helpIcon!.hasAttribute('hidden')).to.be.false;
+      expect(helpIcon!.getAttribute('title')).to.equal(
+        "'Default' selects traces without test-label traceparam."
+      );
     });
   });
 });
