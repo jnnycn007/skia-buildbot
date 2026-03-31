@@ -328,7 +328,12 @@ describe('explore-simple-sk', () => {
       const traceKeys = await simplePageSkPO.getTraceKeys();
       expect(traceKeys.length).deep.equal(1, 'Expected 1 trace to load.');
       const traceKey = traceKeys[0];
-      const coords = await simplePageSkPO.getTraceCoordinates(traceKey, 0);
+      let coords: { x: number; y: number; width: number; height: number } | null = null;
+      await poll(async () => {
+        coords = await simplePageSkPO.getTraceCoordinates(traceKey, 0);
+        return coords !== null;
+      }, 'timed out waiting for anomaly coordinates');
+
       // Click on the data point.
       await testBed.page.mouse.click(coords!.x + coords!.width / 2, coords!.y + coords!.height / 2);
 
