@@ -128,6 +128,10 @@ export class NewBugDialogSk extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     document.addEventListener('mousedown', this.onMousedown);
+    // If user is logged in, automatically add the e-mail to CC.
+    LoggedIn().then((loginstatus: Status) => {
+      this._user = loginstatus.email;
+    });
   }
 
   disconnectedCallback() {
@@ -357,8 +361,28 @@ export class NewBugDialogSk extends LitElement {
     const assignee = this._assigneeInput;
 
     //  Extract CCs
-    const ccs_value = this._ccsInput.value;
-    const ccs = ccs_value.split(',').map((s: string) => s.trim());
+    let ccsValue = this._ccsInput?.value || '';
+    // If the dialog is NOT open, this is a programmatic call.
+    // We should ensure the user is CC'd if they aren't already in the string.
+    if (!this.opened) {
+      if (!this._user) {
+        try {
+          const loginStatus = await LoggedIn();
+          this._user = loginStatus.email;
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      // Append the user if they aren't somehow already in the value
+      if (this._user && !ccsValue.includes(this._user)) {
+        ccsValue = ccsValue ? `${ccsValue}, ${this._user}` : this._user;
+      }
+    }
+    const ccs = ccsValue
+      .split(',')
+      .map((s: string) => s.trim())
+      .filter(Boolean);
 
     // Extract labels.
     const label_fields = this.querySelectorAll('input.buglabel');
@@ -449,10 +473,6 @@ export class NewBugDialogSk extends LitElement {
 
   async open(): Promise<void> {
     await this.updateComplete;
-    // If user is logged in, automatically add the e-mail to CC.
-    LoggedIn().then((loginstatus: Status) => {
-      this._user = loginstatus.email;
-    });
     this._dialog!.showModal();
   }
 

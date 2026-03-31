@@ -6,6 +6,7 @@ import { eventPromise, setUpElementUnderTest } from '../../../infra-sk/modules/t
 import { Anomaly } from '../json';
 import fetchMock from 'fetch-mock';
 import sinon from 'sinon';
+import { resetLoggedInPromise } from '../../../infra-sk/modules/alogin-sk/alogin-sk';
 
 describe('new-bug-dialog-sk', () => {
   const newInstance = setUpElementUnderTest<NewBugDialogSk>('new-bug-dialog-sk');
@@ -13,6 +14,7 @@ describe('new-bug-dialog-sk', () => {
 
   let element: NewBugDialogSk;
   beforeEach(async () => {
+    fetchMock.get('/_/login/status', { email: 'test@example.com' });
     element = newInstance();
     await element.updateComplete;
   });
@@ -21,6 +23,8 @@ describe('new-bug-dialog-sk', () => {
     //  Check all mock fetches called at least once and reset.
     assert.isTrue(fetchMock.done());
     fetchMock.restore();
+    resetLoggedInPromise();
+    sinon.restore();
   });
 
   const dummyAnomaly = (bugId: number): Anomaly => ({
@@ -51,7 +55,6 @@ describe('new-bug-dialog-sk', () => {
 
   describe('open and close dialog', () => {
     it('opens and closes the dialog', async () => {
-      fetchMock.get('/_/login/status', { email: 'test@example.com' });
       assert.isFalse(element.opened);
       element.open();
       await fetchMock.flush(true);
@@ -81,6 +84,86 @@ describe('new-bug-dialog-sk', () => {
       fetchMock.post('/_/triage/file_bug', (_url, opts) => {
         const body = JSON.parse(opts.body as string);
         assert.equal(body.title, '33.6% regression in suite at 1234:1239');
+        assert.deepEqual(body.ccs, ['test@example.com']);
+        return { status: 200, body: JSON.stringify({ bug_id: '12345' }) };
+      });
+
+      await element.fileNewBug();
+      await fetchMock.flush(true);
+      // successfully open a new buganizer page
+      sinon.stub(window, 'confirm').returns(true);
+    });
+
+    it('uses fallback async logic if dialog is not open and user missing', async () => {
+      // Mock fetch with delay to simulate pending status
+      fetchMock.restore();
+      fetchMock.get(
+        '/_/login/status',
+        () =>
+          new Promise((resolve) => {
+            setTimeout(() => resolve({ email: 'delayed@example.com' }), 50);
+          })
+      );
+      resetLoggedInPromise();
+
+      // Force create a new element so it starts with a clean slate
+      element = newInstance();
+      await element.updateComplete;
+
+      const anomalies = [dummyAnomaly(0)];
+      element.anomalies = anomalies;
+      element.traceNames = [];
+
+      // Clear the inputs
+      const ccsInput = element.querySelector('#ccs') as HTMLInputElement;
+      ccsInput.value = '';
+
+      fetchMock.post('/_/triage/file_bug', (_url, opts) => {
+        const body = JSON.parse(opts.body as string);
+        assert.deepEqual(body.ccs, ['delayed@example.com']);
+        return { status: 200, body: JSON.stringify({ bug_id: '12345' }) };
+      });
+
+      await element.fileNewBug();
+      await fetchMock.flush(true);
+      // successfully open a new buganizer page
+      sinon.stub(window, 'confirm').returns(true);
+    });
+
+    it('does not append user if dialog is open and user cleared CCs manually', async () => {
+      const anomalies = [dummyAnomaly(0)];
+      element.anomalies = anomalies;
+      element.traceNames = [];
+
+      element.open();
+      await fetchMock.flush(true);
+
+      const ccsInput = element.querySelector('#ccs') as HTMLInputElement;
+      ccsInput.value = '';
+
+      fetchMock.post('/_/triage/file_bug', (_url, opts) => {
+        const body = JSON.parse(opts.body as string);
+        assert.deepEqual(body.ccs, []); // Array should be empty, not ['']
+        return { status: 200, body: JSON.stringify({ bug_id: '12345' }) };
+      });
+
+      await element.fileNewBug();
+      await fetchMock.flush(true);
+      sinon.stub(window, 'confirm').returns(true);
+    });
+
+    it('uses CCs from input if provided', async () => {
+      const anomalies = [dummyAnomaly(0)];
+      element.anomalies = anomalies;
+      element.traceNames = [];
+
+      // Mock user typing into the input.
+      const ccsInput = element.querySelector('#ccs') as HTMLInputElement;
+      ccsInput.value = 'user1@example.com, user2@example.com';
+
+      fetchMock.post('/_/triage/file_bug', (_url, opts) => {
+        const body = JSON.parse(opts.body as string);
+        assert.deepEqual(body.ccs, ['user1@example.com', 'user2@example.com']);
         return { status: 200, body: JSON.stringify({ bug_id: '12345' }) };
       });
 

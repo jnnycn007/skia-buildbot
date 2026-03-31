@@ -79,6 +79,7 @@ karma_test(
         "//:node_modules/fetch-mock",
         "//:node_modules/sinon",
         "//infra-sk/modules:test_util_ts_lib",
+        "//infra-sk/modules/alogin-sk",
         "//perf/modules/json:index_ts_lib",
     ],
 )
