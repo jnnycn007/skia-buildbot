@@ -116,3 +116,9 @@ karma_test(
         "//perf/modules/json:index_ts_lib",
     ],
 )
+
+ts_library(
+    name = "test-picker_ts_lib",
+    srcs = ["test-picker.ts"],
+    visibility = ["//visibility:public"],
+)

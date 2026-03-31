@@ -69,6 +69,7 @@ sk_element(
         "//perf/modules/telemetry:telemetry_ts_lib",
         "//:node_modules/http-status-codes",
         ":nudge-util_ts_lib",
+        "//perf/modules/common:test-picker_ts_lib",
     ],
     ts_srcs = [
         "explore-simple-sk.ts",
@@ -167,6 +168,7 @@ sk_element_puppeteer_test(
         "//:node_modules/chai",
         "//:node_modules/puppeteer",
         "//perf/modules/common:puppeteer-test-util_ts_lib",
+        "//perf/modules/common:test-picker_ts_lib",
         "//perf/modules/common:test-util_ts_lib",
         "//puppeteer-tests:util_ts_lib",
     ],

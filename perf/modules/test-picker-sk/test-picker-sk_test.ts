@@ -5,6 +5,7 @@ import { setUpElementUnderTest } from '../../../infra-sk/modules/test_util';
 import { NextParamListHandlerResponse, NextParamListHandlerRequest } from '../json';
 import { toParamSet } from '../../../infra-sk/modules/query';
 import { PickerFieldSk } from '../picker-field-sk/picker-field-sk';
+import { DEFAULT_OPTION_LABEL } from '../common/test-picker';
 
 describe('test-picker-sk', () => {
   const newInstance = setUpElementUnderTest<TestPickerSk>('test-picker-sk');
@@ -246,7 +247,7 @@ describe('test-picker-sk default option inference', () => {
     const botField = fields[1];
     expect(botField.label).to.equal('bot');
 
-    expect(botField.options).to.include('Default');
+    expect(botField.options).to.include(DEFAULT_OPTION_LABEL);
   });
 
   it('should generate query with empty string when (default) is selected', async () => {
@@ -262,10 +263,10 @@ describe('test-picker-sk default option inference', () => {
     const fields = element.querySelectorAll<PickerFieldSk>('picker-field-sk');
     const botField = fields[1];
 
-    // Select 'Default'
+    // Select DEFAULT_OPTION_LABEL
     botField.dispatchEvent(
       new CustomEvent('value-changed', {
-        detail: { value: ['Default'] },
+        detail: { value: [DEFAULT_OPTION_LABEL] },
       })
     );
     await new Promise((resolve) => setTimeout(resolve, 100));
@@ -275,8 +276,8 @@ describe('test-picker-sk default option inference', () => {
     // Expect benchmark=b1&bot=__missing__
     expect(query).to.contain('benchmark=b1');
     expect(query).to.contain('bot=__missing__');
-    // Ensure it doesn't contain 'bot=Default'
-    expect(query).to.not.contain('bot=Default');
+    // Ensure it doesn't contain 'bot=DEFAULT_OPTION_LABEL'
+    expect(query).to.not.contain(`bot=${DEFAULT_OPTION_LABEL}`);
   });
 
   it('should remove __missing__ from query when Default is deselected', async () => {
@@ -287,7 +288,9 @@ describe('test-picker-sk default option inference', () => {
     const botField = element.querySelectorAll<PickerFieldSk>('picker-field-sk')[1];
 
     // Select Default
-    botField.dispatchEvent(new CustomEvent('value-changed', { detail: { value: ['Default'] } }));
+    botField.dispatchEvent(
+      new CustomEvent('value-changed', { detail: { value: [DEFAULT_OPTION_LABEL] } })
+    );
     await new Promise((resolve) => setTimeout(resolve, 100));
 
     // Deselect Default
@@ -308,7 +311,7 @@ describe('test-picker-sk default option inference', () => {
 
     // Select Default AND bot1
     botField.dispatchEvent(
-      new CustomEvent('value-changed', { detail: { value: ['Default', 'bot1'] } })
+      new CustomEvent('value-changed', { detail: { value: [DEFAULT_OPTION_LABEL, 'bot1'] } })
     );
     await new Promise((resolve) => setTimeout(resolve, 100));
 
@@ -407,12 +410,14 @@ describe('Complex Scenarios (Default, pgo, ref, subtests)', () => {
 
     const botField = element.querySelectorAll<PickerFieldSk>('picker-field-sk')[1];
     expect(botField.label).to.equal('bot');
-    expect(botField.options).to.include('Default');
+    expect(botField.options).to.include(DEFAULT_OPTION_LABEL);
     expect(botField.options).to.include('ref');
     expect(botField.options).to.include('pgo');
 
-    // 2. Select 'Default'
-    botField.dispatchEvent(new CustomEvent('value-changed', { detail: { value: ['Default'] } }));
+    // 2. Select DEFAULT_OPTION_LABEL
+    botField.dispatchEvent(
+      new CustomEvent('value-changed', { detail: { value: [DEFAULT_OPTION_LABEL] } })
+    );
     await new Promise((resolve) => setTimeout(resolve, 100));
     let query = element.ctrl.createQueryFromFieldData();
     expect(query).to.contain('bot=__missing__');
@@ -420,7 +425,7 @@ describe('Complex Scenarios (Default, pgo, ref, subtests)', () => {
 
     // 3. Add 'ref' (Multiselect)
     botField.dispatchEvent(
-      new CustomEvent('value-changed', { detail: { value: ['Default', 'ref'] } })
+      new CustomEvent('value-changed', { detail: { value: [DEFAULT_OPTION_LABEL, 'ref'] } })
     );
     await new Promise((resolve) => setTimeout(resolve, 100));
     query = element.ctrl.createQueryFromFieldData();
@@ -429,7 +434,7 @@ describe('Complex Scenarios (Default, pgo, ref, subtests)', () => {
 
     // 4. Add 'pgo'
     botField.dispatchEvent(
-      new CustomEvent('value-changed', { detail: { value: ['Default', 'ref', 'pgo'] } })
+      new CustomEvent('value-changed', { detail: { value: [DEFAULT_OPTION_LABEL, 'ref', 'pgo'] } })
     );
     await new Promise((resolve) => setTimeout(resolve, 100));
     query = element.ctrl.createQueryFromFieldData();
@@ -437,7 +442,7 @@ describe('Complex Scenarios (Default, pgo, ref, subtests)', () => {
     expect(query).to.contain('bot=ref');
     expect(query).to.contain('bot=pgo');
 
-    // 5. Remove 'Default'
+    // 5. Remove DEFAULT_OPTION_LABEL
     botField.dispatchEvent(new CustomEvent('value-changed', { detail: { value: ['ref', 'pgo'] } }));
     await new Promise((resolve) => setTimeout(resolve, 100));
     query = element.ctrl.createQueryFromFieldData();
@@ -503,7 +508,7 @@ describe('test-picker-sk graph interaction', () => {
       if (Object.keys(params).length === 0) {
         paramset['benchmark'] = ['b1'];
       } else if (params.benchmark) {
-        paramset['subtest_4'] = ['pgo', 'ref', 'Default'];
+        paramset['subtest_4'] = ['pgo', 'ref', DEFAULT_OPTION_LABEL];
       }
 
       const response: NextParamListHandlerResponse = {
@@ -542,9 +547,9 @@ describe('test-picker-sk graph interaction', () => {
       events.push(e as CustomEvent);
     });
 
-    // 1. Select 'Default'
+    // 1. Select DEFAULT_OPTION_LABEL
     subtestField.dispatchEvent(
-      new CustomEvent('value-changed', { detail: { value: ['Default'] } })
+      new CustomEvent('value-changed', { detail: { value: [DEFAULT_OPTION_LABEL] } })
     );
     await new Promise((resolve) => setTimeout(resolve, 100));
 
@@ -552,9 +557,9 @@ describe('test-picker-sk graph interaction', () => {
     expect(events[0].detail.value).to.deep.equal(['__missing__']);
     events = [];
 
-    // 2. Add 'pgo' (Value becomes ['Default', 'pgo'])
+    // 2. Add 'pgo' (Value becomes [DEFAULT_OPTION_LABEL, 'pgo'])
     subtestField.dispatchEvent(
-      new CustomEvent('value-changed', { detail: { value: ['Default', 'pgo'] } })
+      new CustomEvent('value-changed', { detail: { value: [DEFAULT_OPTION_LABEL, 'pgo'] } })
     );
     await new Promise((resolve) => setTimeout(resolve, 100));
 
@@ -562,9 +567,9 @@ describe('test-picker-sk graph interaction', () => {
     expect(events[0].detail.value).to.deep.equal(['__missing__', 'pgo']);
     events = [];
 
-    // 3. Add 'ref' (Value becomes ['Default', 'pgo', 'ref'])
+    // 3. Add 'ref' (Value becomes [DEFAULT_OPTION_LABEL, 'pgo', 'ref'])
     subtestField.dispatchEvent(
-      new CustomEvent('value-changed', { detail: { value: ['Default', 'pgo', 'ref'] } })
+      new CustomEvent('value-changed', { detail: { value: [DEFAULT_OPTION_LABEL, 'pgo', 'ref'] } })
     );
     await new Promise((resolve) => setTimeout(resolve, 100));
 
@@ -585,9 +590,9 @@ describe('test-picker-sk graph interaction', () => {
     expect(query).to.contain('benchmark=b1');
     expect(query).to.not.contain('subtest_4');
 
-    // 2. Select 'Default'
+    // 2. Select DEFAULT_OPTION_LABEL
     subtestField.dispatchEvent(
-      new CustomEvent('value-changed', { detail: { value: ['Default'] } })
+      new CustomEvent('value-changed', { detail: { value: [DEFAULT_OPTION_LABEL] } })
     );
     await new Promise((resolve) => setTimeout(resolve, 100));
 
@@ -597,7 +602,7 @@ describe('test-picker-sk graph interaction', () => {
 
     // 3. Add 'pgo'
     subtestField.dispatchEvent(
-      new CustomEvent('value-changed', { detail: { value: ['Default', 'pgo'] } })
+      new CustomEvent('value-changed', { detail: { value: [DEFAULT_OPTION_LABEL, 'pgo'] } })
     );
     await new Promise((resolve) => setTimeout(resolve, 100));
 
@@ -634,7 +639,7 @@ describe('Comprehensive Interaction Scenarios', () => {
       if (Object.keys(params).length === 0) {
         paramset['benchmark'] = ['b1'];
       } else if (params.benchmark) {
-        paramset['config'] = ['8888', 'gms', 'Default'];
+        paramset['config'] = ['8888', 'gms', DEFAULT_OPTION_LABEL];
       } else if (params.config) {
         paramset['test'] = ['t1', 't2'];
       }
@@ -680,7 +685,7 @@ describe('Comprehensive Interaction Scenarios', () => {
     expect(configField.selectedItems.length).to.equal(3);
     expect(configField.selectedItems).to.include('8888');
     expect(configField.selectedItems).to.include('gms');
-    expect(configField.selectedItems).to.include('Default');
+    expect(configField.selectedItems).to.include(DEFAULT_OPTION_LABEL);
   });
 
   it('Split checkbox triggers split event', async () => {

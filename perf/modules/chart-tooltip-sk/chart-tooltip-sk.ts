@@ -35,6 +35,7 @@ import {
 import { defaultColors } from '../common/plot-builder';
 import '../json-source-sk/json-source-sk';
 import { JSONSourceSk } from '../json-source-sk/json-source-sk';
+import { DEFAULT_OPTION_LABEL } from '../common/test-picker';
 
 @customElement('chart-tooltip-sk')
 export class ChartTooltipSk extends LitElement {
@@ -140,7 +141,7 @@ export class ChartTooltipSk extends LitElement {
         </button>
         <h3>
           <span style="color:${this.color}">
-            ${this.test_name || `Default`}
+            ${this.test_name || `${DEFAULT_OPTION_LABEL}`}
             <span ?hidden=${!this.anomaly}> [Anomaly] </span>
           </span>
         </h3>

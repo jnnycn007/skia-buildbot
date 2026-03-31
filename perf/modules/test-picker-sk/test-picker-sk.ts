@@ -47,10 +47,9 @@ const PLOT_MAXIMUM: number = 200;
 
 const MAX_MESSAGE = 'Reduce Traces';
 
-const DEFAULT_OPTION_LABEL = 'Default';
-
 // Data Structure to keep track of field information from controller.
 import { FieldInfo } from './test-picker-state-controller';
+import { DEFAULT_OPTION_LABEL } from '../common/test-picker';
 
 @customElement('test-picker-sk')
 export class TestPickerSk extends LitElement implements TestPickerStateControllerHost {

@@ -5,7 +5,7 @@ import { NextParamListHandlerRequest, NextParamListHandlerResponse } from '../js
 import { errorMessage } from '../../../elements-sk/modules/errorMessage';
 
 import { MISSING_VALUE_SENTINEL } from '../const/const';
-export const DEFAULT_OPTION_LABEL = 'Default';
+import { DEFAULT_OPTION_LABEL } from '../common/test-picker';
 export const PLOT_MAXIMUM: number = 200;
 export const MAX_MESSAGE = 'Reduce Traces';
 

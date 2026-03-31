@@ -13,5 +13,4 @@ export const paramSet1 = {
   os: ['Android'],
 };
 
-export const default_container_title = 'Default';
 export const expected_trace_key = ',arch=arm,os=Android,';

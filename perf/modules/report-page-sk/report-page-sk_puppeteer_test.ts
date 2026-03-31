@@ -2,6 +2,7 @@ import { assert, expect } from 'chai';
 import { loadCachedTestBed, takeScreenshot, TestBed } from '../../../puppeteer-tests/util';
 import { ReportPageSkPO } from './report-page-sk_po';
 import { poll, STANDARD_LAPTOP_VIEWPORT } from '../common/puppeteer-test-util';
+import { DEFAULT_OPTION_LABEL } from '../common/test-picker';
 
 describe('report-page-sk', () => {
   let testBed: TestBed;
@@ -184,7 +185,7 @@ describe('report-page-sk', () => {
 
       const tooltipText = await containerPO.innerText;
 
-      expect(tooltipText).to.contain('Default [Anomaly]');
+      expect(tooltipText).to.contain(`${DEFAULT_OPTION_LABEL} [Anomaly]`);
       const lines = tooltipText.split('\n').filter((l) => l.trim() !== '');
       const tooltipData: { [key: string]: string } = {};
       lines.forEach((line) => {

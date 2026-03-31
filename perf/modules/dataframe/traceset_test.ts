@@ -15,6 +15,7 @@ import { convertFromDataframe } from '../common/plot-builder';
 import { load } from '@google-web-components/google-chart/loader';
 import { PlotGoogleChartSk } from '../plot-google-chart-sk/plot-google-chart-sk';
 import { setUpElementUnderTest } from '../../../infra-sk/modules/test_util';
+import { DEFAULT_OPTION_LABEL } from '../common/test-picker';
 
 const now = 1726081856; // an arbitrary UNIX time;
 const timeSpan = 89; // an arbitrary prime number for time span between commits .
@@ -276,15 +277,15 @@ describe('getLegend', () => {
       {
         bot: 'MacM1',
         ref_mode: 'ref',
-        subtest: 'Default',
+        subtest: DEFAULT_OPTION_LABEL,
       },
       {
-        bot: 'Default',
+        bot: DEFAULT_OPTION_LABEL,
         ref_mode: 'ref',
-        subtest: 'Default',
+        subtest: DEFAULT_OPTION_LABEL,
       },
       {
-        bot: 'Default',
+        bot: DEFAULT_OPTION_LABEL,
         ref_mode: 'avg',
         subtest: 'jetstream2',
       },
@@ -314,7 +315,7 @@ describe('getLegend', () => {
     assert.equal(legend.length, keys.length);
     assert.deepEqual(legend, [
       {
-        bot: 'Default',
+        bot: DEFAULT_OPTION_LABEL,
         ref_mode: 'ref',
       },
       {
@@ -323,7 +324,7 @@ describe('getLegend', () => {
       },
       {
         bot: 'win-10-perf',
-        ref_mode: 'Default',
+        ref_mode: DEFAULT_OPTION_LABEL,
       },
     ]);
   });
@@ -347,8 +348,8 @@ describe('getLegend', () => {
     assert.equal(legend.length, keys.length);
     assert.deepEqual(legend, [
       {
-        benchmark: 'Default',
-        ref_mode: 'Default',
+        benchmark: DEFAULT_OPTION_LABEL,
+        ref_mode: DEFAULT_OPTION_LABEL,
       },
       {
         benchmark: 'JetStream2',
@@ -387,7 +388,11 @@ describe('get titleFormatter', () => {
         formattedTitles.push(titleFormatter(entry));
       });
       assert.equal(legend.length, keys.length);
-      assert.deepEqual(formattedTitles, ['Default/Default', 'JetStream2/ref', 'Default/Default']);
+      assert.deepEqual(formattedTitles, [
+        `${DEFAULT_OPTION_LABEL}/${DEFAULT_OPTION_LABEL}`,
+        'JetStream2/ref',
+        `${DEFAULT_OPTION_LABEL}/${DEFAULT_OPTION_LABEL}`,
+      ]);
     }
   );
 });

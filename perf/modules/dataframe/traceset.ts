@@ -3,6 +3,7 @@ import '@google-web-components/google-chart';
 import { DataFrame } from '../json';
 import { DataTable } from './dataframe_context';
 import { formatSpecialFunctions } from '../paramtools';
+import { DEFAULT_OPTION_LABEL } from '../common/test-picker';
 
 export const labelKeys = [
   'master',
@@ -147,7 +148,7 @@ export const getLegend = (dt: DataTable): object[] => {
     Array.from(allKeys)
       .sort() // Sort the keys alphabetically
       .forEach((key) => {
-        newObj[key] = obj[key] ? obj[key] : 'Default';
+        newObj[key] = obj[key] ? obj[key] : DEFAULT_OPTION_LABEL;
       });
     return newObj;
   });

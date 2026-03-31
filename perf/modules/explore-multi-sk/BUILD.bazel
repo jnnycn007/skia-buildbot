@@ -113,6 +113,7 @@ sk_element_puppeteer_test(
         "//:node_modules/chai",
         "//:node_modules/puppeteer",
         "//perf/modules/common:puppeteer-test-util_ts_lib",
+        "//perf/modules/common:test-picker_ts_lib",
         "//perf/modules/explore-simple-sk:explore-simple-sk_po_ts_lib",
         "//perf/modules/test-picker-sk:test-picker-sk_po_ts_lib",
         "//puppeteer-tests:util_ts_lib",

@@ -9,6 +9,7 @@ import {
 import { TestPickerSkPO } from '../test-picker-sk/test-picker-sk_po';
 import { ExploreSimpleSkPO } from '../explore-simple-sk/explore-simple-sk_po';
 import { Page } from 'puppeteer';
+import { DEFAULT_OPTION_LABEL } from '../common/test-picker';
 
 /**
  * startUrlTracking injects a spy into the page to count history updates.
@@ -103,7 +104,7 @@ const verifyGraphTitle = async (graphPO: ExploreSimpleSkPO, expectedOs: string) 
   const expectedData = [
     { key: 'arch', value: 'arm' },
     { key: 'os', value: expectedOs },
-    { key: 'test', value: 'Default' },
+    { key: 'test', value: DEFAULT_OPTION_LABEL },
   ];
 
   for (let i = 0; i < expectedData.length; i++) {

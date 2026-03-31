@@ -17372,7 +17372,7 @@ callNextParamList() ----> POST /_/nextParamList/ (with current query)
 addChildField()
        |
        |--> Create new PickerFieldSk
-       |--> Populate with options (mapping '' to 'Default')
+       |--> Populate with options (mapping '' to DEFAULT_OPTION_LABEL)
        |--> Attach 'value-changed' listeners
        |--> Update match count UI
 ```

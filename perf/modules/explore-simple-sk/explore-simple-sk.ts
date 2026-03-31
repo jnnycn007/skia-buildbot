@@ -134,6 +134,7 @@ import { handleKeyboardShortcut, KeyboardShortcutHandler } from '../common/keybo
 import { GraphConfig, updateShortcut } from '../common/graph-config';
 import { DataService, DataServiceError } from '../data-service';
 import { CountMetric } from '../telemetry/telemetry';
+import { DEFAULT_OPTION_LABEL } from '../common/test-picker';
 
 const DOMAIN_DATE = 'date';
 const DOMAIN_COMMIT = 'commit';
@@ -3499,8 +3500,9 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
       const uniqueValues = new Set(
         Object.keys(traceset).map((traceId) => {
           const val = fromKey(traceId)[param];
-          // If the value is missing or empty, map it to 'Default' so it is accounted for.
-          return val === undefined || val === '' ? 'Default' : val;
+          // If the value is missing or empty, map it to DEFAULT_OPTION_LABEL
+          // so it is accounted for.
+          return val === undefined || val === '' ? DEFAULT_OPTION_LABEL : val;
         })
       );
       let value = uniqueValues.values().next().value;

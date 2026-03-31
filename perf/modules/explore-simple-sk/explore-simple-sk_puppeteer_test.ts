@@ -8,8 +8,9 @@ import {
   poll,
   validateParamSet,
 } from '../common/puppeteer-test-util';
-import { default_container_title, expected_trace_key, paramSet1 } from './test_data';
+import { expected_trace_key, paramSet1 } from './test_data';
 import { paramSet } from '../common/test-util';
+import { DEFAULT_OPTION_LABEL } from '../common/test-picker';
 
 const EXPECTED_QUERY_COUNT = 117;
 const paramSet2 = {
@@ -349,7 +350,7 @@ describe('explore-simple-sk', () => {
           }
 
           const tooltipTitle = await simplePageSkPO.chartTooltip.title.innerText;
-          return tooltipTitle.includes(default_container_title);
+          return tooltipTitle.includes(DEFAULT_OPTION_LABEL);
         },
         'timed out waiting for tooltip to be visible',
         10000
