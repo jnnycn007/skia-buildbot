@@ -101,7 +101,22 @@ func (api anomaliesApi) getGroupReportByRevision(ctx context.Context, groupRepor
 	rev := groupReportRequest.Revison
 	regressions, err := api.regStore.GetByRevision(ctx, rev)
 	if err != nil {
-		return nil, skerr.Fmt("failed to get anomalyIds from anomalygroup Store by Revision: %s", err)
+		return nil, skerr.Fmt("failed to get anomalyIds from Regressions Store by Revision: %s", err)
+	}
+	regressionsWithAllBugs, err := api.regStore.GetBugIdsForRegressions(ctx, regressions)
+	if err != nil {
+		return nil, skerr.Fmt("failed to add bug ids to %d regressions", len(regressions))
+	}
+
+	return api.prepareResponseFromRegressions(ctx, regressionsWithAllBugs)
+}
+
+// GetGroupReport for regressions that match GetGroupReportRequest.Sid
+func (api anomaliesApi) getGroupReportBySid(ctx context.Context, groupReportRequest GetGroupReportRequest) (*GetGroupReportResponse, error) {
+	sid := groupReportRequest.Sid
+	regressions, err := api.regStore.GetByRegressionShortcut(ctx, sid)
+	if err != nil {
+		return nil, skerr.Fmt("failed to get anomalyIds from Regressions Store by Sid (regression shortcut id): %s", err)
 	}
 	regressionsWithAllBugs, err := api.regStore.GetBugIdsForRegressions(ctx, regressions)
 	if err != nil {

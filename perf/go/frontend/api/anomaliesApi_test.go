@@ -155,6 +155,42 @@ func TestGetGroupReportByBugId(t *testing.T) {
 	culpritStore.AssertExpectations(t)
 }
 
+func TestGetGroupReportBySid(t *testing.T) {
+	api, _, _, regStore := setupAnomaliesApiWithMocks(t)
+
+	ctx := context.Background()
+	sid := "test-sid-123"
+	traceset := ",arch=x86,bot=linux,benchmark=jetstream2,test=score,config=default,master=main,"
+
+	regressions := []*regression.Regression{
+		{
+			Id: "anomaly-id-1",
+			Frame: &frame.FrameResponse{
+				DataFrame: &dataframe.DataFrame{
+					TraceSet: types.TraceSet{
+						traceset: []float32{1.0},
+					},
+				},
+			},
+		},
+	}
+	regStore.On("GetByRegressionShortcut", ctx, sid).Return(regressions, nil).Once()
+	regStore.On("GetBugIdsForRegressions", mock.Anything, regressions).Return(regressions, nil)
+
+	req := GetGroupReportRequest{
+		Sid: sid,
+	}
+
+	resp, err := api.getGroupReportBySid(ctx, req)
+
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Len(t, resp.Anomalies, 1)
+	assert.Equal(t, "anomaly-id-1", resp.Anomalies[0].Id)
+
+	regStore.AssertExpectations(t)
+}
+
 func TestGetGroupReportByAnomalyGroupId(t *testing.T) {
 	api, anomalygroupStore, _, regStore := setupAnomaliesApiWithMocks(t)
 
