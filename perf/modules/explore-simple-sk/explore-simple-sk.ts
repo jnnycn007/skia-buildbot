@@ -1105,7 +1105,11 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
       if (option !== '') {
         this.summaryOptionsField.value!.selectedItems = [option];
       } else {
-        errorMessage(`Summary bar not properly set for this trace. Trace Name: ${traceName}`);
+        errorMessage(`Summary bar not properly set for this trace. Trace Name: ${traceName}`, 0, {
+          countMetricSource: CountMetric.FrontendErrorReported,
+          source: EXPLORE_SIMPLE_PAGE_SOURCE,
+          errorCode: StatusCodes.INTERNAL_SERVER_ERROR.toString(),
+        });
       }
     }
   }
@@ -1240,7 +1244,13 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
         .then((status: LoginStatus) => {
           this.user = status.email;
         })
-        .catch(errorMessage);
+        .catch((msg) =>
+          errorMessage(msg, 0, {
+            countMetricSource: CountMetric.FrontendErrorReported,
+            source: EXPLORE_SIMPLE_PAGE_SOURCE,
+            errorCode: StatusCodes.UNAUTHORIZED.toString(),
+          })
+        );
     }
 
     if (this.state.graph_index === 0) {
@@ -1263,9 +1273,17 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
         })
         .catch((msg) => {
           if (msg instanceof DataServiceError) {
-            errorMessage(msg.message);
+            errorMessage(msg.message, 0, {
+              countMetricSource: CountMetric.FrontendErrorReported,
+              source: EXPLORE_SIMPLE_PAGE_SOURCE,
+              errorCode: msg.status!.toString(),
+            });
           } else {
-            errorMessage(msg);
+            errorMessage(msg, 0, {
+              countMetricSource: CountMetric.FrontendErrorReported,
+              source: EXPLORE_SIMPLE_PAGE_SOURCE,
+              errorCode: StatusCodes.INTERNAL_SERVER_ERROR.toString(),
+            });
           }
         });
     }
@@ -1535,7 +1553,11 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
       })
       .catch((error) => {
         if (error instanceof DataServiceError && error.status === 500) {
-          errorMessage('Unable to update shortcut.', 2000);
+          errorMessage('Unable to update shortcut.', 2000, {
+            countMetricSource: CountMetric.FrontendErrorReported,
+            source: EXPLORE_SIMPLE_PAGE_SOURCE,
+            errorCode: StatusCodes.INTERNAL_SERVER_ERROR.toString(),
+          });
         }
         console.error('Failed to update shortcut for Test Picker URL:', error);
         if (this.testPickerUrl !== '#') {
@@ -1795,9 +1817,17 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
         })
         .catch((msg) => {
           if (msg instanceof DataServiceError) {
-            errorMessage(msg.message);
+            errorMessage(msg.message, 0, {
+              countMetricSource: CountMetric.FrontendErrorReported,
+              source: EXPLORE_SIMPLE_PAGE_SOURCE,
+              errorCode: msg.status!.toString(),
+            });
           } else {
-            errorMessage(msg);
+            errorMessage(msg, 0, {
+              countMetricSource: CountMetric.FrontendErrorReported,
+              source: EXPLORE_SIMPLE_PAGE_SOURCE,
+              errorCode: StatusCodes.INTERNAL_SERVER_ERROR.toString(),
+            });
           }
         });
     } else {
@@ -2112,7 +2142,11 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
     const subDataframe = generateSubDataframe(df!, selected);
     if (!subDataframe || subDataframe.header?.length === 0) {
       // If the subDataframe is empty, we cannot proceed.
-      errorMessage('Unable to find requested data range.');
+      errorMessage('Unable to find requested data range.', 0, {
+        countMetricSource: CountMetric.FrontendErrorReported,
+        source: EXPLORE_SIMPLE_PAGE_SOURCE,
+        errorCode: StatusCodes.NOT_FOUND.toString(),
+      });
       return;
     }
 
@@ -2735,16 +2769,28 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
     this.requestFrame(body)
       .then(async (json) => {
         if (json === null || json === undefined) {
-          errorMessage('Failed to find any matching traces.');
+          errorMessage('Failed to find any matching traces.', 0, {
+            countMetricSource: CountMetric.FrontendErrorReported,
+            source: EXPLORE_SIMPLE_PAGE_SOURCE,
+            errorCode: StatusCodes.NOT_FOUND.toString(),
+          });
           return;
         }
         return await this.UpdateWithFrameResponse(json, body, switchToTab, null, true, true);
       })
       .catch((msg) => {
         if (msg instanceof DataServiceError) {
-          errorMessage(msg.message);
+          errorMessage(msg.message, 0, {
+            countMetricSource: CountMetric.FrontendErrorReported,
+            source: EXPLORE_SIMPLE_PAGE_SOURCE,
+            errorCode: msg.status!.toString(),
+          });
         } else {
-          errorMessage(msg);
+          errorMessage(msg, 0, {
+            countMetricSource: CountMetric.FrontendErrorReported,
+            source: EXPLORE_SIMPLE_PAGE_SOURCE,
+            errorCode: StatusCodes.INTERNAL_SERVER_ERROR.toString(),
+          });
         }
       });
   }
@@ -2844,7 +2890,11 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
     }
 
     if (dataframe.header!.length * Object.keys(dataframe.traceset).length > DATAPOINT_THRESHOLD) {
-      errorMessage('Large amount of data requsted, performance may be affected.', 2000);
+      errorMessage('Large amount of data requsted, performance may be affected.', 2000, {
+        countMetricSource: CountMetric.FrontendErrorReported,
+        source: EXPLORE_SIMPLE_PAGE_SOURCE,
+        errorCode: StatusCodes.OK.toString(),
+      });
     }
     this.tracesRendered = true;
     this.displayMode = json.display_mode;
@@ -3070,38 +3120,66 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
 
     if (plotType === 'query') {
       if (!q || q.trim() === '') {
-        errorMessage('The query must not be empty.');
+        errorMessage('The query must not be empty.', 0, {
+          countMetricSource: CountMetric.FrontendErrorReported,
+          source: EXPLORE_SIMPLE_PAGE_SOURCE,
+          errorCode: StatusCodes.BAD_REQUEST.toString(),
+        });
         return;
       }
     } else if (plotType === 'formula') {
       if (f.trim() === '') {
-        errorMessage('The formula must not be empty.');
+        errorMessage('The formula must not be empty.', 0, {
+          countMetricSource: CountMetric.FrontendErrorReported,
+          source: EXPLORE_SIMPLE_PAGE_SOURCE,
+          errorCode: StatusCodes.BAD_REQUEST.toString(),
+        });
         return;
       }
     } else if (plotType === 'pivot') {
       if (!q || q.trim() === '') {
-        errorMessage('The query must not be empty.');
+        errorMessage('The query must not be empty.', 0, {
+          countMetricSource: CountMetric.FrontendErrorReported,
+          source: EXPLORE_SIMPLE_PAGE_SOURCE,
+          errorCode: StatusCodes.BAD_REQUEST.toString(),
+        });
         return;
       }
 
       const pivotMsg = validatePivotRequest(this.pivotControl!.pivotRequest!);
       if (pivotMsg !== '') {
-        errorMessage(pivotMsg);
+        errorMessage(pivotMsg, 0, {
+          countMetricSource: CountMetric.FrontendErrorReported,
+          source: EXPLORE_SIMPLE_PAGE_SOURCE,
+          errorCode: StatusCodes.BAD_REQUEST.toString(),
+        });
         return;
       }
     } else if (plotType === 'json') {
       if (j.trim() === '') {
-        errorMessage('The JSON must not be empty.');
+        errorMessage('The JSON must not be empty.', 0, {
+          countMetricSource: CountMetric.FrontendErrorReported,
+          source: EXPLORE_SIMPLE_PAGE_SOURCE,
+          errorCode: StatusCodes.BAD_REQUEST.toString(),
+        });
         return;
       }
       try {
         JSON.parse(j);
       } catch (e) {
-        errorMessage(`Invalid JSON: ${e}`);
+        errorMessage(`Invalid JSON: ${e}`, 0, {
+          countMetricSource: CountMetric.FrontendErrorReported,
+          source: EXPLORE_SIMPLE_PAGE_SOURCE,
+          errorCode: StatusCodes.BAD_REQUEST.toString(),
+        });
         return;
       }
     } else {
-      errorMessage('Unknown plotType');
+      errorMessage('Unknown plotType', 0, {
+        countMetricSource: CountMetric.FrontendErrorReported,
+        source: EXPLORE_SIMPLE_PAGE_SOURCE,
+        errorCode: StatusCodes.BAD_REQUEST.toString(),
+      });
       return;
     }
     if (this.range !== null && !this.useTestPicker) {
@@ -3421,9 +3499,17 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
       );
     } catch (msg) {
       if (msg instanceof DataServiceError && msg.status === 500) {
-        errorMessage('Unable to update shortcut.', 2000);
+        errorMessage('Unable to update shortcut.', 2000, {
+          countMetricSource: CountMetric.FrontendErrorReported,
+          source: EXPLORE_SIMPLE_PAGE_SOURCE,
+          errorCode: msg.status!.toString(),
+        });
       } else if (msg instanceof DataServiceError) {
-        errorMessage(msg.message);
+        errorMessage(msg.message, 0, {
+          countMetricSource: CountMetric.FrontendErrorReported,
+          source: EXPLORE_SIMPLE_PAGE_SOURCE,
+          errorCode: msg.status!.toString(),
+        });
       } else {
         errorMessage(msg as any);
       }
@@ -3562,7 +3648,11 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
   private async requestFrame(body: FrameRequest): Promise<FrameResponse | null> {
     if (this._requestId !== '') {
       const err = new Error('There is a pending query already running.');
-      errorMessage(err.message);
+      errorMessage(err.message, 0, {
+        countMetricSource: CountMetric.FrontendErrorReported,
+        source: EXPLORE_SIMPLE_PAGE_SOURCE,
+        errorCode: StatusCodes.CONFLICT.toString(),
+      });
       return null;
     }
     this._requestId = 'foo';
@@ -3577,7 +3667,11 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
         this.percent.textContent = '';
       }
       this.spinning = false;
-      errorMessage(err as string);
+      errorMessage(err as string, 0, {
+        countMetricSource: CountMetric.FrontendErrorReported,
+        source: EXPLORE_SIMPLE_PAGE_SOURCE,
+        errorCode: StatusCodes.INTERNAL_SERVER_ERROR.toString(),
+      });
       return null;
     } finally {
       // Ensuring the state is always cleaned up.
@@ -3598,7 +3692,11 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
         }
       },
       onMessage: (msg: string) => {
-        errorMessage(msg);
+        errorMessage(msg, 0, {
+          countMetricSource: CountMetric.FrontendErrorReported,
+          source: EXPLORE_SIMPLE_PAGE_SOURCE,
+          errorCode: StatusCodes.INTERNAL_SERVER_ERROR.toString(),
+        });
       },
       onStart: () => {
         if (this.isConnected && this.spinner) {
