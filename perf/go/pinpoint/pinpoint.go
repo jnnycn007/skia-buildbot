@@ -14,7 +14,6 @@ import (
 	"go.skia.org/infra/go/metrics2"
 	"go.skia.org/infra/go/skerr"
 	"go.skia.org/infra/go/sklog"
-	"go.skia.org/infra/perf/go/config"
 	"golang.org/x/oauth2/google"
 )
 
@@ -139,10 +138,14 @@ func buildTryJobRequestURL(req TryJobCreateRequest) (string, error) {
 }
 
 // CreateBisect calls pinpoint API to create bisect job.
-func (pc *Client) CreateBisect(ctx context.Context, req BisectJobCreateRequest) (*CreatePinpointResponse, error) {
+func (pc *Client) CreateBisect(
+	ctx context.Context,
+	req BisectJobCreateRequest,
+	isNewAnomaly bool,
+) (*CreatePinpointResponse, error) {
 	pc.createBisectCalled.Inc(1)
 
-	requestURL := buildBisectJobRequestURL(req, config.Config.FetchAnomaliesFromSql)
+	requestURL := buildBisectJobRequestURL(req, isNewAnomaly)
 	sklog.Debugf("Preparing to call this Pinpoint service URL: %s", requestURL)
 
 	resp, err := pc.doPostRequest(ctx, requestURL)

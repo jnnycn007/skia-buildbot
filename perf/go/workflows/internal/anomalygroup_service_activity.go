@@ -86,5 +86,6 @@ func (agsa *AnomalyGroupServiceActivity) CreateLegacyBisectJob(
 	if agsa.legacyPinpointClient == nil {
 		return nil, skerr.Fmt("legacyPinpointClient is not initialized")
 	}
-	return agsa.legacyPinpointClient.CreateBisect(ctx, *req)
+	isNewAnomaly := true
+	return agsa.legacyPinpointClient.CreateBisect(ctx, *req, isNewAnomaly)
 }
