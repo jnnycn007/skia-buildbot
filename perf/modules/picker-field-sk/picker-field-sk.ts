@@ -286,9 +286,6 @@ export class PickerFieldSk extends LitElement {
    * vaadin-multi-select-combo-box element.
    */
   openOverlay() {
-    // Vaadin combo box doesn't always have 'click' to open?
-    // Using internal dispatch or just reliance on `opened` property if available?
-    // Original code used `.click()`.
     this._comboBox?.click();
   }
 

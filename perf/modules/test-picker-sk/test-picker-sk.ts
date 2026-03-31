@@ -166,7 +166,9 @@ export class TestPickerSk extends LitElement implements TestPickerStateControlle
         `picker-field-sk[label="${param}"]`
       ) as PickerFieldSk;
       if (field) {
-        field.openOverlay();
+        field.updateComplete.then(() => {
+          field.openOverlay();
+        });
       }
     }
     this._fieldPendingOpenOverlay.clear();
@@ -176,7 +178,9 @@ export class TestPickerSk extends LitElement implements TestPickerStateControlle
         `picker-field-sk[label="${param}"]`
       ) as PickerFieldSk;
       if (field) {
-        field.focus();
+        field.updateComplete.then(() => {
+          field.focus();
+        });
       }
     }
     this._fieldPendingFocus.clear();
@@ -433,10 +437,8 @@ export class TestPickerSk extends LitElement implements TestPickerStateControlle
 
     this.ctrl.fieldData = [...this.ctrl.fieldData];
 
-    if (value.length > 1) {
-      this.ctrl.setReadOnly(true);
-    }
     if (value.length > 0) {
+      this.ctrl.setReadOnly(true);
       await this.ctrl.fetchExtraOptions(index, hasGraphLoaded);
     }
     this.updateGraph(value, fieldInfo, removed, hasGraphLoaded);

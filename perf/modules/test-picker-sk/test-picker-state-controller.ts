@@ -374,12 +374,17 @@ export class TestPickerStateController implements ReactiveController {
 
             fieldInfo.options = options;
             fieldInfo.index = i;
+            let isNewField = false;
             if (fieldInfo.value === null) {
+              isNewField = true;
               fieldInfo.value = [];
             }
             this.fieldData = [...this.fieldData];
 
             this.host.setFieldPendingFocus(param);
+            if (isNewField && i > 0) {
+              this.host.setFieldPendingOpenOverlay(param);
+            }
 
             const defaults = (document.querySelector('explore-multi-sk') as any)?.defaults;
             if (

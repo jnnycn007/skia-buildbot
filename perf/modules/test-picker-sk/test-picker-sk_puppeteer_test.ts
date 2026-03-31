@@ -221,4 +221,29 @@ describe('test-picker-sk', () => {
     // https://screenshot.googleplex.com/BDxE2JysXAT5yzw
     await takeScreenshot(testBed.page, 'perf', 'test-picker-sk-small-viewport');
   });
+
+  it('expands the next field and NOT the current one when a selection is made', async () => {
+    const testPickerPO = new TestPickerSkPO((await testBed.page.$('test-picker-sk'))!);
+
+    // Wait for the first field to be available.
+    await testPickerPO.waitForPickerField(0);
+    const benchmarkField = await testPickerPO.getPickerField(0);
+
+    // Make a selection in the first field.
+    await benchmarkField.selectExact(BENCHMARK);
+    await testPickerPO.waitForSpinnerInactive();
+
+    // Verify the first field is CLOSED.
+    expect(await benchmarkField.isOpened()).to.be.false;
+
+    // Wait for the next field to appear (Bot).
+    await testPickerPO.waitForPickerField(1);
+    const botField = await testPickerPO.getPickerField(1);
+
+    // Give it a moment to expand using robust polling.
+    await testPickerPO.waitForFieldOpened(1);
+
+    // Verify the second field is OPENED.
+    expect(await botField.isOpened()).to.be.true;
+  });
 });

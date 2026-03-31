@@ -71,6 +71,10 @@ export class PickerFieldSkPO extends PageObject {
     await this.comboBox.click();
   }
 
+  async isOpened(): Promise<boolean> {
+    return await this.comboBox.applyFnToDOMNode((el: any) => el.opened);
+  }
+
   async select(value: string): Promise<void> {
     await this.openOverlay();
     await this.comboBox.type(value);

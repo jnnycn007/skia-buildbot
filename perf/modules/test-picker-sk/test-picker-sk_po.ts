@@ -39,6 +39,13 @@ export class TestPickerSkPO extends PageObject {
     }, `Waiting for picker-field-sk at index ${index} to be enabled`);
   }
 
+  async waitForFieldOpened(index: number): Promise<void> {
+    await this.poll(async () => {
+      const field = await this.getPickerField(index);
+      return await field.isOpened();
+    }, `Waiting for picker-field-sk at index ${index} to be opened`);
+  }
+
   async waitForSpinnerInactive(): Promise<void> {
     await this.poll(
       async () => !(await this.bySelector('spinner-sk:not([active])').isEmpty()),
