@@ -181,30 +181,71 @@ export class ExploreSimpleSkPO extends PageObject {
   }
 
   async clickXAxisSwitch(): Promise<void> {
-    await this.clickShowSettingsDialog();
+    const isOpen = await this.isSettingsDialogOpen();
+    if (!isOpen) {
+      await this.clickShowSettingsDialog();
+    }
+
     const switchEl = this.getXAxisSwitch;
     await waitForElementVisible(switchEl, 'X-Axis switch not visible');
-    await switchEl.click();
+
+    const initialState = await this.getXAxisDomain();
+    // Use native DOM click to bypass potential animation overlaps.
+    await switchEl.applyFnToDOMNode((el) => (el as HTMLElement).click());
+
+    await poll(
+      async () => (await this.getXAxisDomain()) !== initialState,
+      'Failed to toggle X-Axis switch'
+    );
   }
 
   async clickZoomDirectionSwitch(): Promise<void> {
-    await this.clickShowSettingsDialog();
+    const isOpen = await this.isSettingsDialogOpen();
+    if (!isOpen) {
+      await this.clickShowSettingsDialog();
+    }
+
     const switchEl = this.getZoomDirectionSwitch;
     await waitForElementVisible(switchEl, 'Zoom direction switch not visible');
-    await switchEl.click();
+
+    const initialState = await this.getHorizontalZoom();
+    // Use native DOM click to bypass potential animation overlaps.
+    await switchEl.applyFnToDOMNode((el) => (el as HTMLElement).click());
+
+    await poll(
+      async () => (await this.getHorizontalZoom()) !== initialState,
+      'Failed to toggle Zoom direction switch'
+    );
   }
 
   async clickEvenXAxisSpacingSwitch(): Promise<void> {
-    await this.clickShowSettingsDialog();
+    const isOpen = await this.isSettingsDialogOpen();
+    if (!isOpen) {
+      await this.clickShowSettingsDialog();
+    }
+
     const switchEl = this.getEvenXAxisSpacingSwitch;
     await waitForElementVisible(switchEl, 'Even X-Axis spacing switch not visible');
-    await switchEl.click();
+
+    const initialState = await this.getEvenXAxisSpacing();
+    // Use native DOM click to bypass potential animation overlaps.
+    await switchEl.applyFnToDOMNode((el) => (el as HTMLElement).click());
+
+    await poll(
+      async () => (await this.getEvenXAxisSpacing()) !== initialState,
+      'Failed to toggle Even X-Axis spacing'
+    );
+  }
+
+  async isSettingsDialogOpen(): Promise<boolean> {
+    return await this.settingDialog.applyFnToDOMNode((el: any) => el.open);
   }
 
   async clickShowSettingsDialog(): Promise<void> {
     const btn = this.showSettingDialogButton;
     await waitForElementVisible(btn, 'Settings button not visible');
     await btn.click();
+    await poll(async () => await this.isSettingsDialogOpen(), 'Settings dialog did not open');
   }
 
   async getAnomalyMap(): Promise<any> {
@@ -266,10 +307,13 @@ export class ExploreSimpleSkPO extends PageObject {
       throw new Error('No anomaly icon found to click.');
     }
 
-    await page.mouse.click(
-      anomalyRect.x + anomalyRect.width / 2,
-      anomalyRect.y + anomalyRect.height / 2
-    );
+    const x = anomalyRect.x + anomalyRect.width / 2;
+    const y = anomalyRect.y + anomalyRect.height / 2;
+
+    // Hover first to trigger any potential tooltips/states, then click.
+    await page.mouse.move(x, y);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    await page.mouse.click(x, y);
   }
 
   /**

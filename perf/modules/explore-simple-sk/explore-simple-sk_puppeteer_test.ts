@@ -276,6 +276,13 @@ describe('explore-simple-sk', () => {
 
       const plotPO = await simplePageSkPO.plotGoogleChartSk;
       await plotPO.waitForChartVisible({ timeout: CLIPBOARD_READ_TIMEOUT_MS });
+
+      // Poll for the traces to appear.
+      await poll(async () => {
+        const traceKeys = await simplePageSkPO.getTraceKeys();
+        return traceKeys.length > 0;
+      }, 'timed out waiting for traces to load');
+
       expect(await simplePageSkPO.getXAxisDomain()).to.equal('commit');
       await simplePageSkPO.clickXAxisSwitch();
       // After click, should be 'date'
@@ -288,6 +295,13 @@ describe('explore-simple-sk', () => {
 
       const plotPO = await simplePageSkPO.plotGoogleChartSk;
       await plotPO.waitForChartVisible({ timeout: CLIPBOARD_READ_TIMEOUT_MS });
+
+      // Poll for the traces to appear.
+      await poll(async () => {
+        const traceKeys = await simplePageSkPO.getTraceKeys();
+        return traceKeys.length > 0;
+      }, 'timed out waiting for traces to load');
+
       expect(await simplePageSkPO.getHorizontalZoom()).to.be.false;
       await simplePageSkPO.clickZoomDirectionSwitch();
       // After click, should be true
@@ -300,6 +314,13 @@ describe('explore-simple-sk', () => {
 
       const plotPO = await simplePageSkPO.plotGoogleChartSk;
       await plotPO.waitForChartVisible({ timeout: CLIPBOARD_READ_TIMEOUT_MS });
+
+      // Poll for the traces to appear.
+      await poll(async () => {
+        const traceKeys = await simplePageSkPO.getTraceKeys();
+        return traceKeys.length > 0;
+      }, 'timed out waiting for traces to load');
+
       expect(await simplePageSkPO.getEvenXAxisSpacing()).to.be.false;
       await simplePageSkPO.clickEvenXAxisSpacingSwitch();
       // After click, should be true
@@ -328,11 +349,12 @@ describe('explore-simple-sk', () => {
       const traceKeys = await simplePageSkPO.getTraceKeys();
       expect(traceKeys.length).deep.equal(1, 'Expected 1 trace to load.');
       const traceKey = traceKeys[0];
+
       let coords: { x: number; y: number; width: number; height: number } | null = null;
       await poll(async () => {
         coords = await simplePageSkPO.getTraceCoordinates(traceKey, 0);
         return coords !== null;
-      }, 'timed out waiting for anomaly coordinates');
+      }, 'timed out waiting for trace coordinates');
 
       // Click on the data point.
       await testBed.page.mouse.click(coords!.x + coords!.width / 2, coords!.y + coords!.height / 2);

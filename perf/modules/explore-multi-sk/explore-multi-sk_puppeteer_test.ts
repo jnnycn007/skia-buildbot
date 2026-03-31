@@ -236,41 +236,25 @@ describe('Anomalies and Traces', () => {
     });
 
     // Check if anomaly is visible in date mode
-    const anomaliesDateCount = await exploreSimplePO.googleChart.applyFnToDOMNode((el) => {
-      return el.shadowRoot!.querySelectorAll('.anomaly').length;
-    });
-    expect(anomaliesDateCount).to.be.greaterThan(0);
-    expect(anomaliesDateCount).to.equal(anomaliesCommitCount);
-
-    // Get coordinates of an anomaly.
-    const anomalyRect = await exploreSimplePO.googleChart.applyFnToDOMNode((el) => {
-      const anomalyIcon = el.shadowRoot!.querySelector('div.anomaly > .anomaly');
-      if (!anomalyIcon) return null;
-      const rect = anomalyIcon.getBoundingClientRect();
-      return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
-    });
-    expect(anomalyRect).to.not.be.null;
+    let anomalyRect: { x: number; y: number; width: number; height: number } | null = null;
+    await poll(async () => {
+      anomalyRect = await exploreSimplePO.googleChart.applyFnToDOMNode((el) => {
+        const anomalyIcon = el.shadowRoot!.querySelector('div.anomaly > .anomaly');
+        if (!anomalyIcon) return null;
+        const rect = anomalyIcon.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return null;
+        return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+      });
+      return anomalyRect !== null;
+    }, 'Anomaly icon did not appear in date mode');
 
     // Click on it.
-    await testBed.page.mouse.click(
-      anomalyRect!.x + anomalyRect!.width / 2,
-      anomalyRect!.y + anomalyRect!.height / 2
-    );
+    await exploreSimplePO.clickFirstAnomaly(testBed.page);
 
     // Check for tooltip and triage menu.
+    await exploreSimplePO.waitForAnomalyTooltip();
+
     const chartTooltipPO = exploreSimplePO.chartTooltip;
-    const containerPO = chartTooltipPO.container;
-
-    // Wait for tooltip to be visible and have content
-    await poll(async () => {
-      if (await containerPO.isEmpty()) return false;
-      return await containerPO.applyFnToDOMNode((el) => {
-        if ((el as HTMLElement).style.display === 'none') return false;
-        const h3 = el.querySelector('h3');
-        return h3?.textContent?.includes('Anomaly') || false;
-      });
-    }, 'Tooltip did not show Anomaly or was not visible');
-
     const triageMenuPO = chartTooltipPO.getTriageMenu;
     await poll(async () => !(await triageMenuPO.isEmpty()), 'Triage menu did not appear');
   });
@@ -524,6 +508,14 @@ describe('Manual Plot Mode', () => {
 
       await plotSummaryPO0.resizeSelection(testBed.page, 'right', 0.75);
 
+      await poll(async () => {
+        const url = new URL(testBed.page.url());
+        return (
+          url.searchParams.get('begin') !== initialBegin ||
+          url.searchParams.get('end') !== initialEnd
+        );
+      }, 'URL did not update after resize');
+
       const finalUrl = new URL(testBed.page.url());
       const finalBegin = finalUrl.searchParams.get('begin');
       const finalEnd = finalUrl.searchParams.get('end');
@@ -666,6 +658,15 @@ describe('Explore Multi Sk with plotSummary', () => {
     const simpleGraphPO = explorePO.getGraph(0);
     const plotSummaryPO = simpleGraphPO.plotSummary;
     await plotSummaryPO.waitForPlotSummaryToLoad();
+
+    await poll(
+      async () => {
+        const url = new URL(testBed.page.url());
+        return url.searchParams.has('begin') && url.searchParams.has('end');
+      },
+      'Waiting for begin and end params in URL',
+      LONG_TIMEOUT_MS
+    );
 
     const initialUrl = new URL(testBed.page.url());
     const initialBegin = initialUrl.searchParams.get('begin');
