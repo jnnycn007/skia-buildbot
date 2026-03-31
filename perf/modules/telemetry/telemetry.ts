@@ -36,7 +36,7 @@ export enum CountMetric {
   SIDRequiringActionTaken = 'fe_sid_requiring_action_taken',
   ExistingBugDialogSkBugIdUsedAsAnomalyKey = 'fe_exisitng_dialog_sk_bug_id_used_as_anomaly_key',
   TriageActionTaken = 'fe_triage_action_taken',
-  FrontendErrorReported = 'fe_error_reported',
+  FrontendErrorReported = 'fe_errors_reported_count',
   // go/keep-sorted end
 }
 
