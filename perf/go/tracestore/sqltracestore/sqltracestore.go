@@ -1201,6 +1201,9 @@ func (s *SQLTraceStore) commitSliceFromCommitNumberRange(ctx context.Context, be
 		}
 		ret = append(ret, c)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, skerr.Wrapf(err, "Failed during row iteration for commits in range %v-%v", begin, end)
+	}
 	return ret, nil
 }
 
