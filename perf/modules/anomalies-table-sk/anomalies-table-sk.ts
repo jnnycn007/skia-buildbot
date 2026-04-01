@@ -97,6 +97,9 @@ export class AnomaliesTableSk extends LitElement implements KeyboardShortcutHand
         this.showPopup = false;
       }
     });
+    this.addEventListener('anomaly-changed', () => {
+      this.showPopup = false;
+    });
     window.addEventListener('keydown', this.keyDown);
   }
 

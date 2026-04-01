@@ -1146,6 +1146,18 @@ describe('anomalies-table-sk', () => {
     });
   });
 
+  describe('popup closure on anomaly-changed', () => {
+    it('sets showPopup to false when anomaly-changed is dispatched', async () => {
+      element.showPopup = true;
+      await element.updateComplete;
+
+      element.dispatchEvent(new CustomEvent('anomaly-changed', { bubbles: true, composed: true }));
+      await element.updateComplete;
+
+      assert.isFalse(element.showPopup);
+    });
+  });
+
   describe('keyboard shortcuts', () => {
     it('triggers triage actions on key press', async () => {
       const anomalies = [dummyAnomaly('1', 12345, 100, 200, 'master/bot/suite/test')];
