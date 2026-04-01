@@ -23,6 +23,8 @@ type Config struct {
 	ContextLines int
 	Timeout      time.Duration
 	Verbose      bool
+	ShowWarnings bool
+	ShowLGTM     bool
 }
 
 func Parse() (*Config, error) {
@@ -32,6 +34,16 @@ func Parse() (*Config, error) {
 		"verbose",
 		false,
 		"Print extra information e.g. full prompt",
+	)
+	showWarnings := fs.Bool(
+		"show-warnings",
+		true,
+		"Display warnings e.g. untracked git files",
+	)
+	showLGTM := fs.Bool(
+		"show-lgtm",
+		true,
+		"Display the review results if LGTM",
 	)
 	baseCommit := fs.String(
 		"base-commit",
@@ -85,12 +97,14 @@ func Parse() (*Config, error) {
 	}
 
 	return &Config{
-		Model:        *model,
 		GCPProject:   *gcpProject,
 		Location:     *locationFlag,
+		Model:        *model,
 		BaseCommit:   *baseCommit,
 		ContextLines: *contextLines,
 		Timeout:      *timeout,
 		Verbose:      *verbose,
+		ShowWarnings: *showWarnings,
+		ShowLGTM:     *showLGTM,
 	}, nil
 }

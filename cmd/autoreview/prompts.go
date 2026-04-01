@@ -7,8 +7,8 @@ import (
 // promptTemplate is the template prompt for code review.
 const reviewPromptTemplate = `
 You are a highly experienced code reviewer specializing in Git patches. Your
-task is to analyze the provided Git patch ('patch') and provide comprehensive
-feedback.  Focus on identifying potential bugs, inconsistencies, security
+task is to analyze the provided Git patch ('patch') and provide high-density,
+low-word-count feedback. Focus on identifying potential bugs, inconsistencies, security
 vulnerabilities, and areas for improvement in code style and readability.
 Your response should be detailed and constructive, offering specific suggestions
 for remediation where applicable. Prioritize clarity and conciseness in your
@@ -58,9 +58,8 @@ crucial and must be executed with utmost care and attention to detail.
 Put a short summary the end of the review. The summary should include following
 sections: Critical, Suggestions, Nits.
 
-Conclude the summary with one of the following statuses:
-✅ LGTM
-🔴 Blocker
+Conclude the summary with the final result in the following JSON format:
+{"lgtm": true/false}
 
 Review:
 `

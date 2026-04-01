@@ -28,6 +28,8 @@ func TestParse(t *testing.T) {
 				ContextLines: 10,
 				Timeout:      time.Minute,
 				Verbose:      false,
+				ShowWarnings: true,
+				ShowLGTM:     true,
 			},
 		},
 		{
@@ -39,6 +41,8 @@ func TestParse(t *testing.T) {
 				"--model", "test-model",
 				"--project", "test-project",
 				"--timeout", "5m",
+				"--show-warnings=false",
+				"--show-lgtm=false",
 			},
 			expected: &Config{
 				GCPProject:   "test-project",
@@ -48,6 +52,8 @@ func TestParse(t *testing.T) {
 				ContextLines: 10,
 				Timeout:      5 * time.Minute,
 				Verbose:      true,
+				ShowWarnings: false,
+				ShowLGTM:     false,
 			},
 		},
 	}

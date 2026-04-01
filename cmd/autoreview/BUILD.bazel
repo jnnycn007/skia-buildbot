@@ -8,6 +8,7 @@ go_library(
         "gemini.go",
         "git.go",
         "main.go",
+        "parser.go",
         "prompts.go",
     ],
     importpath = "go.skia.org/infra/cmd/autoreview",
@@ -29,6 +30,7 @@ go_test(
     srcs = [
         "config_test.go",
         "gemini_test.go",
+        "parser_test.go",
         "prompts_test.go",
     ],
     embed = [":autoreview_lib"],
