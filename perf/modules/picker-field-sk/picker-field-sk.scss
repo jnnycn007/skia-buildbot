@@ -45,6 +45,13 @@
 
   vaadin-multi-select-combo-box-chip::part(label) {
     direction: rtl;
+    white-space: nowrap;
+  }
+
+  vaadin-multi-select-combo-box-chip.has-help-icon {
+    background-color: var(--lumo-primary-color-10pct);
+    border: 1px solid var(--lumo-primary-color-50pct);
+    cursor: help;
   }
 
   input {

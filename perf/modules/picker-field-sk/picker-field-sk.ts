@@ -29,7 +29,6 @@ import { CheckOrRadio } from '../../../elements-sk/modules/checkbox-sk/checkbox-
 import '@vaadin/multi-select-combo-box/theme/lumo/vaadin-multi-select-combo-box.js';
 import { MultiSelectComboBox } from '@vaadin/multi-select-combo-box';
 import { DEFAULT_OPTION_LABEL } from '../common/test-picker';
-import '../../../elements-sk/modules/icons/help-icon-sk/help-icon-sk';
 
 export interface SplitChartSelectionEventDetails {
   attribute: string;
@@ -71,8 +70,17 @@ export class PickerFieldSk extends LitElement {
   @state()
   private _overlayWidth: string = '5ch';
 
+  private _itemClassNameGenerator = (item: string): string => {
+    if (item === DEFAULT_OPTION_LABEL) {
+      return 'has-help-icon';
+    }
+    return '';
+  };
+
   @query('vaadin-multi-select-combo-box')
   private _comboBox!: MultiSelectComboBox;
+
+  private _observer?: MutationObserver;
 
   @query('checkbox-sk#split-by')
   private _splitBox!: CheckOrRadio;
@@ -120,6 +128,41 @@ export class PickerFieldSk extends LitElement {
     }
   }
 
+  connectedCallback(): void {
+    super.connectedCallback();
+    this._setupObserver();
+  }
+
+  firstUpdated(changedProperties: PropertyValues): void {
+    super.firstUpdated(changedProperties);
+    this._setupObserver();
+  }
+
+  disconnectedCallback(): void {
+    super.disconnectedCallback();
+    this._observer?.disconnect();
+    this._observer = undefined;
+  }
+
+  private _setupObserver(): void {
+    if (this._comboBox && !this._observer) {
+      this._observer = new MutationObserver(() => this._updateChipsTooltip());
+      this._observer.observe(this._comboBox, { childList: true, subtree: true });
+      this._updateChipsTooltip();
+    }
+  }
+
+  private _updateChipsTooltip(): void {
+    if (!this._comboBox) return;
+    const chips = this._comboBox.querySelectorAll('vaadin-multi-select-combo-box-chip');
+    chips.forEach((chip: Element) => {
+      if (chip.classList.contains('has-help-icon')) {
+        const helpText = `Selects traces without ${this.label} traceparam.`;
+        chip.setAttribute('title', helpText);
+      }
+    });
+  }
+
   render() {
     const labelId = `label-${this.label.replace(/\s+/g, '-')}`;
     return html`
@@ -127,11 +170,6 @@ export class PickerFieldSk extends LitElement {
         <div class="header-row">
           <label id="${labelId}">${this.label}</label>
           <div id="split-by-container">
-            <help-icon-sk
-              id="help-default-sentinel"
-              title="'Default' selects traces without ${this.label} traceparam."
-              ?hidden=${!this.defaultOptionPresent}>
-            </help-icon-sk>
             <checkbox-sk
               title="Split the chart by attribute."
               name=${this.label}
@@ -169,6 +207,7 @@ export class PickerFieldSk extends LitElement {
           aria-labelledby="${labelId}"
           .items=${this.options}
           .selectedItems=${this.selectedItems}
+          .itemClassNameGenerator=${this._itemClassNameGenerator}
           @selected-items-changed=${this.onValueChanged}
           ?readonly=${this.disabled}
           selected-items-on-top
@@ -321,13 +360,6 @@ export class PickerFieldSk extends LitElement {
     // return this._primaryOptions.length === this.selectedItems.length && show;
     // This allows exact match only.
     return this._primaryOptions.length === this.selectedItems.length && show;
-  }
-
-  /**
-   * Returns true if one of selected values is DEFAULT_OPTION_LABEL.
-   */
-  get defaultOptionPresent(): boolean {
-    return this.selectedItems.includes(DEFAULT_OPTION_LABEL);
   }
 
   /**

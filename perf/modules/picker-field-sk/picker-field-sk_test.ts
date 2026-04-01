@@ -159,22 +159,34 @@ describe('picker-field-sk', () => {
     });
   });
 
-  describe('help icon', () => {
-    it('is hidden by default when no default option is selected', async () => {
-      await element.updateComplete;
-      const helpIcon = element.querySelector<HTMLElement>('#help-default-sentinel');
-      expect(helpIcon!.hasAttribute('hidden')).to.be.true;
+  describe('help icon (chip class)', () => {
+    it('returns has-help-icon for default option', () => {
+      const generator = (element as any)._itemClassNameGenerator;
+      expect(generator(DEFAULT_OPTION_LABEL)).to.equal('has-help-icon');
     });
 
-    it('is visible when default option is selected', async () => {
+    it('returns empty string for other options', () => {
+      const generator = (element as any)._itemClassNameGenerator;
+      expect(generator('other')).to.equal('');
+    });
+  });
+
+  describe('MutationObserver tooltip', () => {
+    it('should set title on chip', async () => {
       element.options = [DEFAULT_OPTION_LABEL, 'other'];
       element.selectedItems = [DEFAULT_OPTION_LABEL];
       await element.updateComplete;
-      const helpIcon = element.querySelector<HTMLElement>('#help-default-sentinel');
-      expect(helpIcon!.hasAttribute('hidden')).to.be.false;
-      expect(helpIcon!.getAttribute('title')).to.equal(
-        "'Default' selects traces without test-label traceparam."
-      );
+
+      // Wait for MutationObserver to run (it's async)
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+
+      const comboBox = element.querySelector('vaadin-multi-select-combo-box');
+      const chip = comboBox!.querySelector('vaadin-multi-select-combo-box-chip.has-help-icon');
+      expect(chip).to.not.be.null;
+
+      // Note: 'test-label' is the mock label used in tests
+      const helpText = `Selects traces without test-label traceparam.`;
+      expect(chip!.getAttribute('title')).to.equal(helpText);
     });
   });
 });

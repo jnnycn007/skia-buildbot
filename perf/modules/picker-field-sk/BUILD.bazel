@@ -11,10 +11,7 @@ sk_element(
         "//perf/modules/themes:themes_sass_lib",
     ],
     sass_srcs = ["picker-field-sk.scss"],
-    sk_element_deps = [
-        "//elements-sk/modules/checkbox-sk",
-        "//elements-sk/modules/icons/help-icon-sk",
-    ],
+    sk_element_deps = ["//elements-sk/modules/checkbox-sk"],
     ts_deps = [
         "//:node_modules/@vaadin/multi-select-combo-box",
         "//:node_modules/lit",
