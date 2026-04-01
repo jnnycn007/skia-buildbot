@@ -848,7 +848,7 @@ func (s *SQLTraceStore) readTracesByChannelForCommitRange(ctx context.Context, t
 
 	commits, err := s.commitSliceFromCommitNumberRange(ctx, beginCommit, endCommit)
 	if err != nil {
-		return nil, nil, nil, skerr.Fmt("Cannot count commit within the commit range, [%d, %d]", beginCommit, endCommit)
+		return nil, nil, nil, skerr.Wrapf(err, "Cannot count commit within the commit range, [%d, %d]", beginCommit, endCommit)
 	}
 	if len(commits) == 0 {
 		// Proceeding without commits causes a panic because trace arrays are allocated
