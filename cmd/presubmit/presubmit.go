@@ -137,6 +137,8 @@ func main() {
 		// Give warnings for non-ASCII characters on upload but not commit, since they may
 		// be intentional.
 		trackErrors(checkNonASCII(ctx, changedFiles))
+
+		trackErrors(runAutoreview(ctx, branchBaseCommit))
 	}
 
 	if anyErrors {
@@ -850,6 +852,33 @@ func runGoVet(ctx context.Context, files []fileWithChanges, branchBaseCommit str
 		return false
 	}
 
+	return true
+}
+
+// runAutoreview runs the AI-powered code review tool. It returns false if autoreview fails or finds a blocker.
+func runAutoreview(ctx context.Context, branchBaseCommit string) bool {
+	value := os.Getenv("AI_PRESUBMIT_CHECK")
+	if isTrue, err := strconv.ParseBool(value); err != nil || !isTrue {
+		log(ctx, "Skip AI review.\n")
+		return true
+	}
+
+	args := []string{
+		"run",
+		"--config=mayberemote",
+		"//cmd/autoreview",
+		"--",
+		"--base-commit=" + branchBaseCommit,
+		"--show-lgtm=false",
+		"--show-warnings=false",
+	}
+	cmd := exec.CommandContext(ctx, "bazelisk", args...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log(ctx, string(output))
+		log(ctx, "autoreview failed or found a blocker!\n")
+		return false
+	}
 	return true
 }
 

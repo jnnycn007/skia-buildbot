@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -729,4 +731,67 @@ func captureLogs() (context.Context, *bytes.Buffer) {
 	var buf bytes.Buffer
 	ctx := withOutputWriter(context.Background(), &buf)
 	return ctx, &buf
+}
+
+func TestRunAutoreview(t *testing.T) {
+	t.Run("AI_PRESUBMIT_CHECK is not set", func(t *testing.T) {
+		ctx, logs := captureLogs()
+		ok := runAutoreview(ctx, "base-commit")
+		assert.True(t, ok)
+		assert.Equal(t, "Skip AI review.\n", logs.String())
+	})
+
+	t.Run("Autoreview successeds", func(t *testing.T) {
+		t.Setenv("AI_PRESUBMIT_CHECK", "true")
+
+		tempDir := t.TempDir()
+		mockBazelisk := filepath.Join(tempDir, "bazelisk")
+		// The mock script writes its arguments to a file in the same directory.
+		script := "#!/bin/sh\necho \"$@\" > \"$(dirname \"$0\")/args.txt\"\nexit 0\n"
+		err := os.WriteFile(mockBazelisk, []byte(script), 0755)
+		assert.NoError(t, err)
+
+		oldPath := os.Getenv("PATH")
+		t.Setenv("PATH", tempDir+string(os.PathListSeparator)+oldPath)
+
+		ctx, _ := captureLogs()
+		ok := runAutoreview(ctx, "base-commit")
+		assert.True(t, ok)
+
+		// Verify that the arguments were correct.
+		argsFile := filepath.Join(tempDir, "args.txt")
+		argsData, err := os.ReadFile(argsFile)
+		assert.NoError(t, err)
+		assert.Equal(
+			t,
+			"run --config=mayberemote //cmd/autoreview -- --base-commit=base-commit "+
+				"--show-lgtm=false --show-warnings=false\n",
+			string(argsData),
+		)
+	})
+
+	t.Run("Autoreview fails", func(t *testing.T) {
+		t.Setenv("AI_PRESUBMIT_CHECK", "true")
+
+		tempDir := t.TempDir()
+		mockBazelisk := filepath.Join(tempDir, "bazelisk")
+		err := os.WriteFile(
+			mockBazelisk,
+			[]byte("#!/bin/sh\necho 'some error'\nexit 1\n"),
+			0755,
+		)
+		assert.NoError(t, err)
+
+		oldPath := os.Getenv("PATH")
+		t.Setenv("PATH", tempDir+string(os.PathListSeparator)+oldPath)
+
+		ctx, logs := captureLogs()
+		ok := runAutoreview(ctx, "base-commit")
+		assert.False(t, ok)
+		assert.Equal(
+			t,
+			"some error\nautoreview failed or found a blocker!\n",
+			logs.String(),
+		)
+	})
 }
