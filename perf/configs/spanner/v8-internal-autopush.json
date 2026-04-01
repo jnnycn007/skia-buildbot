@@ -55,7 +55,8 @@
     "issue_tracker_api_key_secret_name": "perf-issue-tracker-apikey"
   },
   "anomaly_config": {
-    "use_anomaly_localization": true
+    "use_anomaly_localization": true,
+    "process_alert_configs_worker_count": 10
   },
   "query_config": {
     "include_params": [
