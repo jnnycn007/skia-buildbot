@@ -34,7 +34,7 @@ import (
 
 const (
 	defaultAnomaliesRequestTimeout = time.Second * 30
-	regressionsPageSize            = 50
+	regressionsPageSize            = 500
 )
 
 type anomaliesApi struct {
