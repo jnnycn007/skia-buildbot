@@ -277,6 +277,7 @@ def skia_app_container(
         name = "load_" + name,
         image = image_name,
         repo_tags = ["gcr.io/" + repository + ":latest"],
+        visibility = image_visibility,
     )
 
     oci_push(
@@ -284,4 +285,5 @@ def skia_app_container(
         image = image_name,
         repository = "gcr.io/" + repository,
         remote_tags = ["latest"],
+        visibility = image_visibility,
     )

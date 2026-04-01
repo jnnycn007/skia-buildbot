@@ -1,0 +1,23 @@
+version: 1
+sources:
+  - channel: bullseye main
+    url: https://snapshot-cloudflare.debian.org/archive/debian/20260201T022025Z
+archs:
+  - amd64
+packages:
+  - build-essential
+  - clang
+  - curl
+  - ffmpeg
+  - file
+  - git
+  - libfontconfig-dev
+  - libfontconfig1
+  - libgl1-mesa-dev
+  - libglu1-mesa
+  - libglu1-mesa-dev
+  - nano
+  - procps
+  - python3
+  - xvfb
+  - ninja-build

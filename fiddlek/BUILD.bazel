@@ -1,8 +1,5 @@
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("//bazel:skia_app_container.bzl", "skia_app_container")
-
-exports_files([
-    "fiddler_restart.sh",
-])
 
 skia_app_container(
     name = "fiddle_container",
@@ -49,13 +46,34 @@ skia_app_container(
     repository = "skia-public/fiddle",
 )
 
+pkg_tar(
+    name = "swiftshader_include_tar",
+    srcs = ["@swiftshader//:all_files"],
+    package_dir = "/usr/local",
+    strip_prefix = "external/+git_repository+swiftshader",
+)
+
+pkg_tar(
+    name = "swiftshader_libs_tar",
+    srcs = [
+        "@swiftshader_libegl//file",
+        "@swiftshader_libglesv2//file",
+    ],
+    package_dir = "/usr/local/lib",
+)
+
 skia_app_container(
     name = "fiddler_container-base",
-    base_image = "@fiddler-build-skia",
+    base_image = "@debian11",
+    create_skia_user = True,
     dirs = {
         "/usr/local/bin": [
             [
                 "//fiddlek/go/fiddler:fiddler",
+                "0755",
+            ],
+            [
+                "//fiddlek/go/fiddle_secwrap:fiddle_secwrap",
                 "0755",
             ],
         ],
@@ -76,5 +94,11 @@ skia_app_container(
         ],
     },
     entrypoint = "/usr/local/bin/fiddler",
+    extra_tars = [
+        "@fiddler-base-apt-install//:flat",
+        ":swiftshader_include_tar",
+        ":swiftshader_libs_tar",
+    ],
     repository = "skia-public/fiddler-base",
+    visibility = ["//visibility:public"],
 )

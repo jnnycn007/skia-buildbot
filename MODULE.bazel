@@ -45,6 +45,21 @@ http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "ht
 
 http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 
+git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+
+git_repository(
+    name = "swiftshader",
+    build_file_content = """
+filegroup(
+    name = "all_files",
+    srcs = glob(["include/**/*"]),
+    visibility = ["//visibility:public"]
+)
+""",
+    commit = "3c4bdf66d81d01a215b88bfea3ac4cc8ca507779",
+    remote = "https://swiftshader.googlesource.com/SwiftShader",
+)
+
 gcs_mirror = use_extension("//bazel:gcs_mirror.bzl", "gcs_mirror")
 
 ####################################################################################################
@@ -337,6 +352,13 @@ apt.install(
 use_repo(apt, "base-cipd-apt-install")
 
 apt.install(
+    name = "fiddler-base-apt-install",
+    lock = "@@//fiddlek:fiddler-base.lock.json",
+    manifest = "//fiddlek:fiddler-base.yaml",
+)
+use_repo(apt, "fiddler-base-apt-install")
+
+apt.install(
     name = "cd-apt-install",
     lock = "@@//cd:cd.lock.json",
     manifest = "//cd:cd.yaml",
@@ -437,6 +459,14 @@ oci.pull(
     platforms = ["linux/amd64"],
 )
 use_repo(oci, "debian-testing-slim")
+
+oci.pull(
+    name = "debian11",
+    digest = "sha256:943d97fa707482c24e1bc2bdd0b0adc45f75eb345c61dc4272c4157f9a2cc9cc",
+    image = "debian:11",
+    platforms = ["linux/amd64"],
+)
+use_repo(oci, "debian11")
 
 # Pulls the gcr.io/skia-public/docsyserver-base container, needed by docsyserver.
 oci.pull(
@@ -939,6 +969,24 @@ pkg_tar(
     url = "https://github.com/temporalio/temporal/archive/refs/tags/v1.23.1.tar.gz",
 )
 use_repo(gcs_mirror, "com_github_temporal")
+
+gcs_mirror.http_file(
+    name = "swiftshader_libglesv2",
+    downloaded_file_path = "libGLESv2.so",
+    no_extension = True,
+    sha256 = "ad44026cb104b3283c738e7678b3dad5c834f551f47d855200ab3332e83e34a9",
+    url = "https://cdn.skia.org/swiftshader/libGLESv2.so",
+)
+use_repo(gcs_mirror, "swiftshader_libglesv2")
+
+gcs_mirror.http_file(
+    name = "swiftshader_libegl",
+    downloaded_file_path = "libEGL.so",
+    no_extension = True,
+    sha256 = "5e0a2b662e532c53a1bd87397704507dfa1d31a53ab9d8ae37de1b9a01498ea6",
+    url = "https://cdn.skia.org/swiftshader/libEGL.so",
+)
+use_repo(gcs_mirror, "swiftshader_libegl")
 
 #########
 # docsy #

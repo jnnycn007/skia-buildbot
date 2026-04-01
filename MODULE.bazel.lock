@@ -446,7 +446,7 @@
     "//bazel:gcs_mirror.bzl%gcs_mirror": {
       "general": {
         "bzlTransitiveDigest": "jdW+wRYbJnW1LhtYTEmLeaqbAiWx9f3njqO9DpL7HVM=",
-        "usagesDigest": "XNSTYYjdko9d/Dxw0qnyx/g1QnlrjBPO4Gd6KltngxM=",
+        "usagesDigest": "qeaKu+PRi1MWHLCqr43ovSWspFP6VCxBkov+L7NBZ4g=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -520,6 +520,30 @@
               "urls": [
                 "https://cdn.skia.org/bazel/1206e8a79b41cb22524f73afa4f4ee648478f46ef6990d78e7cc953665a1db89",
                 "https://github.com/bazelbuild/bazel-toolchains/releases/download/v5.1.2/rbe_configs_gen_linux_amd64"
+              ]
+            }
+          },
+          "swiftshader_libglesv2": {
+            "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
+            "attributes": {
+              "downloaded_file_path": "libGLESv2.so",
+              "executable": false,
+              "sha256": "ad44026cb104b3283c738e7678b3dad5c834f551f47d855200ab3332e83e34a9",
+              "urls": [
+                "https://cdn.skia.org/bazel/ad44026cb104b3283c738e7678b3dad5c834f551f47d855200ab3332e83e34a9",
+                "https://cdn.skia.org/swiftshader/libGLESv2.so"
+              ]
+            }
+          },
+          "swiftshader_libegl": {
+            "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
+            "attributes": {
+              "downloaded_file_path": "libEGL.so",
+              "executable": false,
+              "sha256": "5e0a2b662e532c53a1bd87397704507dfa1d31a53ab9d8ae37de1b9a01498ea6",
+              "urls": [
+                "https://cdn.skia.org/bazel/5e0a2b662e532c53a1bd87397704507dfa1d31a53ab9d8ae37de1b9a01498ea6",
+                "https://cdn.skia.org/swiftshader/libEGL.so"
               ]
             }
           }
@@ -1751,7 +1775,7 @@
     "@@rules_oci+//oci:extensions.bzl%oci": {
       "general": {
         "bzlTransitiveDigest": "48mBsGmRAc9avLzUVYibjYzgMDj5MPLQjRGJUm1fvjA=",
-        "usagesDigest": "bGJhltYgOGFMKzKy1rLFjsekPh0LljHbEbYHxFOHMzc=",
+        "usagesDigest": "H6qRIaoQpw20BworWUCGCNm7bvWcCMc7gaM0rWUur2w=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -1917,6 +1941,35 @@
                 "@@platforms//cpu:x86_64": "@debian-testing-slim_linux_amd64"
               },
               "bzlmod_repository": "debian-testing-slim",
+              "reproducible": true
+            }
+          },
+          "debian11_linux_amd64": {
+            "repoRuleId": "@@rules_oci+//oci/private:pull.bzl%oci_pull",
+            "attributes": {
+              "www_authenticate_challenges": {},
+              "scheme": "https",
+              "registry": "index.docker.io",
+              "repository": "library/debian",
+              "identifier": "sha256:943d97fa707482c24e1bc2bdd0b0adc45f75eb345c61dc4272c4157f9a2cc9cc",
+              "platform": "linux/amd64",
+              "target_name": "debian11_linux_amd64",
+              "bazel_tags": []
+            }
+          },
+          "debian11": {
+            "repoRuleId": "@@rules_oci+//oci/private:pull.bzl%oci_alias",
+            "attributes": {
+              "target_name": "debian11",
+              "www_authenticate_challenges": {},
+              "scheme": "https",
+              "registry": "index.docker.io",
+              "repository": "library/debian",
+              "identifier": "sha256:943d97fa707482c24e1bc2bdd0b0adc45f75eb345c61dc4272c4157f9a2cc9cc",
+              "platforms": {
+                "@@platforms//cpu:x86_64": "@debian11_linux_amd64"
+              },
+              "bzlmod_repository": "debian11",
               "reproducible": true
             }
           },
@@ -2290,6 +2343,8 @@
             "alpine",
             "debian-testing-slim",
             "debian-testing-slim_linux_amd64",
+            "debian11",
+            "debian11_linux_amd64",
             "docsyserver-base",
             "envoy_alpine",
             "node_alpine",
