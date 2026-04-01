@@ -32,11 +32,17 @@ export class GraphTitleSk extends LitElement {
   @property({ attribute: false })
   titleEntries: Map<string, string> | null = null;
 
+  @property({ attribute: false })
+  rawTitleEntries: Map<string, string> | null = null;
+
   @property({ type: Number })
   numTraces: number = 0;
 
   @state()
   private showShortTitle = true;
+
+  @state()
+  private showRawTitle = false;
 
   createRenderRoot() {
     return this;
@@ -45,33 +51,45 @@ export class GraphTitleSk extends LitElement {
   /**
    * Public function to set title entries and render.
    */
-  set(titleEntries: Map<string, string> | null, numTraces: number): void {
+  set(
+    titleEntries: Map<string, string> | null,
+    numTraces: number,
+    rawTitleEntries: Map<string, string> | null = null
+  ): void {
     this.titleEntries = titleEntries;
     this.numTraces = numTraces;
+    this.rawTitleEntries = rawTitleEntries;
+  }
+
+  private toggleRawTitle() {
+    this.showRawTitle = !this.showRawTitle;
   }
 
   /**
-   * Generates the HTML for this.titleEntries. Empty keys or values
+   * Generates the HTML for this.titleEntries (or rawTitleEntries). Empty keys or values
    * will result in the entry being ignored. Values longer than
    * 25 characters are truncated to avoid crowding.
    *
    * @returns - a list of HTML-formatted titleEntries.
    */
   private getTitleHtml(): TemplateResult[] {
-    if (this.titleEntries === null || this.numTraces === 0) {
+    const activeEntries =
+      this.showRawTitle && this.rawTitleEntries ? this.rawTitleEntries : this.titleEntries;
+
+    if (activeEntries === null || this.numTraces === 0) {
       return [];
     }
 
-    if (this.titleEntries.size === 0 && this.numTraces > 0) {
+    if (activeEntries.size === 0 && this.numTraces > 0) {
       return [html`<h1>Multi-trace Graph (${this.numTraces} traces)</h1>`];
     }
 
     const elems: TemplateResult[] = [];
 
-    const showShort = this.showShortTitle && this.titleEntries.size > MAX_PARAMS;
+    const showShort = this.showShortTitle && activeEntries.size > MAX_PARAMS;
 
     let index = 0;
-    this.titleEntries.forEach((value, key) => {
+    activeEntries.forEach((value, key) => {
       if (showShort && index >= MAX_PARAMS) {
         return;
       }
@@ -90,7 +108,12 @@ export class GraphTitleSk extends LitElement {
 
     if (showShort) {
       const elem = html`
-        <md-text-button class="showMore" @click=${this.showFullTitle}>
+        <md-text-button
+          class="showMore"
+          @click=${(e: Event) => {
+            e.stopPropagation();
+            this.showFullTitle();
+          }}>
           Show Full Title
         </md-text-button>
       `;
@@ -108,6 +131,15 @@ export class GraphTitleSk extends LitElement {
   }
 
   render() {
-    return html` <div id="container" ?hidden=${this.numTraces === 0}>${this.getTitleHtml()}</div> `;
+    const canToggle = this.rawTitleEntries !== null && this.rawTitleEntries !== this.titleEntries;
+    return html`
+      <div
+        id="container"
+        ?hidden=${this.numTraces === 0}
+        @click=${canToggle ? this.toggleRawTitle : undefined}
+        style=${canToggle ? 'cursor: pointer;' : ''}>
+        ${this.getTitleHtml()}
+      </div>
+    `;
   }
 }

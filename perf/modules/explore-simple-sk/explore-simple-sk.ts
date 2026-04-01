@@ -3480,45 +3480,51 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
       return;
     }
 
+    const paramset = this.dfRepo.value?.dataframe.paramset;
+    if (paramset === null || paramset === undefined) {
+      return;
+    }
+    const allParams = Object.keys(paramset).sort();
+
     // If the params are not included in the json config key "include_params",
     // we pull the paramset from the dataframe response.
     // https://skia.googlesource.com/buildbot/+/refs/heads/main/perf/configs/v8-perf.json
     let params = this._defaults?.include_params;
     if (params === null || params === undefined) {
-      const paramset = this.dfRepo.value?.dataframe.paramset;
-      if (paramset === null || paramset === undefined) {
-        return;
-      }
-      params = Object.keys(paramset).sort();
+      params = allParams;
     }
     const numTraces = Object.keys(traceset).length;
-    const titleEntries = new Map();
 
-    // For each param, we found out the unique values in each trace. If there's only 1 unique value,
-    // that means that they all share a value in common and we can add this to the title.
-    params!.forEach((param) => {
-      const uniqueValues = new Set(
-        Object.keys(traceset).map((traceId) => {
-          const val = fromKey(traceId)[param];
-          // If the value is missing or empty, map it to DEFAULT_OPTION_LABEL
-          // so it is accounted for.
-          return val === undefined || val === '' ? DEFAULT_OPTION_LABEL : val;
-        })
-      );
-      let value = uniqueValues.values().next().value;
-      if (uniqueValues.size > 1) {
-        value = 'Various';
-      }
+    const computeEntries = (paramList: string[]) => {
+      const entries = new Map();
+      paramList.forEach((param) => {
+        const uniqueValues = new Set(
+          Object.keys(traceset).map((traceId) => {
+            const val = fromKey(traceId)[param];
+            // If the value is missing or empty, map it to DEFAULT_OPTION_LABEL
+            // so it is accounted for.
+            return val === undefined || val === '' ? DEFAULT_OPTION_LABEL : val;
+          })
+        );
+        let value = uniqueValues.values().next().value;
+        if (uniqueValues.size > 1) {
+          value = 'Various';
+        }
 
-      if (value !== undefined) {
-        titleEntries.set(param, value);
-      }
-    });
+        if (value !== undefined) {
+          entries.set(param, value);
+        }
+      });
+      return entries;
+    };
+
+    const titleEntries = computeEntries(params!);
+    const rawTitleEntries = computeEntries(allParams);
 
     if (titleEntries.size >= 3) {
-      this.graphTitle!.set(titleEntries, numTraces);
+      this.graphTitle!.set(titleEntries, numTraces, rawTitleEntries);
     } else {
-      this.graphTitle!.set(new Map(), numTraces);
+      this.graphTitle!.set(new Map(), numTraces, new Map());
     }
   }
 

@@ -109,4 +109,54 @@ describe('graph-title-sk', () => {
     assert.equal(element.querySelectorAll('.column').length, 8);
     assert.isNotNull(element.querySelector('md-text-button.showMore'));
   });
+
+  it('toggles to raw title entries when container is clicked', async () => {
+    const titleEntries = new Map([['benchmark', 'Speedometer2']]);
+    const rawTitleEntries = new Map([
+      ['benchmark', 'Speedometer2'],
+      ['bot', 'linux-perf'],
+    ]);
+    element.set(titleEntries, 1, rawTitleEntries);
+    await element.updateComplete;
+
+    // Initially shows titleEntries
+    let params = element.querySelectorAll('.param');
+    assert.equal(params.length, 1);
+    assert.equal(params[0].textContent, 'benchmark');
+
+    // Click to toggle
+    const container = element.querySelector<HTMLElement>('#container')!;
+    container.click();
+    await element.updateComplete;
+
+    // Now shows rawTitleEntries
+    params = element.querySelectorAll('.param');
+    assert.equal(params.length, 2);
+    assert.equal(params[0].textContent, 'benchmark');
+    assert.equal(params[1].textContent, 'bot');
+
+    // Click to toggle back
+    container.click();
+    await element.updateComplete;
+
+    params = element.querySelectorAll('.param');
+    assert.equal(params.length, 1);
+  });
+
+  it('does not toggle when rawTitleEntries is not provided or is the same', async () => {
+    const titleEntries = new Map([['benchmark', 'Speedometer2']]);
+    element.set(titleEntries, 1);
+    await element.updateComplete;
+
+    const container = element.querySelector<HTMLElement>('#container')!;
+    const style = container.getAttribute('style') || '';
+    assert.isFalse(style.includes('cursor: pointer'));
+
+    // Clicking should do nothing
+    container.click();
+    await element.updateComplete;
+
+    const params = element.querySelectorAll('.param');
+    assert.equal(params.length, 1);
+  });
 });
