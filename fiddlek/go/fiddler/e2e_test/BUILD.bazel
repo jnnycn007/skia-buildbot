@@ -1,0 +1,49 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+go_library(
+    name = "e2e_test_lib",
+    srcs = ["main.go"],
+    embedsrcs = [
+        "skia_mock/VERSION",
+        "skia_mock/build.ninja",
+        "skia_mock/draw.cpp",
+        "skia_mock/main.cpp",
+        "test_cases/fail_execve.cpp",
+        "test_cases/fail_link.cpp",
+        "test_cases/fail_mknod.cpp",
+        "test_cases/fail_rename.cpp",
+        "test_cases/fail_socket.cpp",
+        "test_cases/fail_readlink.cpp",
+        "test_cases/success.cpp",
+        "test_cases/fail_symlink.cpp",
+    ],
+    importpath = "go.skia.org/infra/fiddlek/go/fiddler/e2e_test",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//fiddlek/go/types",
+        "//go/exec",
+        "//go/httputils",
+        "//go/skerr",
+        "//go/sklog",
+    ],
+)
+
+go_binary(
+    name = "e2e_test",
+    embed = [":e2e_test_lib"],
+    visibility = ["//visibility:public"],
+)
+
+sh_test(
+    name = "fiddler_e2e_test",
+    srcs = [":e2e_test_wrapper.sh"],
+    data = [
+        ":e2e_test",
+        "//fiddlek:load_fiddler_container-base",
+    ],
+    tags = [
+        "exclusive",
+        "requires-docker",
+    ],
+)

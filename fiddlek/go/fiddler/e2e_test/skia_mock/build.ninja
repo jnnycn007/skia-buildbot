@@ -1,0 +1,4 @@
+rule cc
+  command = clang /tmp/skia_mock/tools/fiddle/main.cpp /tmp/skia_mock/tools/fiddle/draw.cpp -lstdc++ -o /tmp/skia_mock/out/Static/fiddle
+
+build fiddle: cc
