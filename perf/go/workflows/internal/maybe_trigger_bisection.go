@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
@@ -392,9 +391,7 @@ func createLegacyBisectJob(ctx workflow.Context,
 		Story:          story,
 		Chart:          chart,
 		Statistic:      stat,
-		// TODO(b/495782839): Remove this workaround by providing a test path as a
-		// paramset parameter.
-		TestPath: getAnomalyTestPath(anomaly),
+		TestPath:       anomaly.Paramset["test_path"],
 	}
 	var resp *legacyPinpoint.CreatePinpointResponse
 	err := workflow.ExecuteActivity(ctx, agsaToken().CreateLegacyBisectJob, &req).Get(ctx, &resp)
@@ -402,18 +399,6 @@ func createLegacyBisectJob(ctx workflow.Context,
 		return "", skerr.Wrap(err)
 	}
 	return resp.JobID, nil
-}
-
-func getAnomalyTestPath(anomaly *ag_pb.Anomaly) string {
-	if testPath, ok := anomaly.Paramset["test_path"]; ok && testPath != "" {
-		return testPath
-	}
-
-	bot := anomaly.Paramset["bot"]
-	benchmark := anomaly.Paramset["benchmark"]
-	measurement := anomaly.Paramset["measurement"]
-	story := anomaly.Paramset["story"]
-	return fmt.Sprintf("ChromiumPerf/%s/%s/%s/%s", bot, benchmark, measurement, story)
 }
 
 func updateAnomalyGroup(

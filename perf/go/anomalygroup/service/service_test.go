@@ -268,6 +268,11 @@ func TestFindTopAnomalies_TopOneOfTwo(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(resp.Anomalies))
 	assert.Equal(t, "sub11_sub22_sub33", resp.Anomalies[0].Paramset["story"])
+	assert.Equal(
+		t,
+		"ChromiumPerf/bot/bm/t/sub11/sub11_sub22/sub11_sub22_sub33",
+		resp.Anomalies[0].Paramset["test_path"],
+	)
 }
 
 func TestFindTopAnomalies_NoSubTest3(t *testing.T) {

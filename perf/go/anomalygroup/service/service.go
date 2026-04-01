@@ -230,7 +230,7 @@ func TopAnomaliesMedianCmp(anomalies []*reg.Regression, limit int64) ([]*ag.Anom
 		}
 
 		// find the last available parameters of the subtest_x series.
-		subtest_keys := []string{"subtest_3", "subtest_2", "subtest_1"}
+		subtest_keys := []string{"subtest_4", "subtest_3", "subtest_2", "subtest_1"}
 		story := []string{}
 		for _, key := range subtest_keys {
 			ok := false
@@ -246,6 +246,7 @@ func TopAnomaliesMedianCmp(anomalies []*reg.Regression, limit int64) ([]*ag.Anom
 			"story":       story[0],
 			"measurement": paramset["test"][0],
 			"stat":        paramset["stat"][0],
+			"test_path":   composeTestPath(paramset),
 		}
 
 		top_regressions = append(top_regressions, &ag.Anomaly{
@@ -259,6 +260,22 @@ func TopAnomaliesMedianCmp(anomalies []*reg.Regression, limit int64) ([]*ag.Anom
 	}
 
 	return top_regressions, nil
+}
+
+func composeTestPath(paramset paramtools.ReadOnlyParamSet) string {
+	parts := []string{
+		"ChromiumPerf",
+		paramset["bot"][0],
+		paramset["benchmark"][0],
+		paramset["test"][0],
+	}
+	for i := 1; i <= 4; i++ {
+		key := fmt.Sprintf("subtest_%d", i)
+		if val, ok := paramset[key]; ok && len(val) > 0 {
+			parts = append(parts, val[0])
+		}
+	}
+	return strings.Join(parts, "/")
 }
 
 // Given the group id, return the issues correlated to the group via the detected culprits.

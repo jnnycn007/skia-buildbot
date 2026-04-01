@@ -518,42 +518,6 @@ func TestMaybeTriggerBisection_GroupActionBisect_HappyPath_StoryNameUpdate(t *te
 	env.AssertExpectations(t)
 }
 
-func TestGetAnomalyTestPath(t *testing.T) {
-	testCases := []struct {
-		name     string
-		anomaly  *anomalygroup_proto.Anomaly
-		expected string
-	}{
-		{
-			name: "With test_path in paramset",
-			anomaly: &anomalygroup_proto.Anomaly{
-				Paramset: map[string]string{
-					"test_path": "ChromiumPerf/bot/benchmark/meas/story",
-				},
-			},
-			expected: "ChromiumPerf/bot/benchmark/meas/story",
-		},
-		{
-			name: "Constructed from components",
-			anomaly: &anomalygroup_proto.Anomaly{
-				Paramset: map[string]string{
-					"bot":         "my-bot",
-					"benchmark":   "my-bench",
-					"measurement": "my-meas",
-					"story":       "my-story",
-				},
-			},
-			expected: "ChromiumPerf/my-bot/my-bench/my-meas/my-story",
-		},
-	}
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			actual := getAnomalyTestPath(tc.anomaly)
-			require.Equal(t, tc.expected, actual)
-		})
-	}
-}
-
 func TestCreateLegacyBisectJob(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
@@ -569,6 +533,7 @@ func TestCreateLegacyBisectJob(t *testing.T) {
 			"story":       "speedometer",
 			"measurement": "runsperminute",
 			"stat":        "sum",
+			"test_path":   "ChromiumPerf/linux-perf/speedometer/runsperminute/speedometer",
 		},
 		ImprovementDirection: "UP",
 	}
