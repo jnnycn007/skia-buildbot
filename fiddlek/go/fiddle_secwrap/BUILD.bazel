@@ -1,0 +1,61 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "fiddle_secwrap_lib",
+    srcs = ["main.go"],
+    importpath = "go.skia.org/infra/fiddlek/go/fiddle_secwrap",
+    visibility = ["//visibility:private"],
+    deps = select({
+        "@rules_go//go/platform:aix": [
+            "//go/skerr",
+            "@org_golang_x_sys//unix",
+        ],
+        "@rules_go//go/platform:android": [
+            "//go/skerr",
+            "@org_golang_x_sys//unix",
+        ],
+        "@rules_go//go/platform:darwin": [
+            "//go/skerr",
+            "@org_golang_x_sys//unix",
+        ],
+        "@rules_go//go/platform:dragonfly": [
+            "//go/skerr",
+            "@org_golang_x_sys//unix",
+        ],
+        "@rules_go//go/platform:freebsd": [
+            "//go/skerr",
+            "@org_golang_x_sys//unix",
+        ],
+        "@rules_go//go/platform:illumos": [
+            "//go/skerr",
+            "@org_golang_x_sys//unix",
+        ],
+        "@rules_go//go/platform:ios": [
+            "//go/skerr",
+            "@org_golang_x_sys//unix",
+        ],
+        "@rules_go//go/platform:linux": [
+            "//go/skerr",
+            "@org_golang_x_sys//unix",
+        ],
+        "@rules_go//go/platform:netbsd": [
+            "//go/skerr",
+            "@org_golang_x_sys//unix",
+        ],
+        "@rules_go//go/platform:openbsd": [
+            "//go/skerr",
+            "@org_golang_x_sys//unix",
+        ],
+        "@rules_go//go/platform:solaris": [
+            "//go/skerr",
+            "@org_golang_x_sys//unix",
+        ],
+        "//conditions:default": [],
+    }),
+)
+
+go_binary(
+    name = "fiddle_secwrap",
+    embed = [":fiddle_secwrap_lib"],
+    visibility = ["//visibility:public"],
+)

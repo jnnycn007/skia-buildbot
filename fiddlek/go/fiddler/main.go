@@ -36,8 +36,6 @@ import (
 const (
 	// FPS is the Frames Per Second when generating an animation.
 	FPS = 60
-
-	secwrapPath = "/usr/local/bin/fiddle_secwrap"
 )
 
 // flags
@@ -167,9 +165,10 @@ func runHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	setState(types.COMPILING)
-	ninjaPath := filepath.Join(*fiddleRoot, "depot_tools", "ninja")
+	ninjaPath := "/usr/bin/ninja"
 	// Build just the fiddle binary
-	buildResults, err := build(ctx, *checkout, secwrapPath, ninjaPath, "-C", "out/Static", "fiddle")
+	args := []string{"fiddle_secwrap", "--build", ninjaPath, *checkout, ninjaPath, "-C", "out/Static", "fiddle"}
+	buildResults, err := build(ctx, *checkout, args...)
 	buildLogs := strings.Split(buildResults, "\n")
 	sklog.Info("BuildLog")
 	for _, s := range buildLogs {
@@ -345,12 +344,14 @@ func oneStep(ctx context.Context, checkout string, res *types.Result, frame floa
 	ctx, span := trace.StartSpan(ctx, "oneStep")
 	defer span.End()
 
-	args := []string{path.Join(checkout, "out", "Static", "fiddle")}
-	args = append(args, "--duration", fmt.Sprintf("%f", duration), "--frame", fmt.Sprintf("%f", frame))
+	fiddlePath := path.Join(checkout, "out", "Static", "fiddle")
+	args := []string{
+		fiddlePath, checkout, fiddlePath, "--duration", fmt.Sprintf("%f", duration), "--frame", fmt.Sprintf("%f", frame),
+	}
 	stderr := bytes.Buffer{}
 	stdout := bytes.Buffer{}
 	runCmd := &exec.Command{
-		Name:        secwrapPath,
+		Name:        "fiddle_secwrap",
 		Args:        args,
 		Dir:         *fiddleRoot,
 		InheritPath: true,
