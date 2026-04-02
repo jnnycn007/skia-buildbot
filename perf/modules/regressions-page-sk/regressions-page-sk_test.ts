@@ -476,7 +476,7 @@ describe('regressions-page-sk', () => {
 
       // Ensure some anomalies are loaded
       assert.equal(element.cpAnomalies.length, 1);
-      assert.equal(element.state.useSkia, false);
+      assert.equal(element.useSkia, false);
 
       // Change window.perf setting and dispatch event
       window.perf.fetch_anomalies_from_sql = true;
@@ -489,7 +489,7 @@ describe('regressions-page-sk', () => {
       await fetchMock.flush(true);
       await element.updateComplete;
 
-      assert.equal(element.state.useSkia, true);
+      assert.equal(element.useSkia, true);
       const url = '/_/anomalies/anomaly_list?sheriff=Sheriff%20Config%202';
       assert.equal(fetchMock.lastUrl(), url);
 

@@ -30,7 +30,6 @@ interface State {
   selectedSubscription: string;
   showTriaged: boolean;
   showImprovements: boolean;
-  useSkia: boolean;
 }
 
 const SHERIFF_LIST_ENDPOINT = '/_/anomalies/sheriff_list';
@@ -53,11 +52,13 @@ export class RegressionsPageSk extends LitElement {
     selectedSubscription: '',
     showTriaged: false,
     showImprovements: false,
-    useSkia: false,
   };
 
   @state()
   subscriptionList: string[] = [];
+
+  @state()
+  useSkia: boolean = false;
 
   @state()
   cpAnomalies: Anomaly[] = [];
@@ -91,7 +92,7 @@ export class RegressionsPageSk extends LitElement {
 
     // Initial fetch from URL
     this._popstate();
-    this.state.useSkia = (window as any).perf.fetch_anomalies_from_sql;
+    this.useSkia = (window as any).perf.fetch_anomalies_from_sql;
   }
 
   disconnectedCallback(): void {
@@ -101,7 +102,7 @@ export class RegressionsPageSk extends LitElement {
   }
 
   private _onAnomaliesSourceChanged = async (_e: Event) => {
-    this.state.useSkia = (window as any).perf.fetch_anomalies_from_sql;
+    this.useSkia = (window as any).perf.fetch_anomalies_from_sql;
     await this.init();
     if (this.state.selectedSubscription !== '') {
       this.cpAnomalies = [];
@@ -115,7 +116,6 @@ export class RegressionsPageSk extends LitElement {
       selectedSubscription: '',
       showTriaged: false,
       showImprovements: false,
-      useSkia: false,
     };
 
     const delta = toObject(
@@ -175,7 +175,7 @@ export class RegressionsPageSk extends LitElement {
 
     // This is used only when fetching regressions from SQL, fetching from
     // chromeperf does not utilize this param.
-    if (this.state.useSkia && this.cpAnomalies.length > 0) {
+    if (this.useSkia && this.cpAnomalies.length > 0) {
       queryMap.set('pagination_offset', this.cpAnomalies.length);
     }
 
