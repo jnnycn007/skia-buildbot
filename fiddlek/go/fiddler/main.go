@@ -53,6 +53,7 @@ var (
 	mutex        sync.Mutex
 	currentState types.State = types.IDLE
 	version      string
+	srv          *http.Server
 )
 
 func setStateStart() error {
@@ -117,7 +118,19 @@ func runHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Currently running a fiddle.", http.StatusTooManyRequests)
 		return
 	}
-	defer setState(types.IDLE)
+
+	// Gracefully shut down the server after handling a single request. We never
+	// set the state back to IDLE, so we don't need to worry about a second run
+	// starting after the first finishes.
+	defer func() {
+		go func() {
+			// Use a short timeout. We shouldn't be waiting for active runs.
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			util.LogErr(srv.Shutdown(ctx))
+		}()
+	}()
+
 	var request types.FiddleContext
 
 	res := &types.Result{
@@ -403,12 +416,14 @@ func main() {
 	h = httputils.Healthz(r)
 	sklog.Info("Ready to serve.")
 
-	srv := &http.Server{
+	srv = &http.Server{
 		Handler:      h,
 		Addr:         *port,
 		WriteTimeout: 120 * time.Second,
 		ReadTimeout:  120 * time.Second,
 	}
-
-	sklog.Fatal(srv.ListenAndServe())
+	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+		sklog.Fatal(err)
+	}
+	sklog.Infof("Terminated successfully.")
 }
