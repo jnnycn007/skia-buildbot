@@ -576,3 +576,60 @@ func TestCreateLegacyBisectJob(t *testing.T) {
 	require.Equal(t, "legacyBisectionId", actualJobId)
 	env.AssertExpectations(t)
 }
+
+func TestCreateLegacyBisectJob_EmptyJobID(t *testing.T) {
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+	agsa := &AnomalyGroupServiceActivity{insecure_conn: true}
+	env.RegisterActivity(agsa)
+
+	mockAnomaly := &anomalygroup_proto.Anomaly{
+		StartCommit: 1,
+		EndCommit:   10,
+		Paramset: map[string]string{
+			"bot":         "linux-perf",
+			"benchmark":   "speedometer",
+			"story":       "speedometer",
+			"measurement": "runsperminute",
+			"stat":        "sum",
+			"test_path":   "ChromiumPerf/linux-perf/speedometer/runsperminute/speedometer",
+		},
+		ImprovementDirection: "UP",
+	}
+	mockStartRevision := "revision1"
+	mockEndRevision := "revision10"
+
+	env.OnActivity(agsa.ShouldUseLegacyPinpoint, mock.Anything).Return(true, nil).Once()
+
+	expectedReq := &legacyPinpoint.BisectJobCreateRequest{
+		ComparisonMode: "performance",
+		StartGitHash:   mockStartRevision,
+		EndGitHash:     mockEndRevision,
+		Configuration:  mockAnomaly.Paramset["bot"],
+		Benchmark:      mockAnomaly.Paramset["benchmark"],
+		Story:          mockAnomaly.Paramset["story"],
+		Chart:          mockAnomaly.Paramset["measurement"],
+		Statistic:      "",
+		TestPath:       "ChromiumPerf/linux-perf/speedometer/runsperminute/speedometer",
+	}
+
+	env.OnActivity(agsa.CreateLegacyBisectJob, mock.Anything, expectedReq).
+		Return(&legacyPinpoint.CreatePinpointResponse{JobID: ""}, nil).Once()
+
+	env.ExecuteWorkflow(func(ctx workflow.Context) error {
+		ctx = workflow.WithActivityOptions(ctx, regularActivityOptions)
+		_, err := createBisectJob(
+			ctx,
+			&workflows.MaybeTriggerBisectionParam{},
+			mockAnomaly,
+			mockStartRevision,
+			mockEndRevision,
+		)
+		return err
+	})
+
+	require.True(t, env.IsWorkflowCompleted())
+	require.Error(t, env.GetWorkflowError())
+	require.Contains(t, env.GetWorkflowError().Error(), "Chromeperf failed to create a new job")
+	env.AssertExpectations(t)
+}

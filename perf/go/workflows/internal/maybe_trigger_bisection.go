@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"errors"
 	"strings"
 	"time"
 
@@ -397,6 +398,9 @@ func createLegacyBisectJob(ctx workflow.Context,
 	err := workflow.ExecuteActivity(ctx, agsaToken().CreateLegacyBisectJob, &req).Get(ctx, &resp)
 	if err != nil {
 		return "", skerr.Wrap(err)
+	}
+	if resp.JobID == "" {
+		return "", skerr.Wrap(errors.New("Chromeperf failed to create a new job"))
 	}
 	return resp.JobID, nil
 }
