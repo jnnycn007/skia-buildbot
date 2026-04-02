@@ -36,7 +36,8 @@
       "datastore_type": "spanner",
       "connection_string": "postgresql://root@localhost:5432/androidx?sslmode=disable",
       "tile_size": 512,
-      "min_db_connections": 5
+      "min_db_connections": 5,
+      "query_traces_chunk_size": 500
     },
     "experiments": {
     },
