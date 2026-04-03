@@ -460,14 +460,6 @@ oci.pull(
 )
 use_repo(oci, "debian-testing-slim")
 
-oci.pull(
-    name = "debian11",
-    digest = "sha256:943d97fa707482c24e1bc2bdd0b0adc45f75eb345c61dc4272c4157f9a2cc9cc",
-    image = "debian:11",
-    platforms = ["linux/amd64"],
-)
-use_repo(oci, "debian11")
-
 # Pulls the gcr.io/skia-public/docsyserver-base container, needed by docsyserver.
 oci.pull(
     name = "docsyserver-base",

@@ -1,13 +1,15 @@
 version: 1
 sources:
-  - channel: bullseye main
-    url: https://snapshot-cloudflare.debian.org/archive/debian/20260201T022025Z
+  - channel: trixie main
+    url: https://snapshot-cloudflare.debian.org/archive/debian/20251119T143347Z
 archs:
   - amd64
 packages:
+  - bash
   - build-essential
   - clang
   - curl
+  - dash
   - ffmpeg
   - file
   - git

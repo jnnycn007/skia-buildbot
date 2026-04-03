@@ -64,7 +64,7 @@ pkg_tar(
 
 skia_app_container(
     name = "fiddler_container-base",
-    base_image = "@debian11",
+    base_image = "@debian-testing-slim",
     ca_certs = True,
     create_skia_user = True,
     dirs = {
@@ -95,6 +95,9 @@ skia_app_container(
         ],
     },
     entrypoint = "/usr/local/bin/fiddler",
+    env = {
+        "SSL_CERT_FILE": "/etc/ssl/certs/ca-certificates.crt",
+    },
     extra_tars = [
         "@fiddler-base-apt-install//:flat",
         ":swiftshader_include_tar",

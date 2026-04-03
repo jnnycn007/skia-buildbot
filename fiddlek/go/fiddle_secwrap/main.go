@@ -81,7 +81,7 @@ var execveAllowedBinaries = []string{
 	"/usr/bin/ld",
 	"/usr/bin/ninja",
 	"/usr/bin/nm",
-	"/usr/lib/llvm-11/bin/clang",
+	"/usr/lib/llvm-19/bin/clang",
 	// The below are run by ninja, so they need to be included here.
 	"/bin/sh",
 }

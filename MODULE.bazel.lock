@@ -1775,7 +1775,7 @@
     "@@rules_oci+//oci:extensions.bzl%oci": {
       "general": {
         "bzlTransitiveDigest": "48mBsGmRAc9avLzUVYibjYzgMDj5MPLQjRGJUm1fvjA=",
-        "usagesDigest": "H6qRIaoQpw20BworWUCGCNm7bvWcCMc7gaM0rWUur2w=",
+        "usagesDigest": "bGJhltYgOGFMKzKy1rLFjsekPh0LljHbEbYHxFOHMzc=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -1941,35 +1941,6 @@
                 "@@platforms//cpu:x86_64": "@debian-testing-slim_linux_amd64"
               },
               "bzlmod_repository": "debian-testing-slim",
-              "reproducible": true
-            }
-          },
-          "debian11_linux_amd64": {
-            "repoRuleId": "@@rules_oci+//oci/private:pull.bzl%oci_pull",
-            "attributes": {
-              "www_authenticate_challenges": {},
-              "scheme": "https",
-              "registry": "index.docker.io",
-              "repository": "library/debian",
-              "identifier": "sha256:943d97fa707482c24e1bc2bdd0b0adc45f75eb345c61dc4272c4157f9a2cc9cc",
-              "platform": "linux/amd64",
-              "target_name": "debian11_linux_amd64",
-              "bazel_tags": []
-            }
-          },
-          "debian11": {
-            "repoRuleId": "@@rules_oci+//oci/private:pull.bzl%oci_alias",
-            "attributes": {
-              "target_name": "debian11",
-              "www_authenticate_challenges": {},
-              "scheme": "https",
-              "registry": "index.docker.io",
-              "repository": "library/debian",
-              "identifier": "sha256:943d97fa707482c24e1bc2bdd0b0adc45f75eb345c61dc4272c4157f9a2cc9cc",
-              "platforms": {
-                "@@platforms//cpu:x86_64": "@debian11_linux_amd64"
-              },
-              "bzlmod_repository": "debian11",
               "reproducible": true
             }
           },
@@ -2343,8 +2314,6 @@
             "alpine",
             "debian-testing-slim",
             "debian-testing-slim_linux_amd64",
-            "debian11",
-            "debian11_linux_amd64",
             "docsyserver-base",
             "envoy_alpine",
             "node_alpine",
