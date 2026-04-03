@@ -373,6 +373,9 @@
         "fetch_anomalies_from_sql": {
           "type": "boolean"
         },
+        "switch_between_anomaly_sources": {
+          "type": "boolean"
+        },
         "feedback_url": {
           "type": "string"
         },

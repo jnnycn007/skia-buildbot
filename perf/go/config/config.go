@@ -1059,6 +1059,9 @@ type InstanceConfig struct {
 	// of Chrome Perf API.
 	FetchAnomaliesFromSql bool `json:"fetch_anomalies_from_sql,omitempty"`
 
+	// Enables the runtime switch.
+	SwitchBetweenAnomalySources bool `json:"switch_between_anomaly_sources,omitempty"`
+
 	// Feedback URL to use for the "Provide Feedback" link
 	FeedbackURL string `json:"feedback_url,omitempty"`
 

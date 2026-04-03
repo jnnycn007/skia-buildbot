@@ -347,7 +347,7 @@ func (f *Frontend) getPageContext() (template.JS, error) {
 		Notifications:               config.Config.NotifyConfig.Notifications,
 		FetchChromePerfAnomalies:    config.Config.FetchChromePerfAnomalies,
 		FetchAnomaliesFromSql:       config.Config.FetchAnomaliesFromSql,
-		BothAnomalySources:          config.Config.FetchChromePerfAnomalies && config.Config.FetchAnomaliesFromSql,
+		BothAnomalySources:          config.Config.SwitchBetweenAnomalySources,
 		FeedbackURL:                 config.Config.FeedbackURL,
 		ChatURL:                     config.Config.ChatURL,
 		HelpURLOverride:             config.Config.HelpURLOverride,

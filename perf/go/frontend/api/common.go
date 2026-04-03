@@ -15,9 +15,13 @@ func getOverrideNonProdHost(host string) string {
 }
 
 func preferLegacy(r *http.Request) bool {
-	cookie, err := r.Cookie("fetch_anomalies_from_sql")
-	if err == nil {
-		return cookie.Value != "true"
+	if config.Config.SwitchBetweenAnomalySources &&
+		config.Config.FetchAnomaliesFromSql &&
+		config.Config.FetchChromePerfAnomalies {
+		cookie, err := r.Cookie("fetch_anomalies_from_sql")
+		if err == nil {
+			return cookie.Value != "true"
+		}
 	}
 	return !config.Config.FetchAnomaliesFromSql
 }

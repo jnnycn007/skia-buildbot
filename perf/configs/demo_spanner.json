@@ -7,6 +7,7 @@
     "trace_sample_proportion": 1.0,
     "fetch_chrome_perf_anomalies": true,
     "fetch_anomalies_from_sql": true,
+    "switch_between_anomaly_sources": true,
     "use_regression2_schema": true,
     "auth_config": {
         "header_name": "X-WEBAUTH-USER"
