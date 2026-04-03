@@ -21,6 +21,7 @@ sk_element(
         "//perf/modules/plot-google-chart-sk",
         "//perf/modules/point-links-sk",
         "//elements-sk/modules/spinner-sk",
+        "//elements-sk/modules/icons/help-icon-sk",
     ],
     ts_deps = [
         "//:node_modules/@google-web-components/google-chart",

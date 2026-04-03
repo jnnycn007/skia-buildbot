@@ -3,6 +3,19 @@
 explore-multi-sk {
   #menu {
     margin: 1em;
+
+    .title-container {
+      align-items: center;
+      display: flex;
+
+      h1 {
+        margin-right: 0.25em;
+      }
+
+      a {
+        fill: var(--primary);
+      }
+    }
   }
 
   #pagination {

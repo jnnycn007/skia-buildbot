@@ -51,6 +51,7 @@ import {
 import { CountMetric, SummaryMetric, telemetry } from '../telemetry/telemetry';
 
 import '../../../elements-sk/modules/spinner-sk';
+import '../../../elements-sk/modules/icons/help-icon-sk';
 import '../explore-simple-sk';
 import '../favorites-dialog-sk';
 import '../test-picker-sk';
@@ -929,7 +930,15 @@ export class ExploreMultiSk extends ElementSk {
 
   private static template = (ele: ExploreMultiSk) => html`
     <div id="menu">
-      <h1>MultiGraph Menu</h1>
+      <div class="title-container">
+        <h1>MultiGraph Menu</h1>
+        <a
+          href="https://skia.googlesource.com/buildbot/+/refs/heads/main/perf/multigraph-guide.md"
+          target="_blank"
+          title="MultiGraph Guide">
+          <help-icon-sk></help-icon-sk>
+        </a>
+      </div>
       <spinner-sk id="spinner"></spinner-sk>
       <test-picker-sk id="test-picker" class="hidden"></test-picker-sk>
       ${ele.progress
