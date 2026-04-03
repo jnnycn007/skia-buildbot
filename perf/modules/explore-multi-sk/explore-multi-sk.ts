@@ -35,6 +35,9 @@ import { stateReflector } from '../../../infra-sk/modules/stateReflector';
 import { HintableObject } from '../../../infra-sk/modules/hintable';
 import { errorMessage } from '../errorMessage';
 import { ElementSk } from '../../../infra-sk/modules/ElementSk';
+import { StatusCodes } from 'http-status-codes';
+
+const EXPLORE_MULTI_PAGE_SOURCE = 'explore-multi-sk';
 import {
   AnomalyMap,
   ColumnHeader,
@@ -511,7 +514,11 @@ export class ExploreMultiSk extends ElementSk {
         await this.splitGraphs();
       }
     } catch (err: unknown) {
-      errorMessage(err as string);
+      errorMessage(err as string, 0, {
+        countMetricSource: CountMetric.FrontendErrorReported,
+        source: EXPLORE_MULTI_PAGE_SOURCE,
+        errorCode: StatusCodes.INTERNAL_SERVER_ERROR.toString(),
+      });
     } finally {
       this.updateShortcutMultiview();
       this.setProgress('');
@@ -921,7 +928,13 @@ export class ExploreMultiSk extends ElementSk {
         this.userEmail = status.email;
         this._render();
       })
-      .catch(errorMessage);
+      .catch((msg) =>
+        errorMessage(msg, 0, {
+          countMetricSource: CountMetric.FrontendErrorReported,
+          source: EXPLORE_MULTI_PAGE_SOURCE,
+          errorCode: StatusCodes.UNAUTHORIZED.toString(),
+        })
+      );
   }
 
   private canAddFav(): boolean {
@@ -1008,7 +1021,11 @@ export class ExploreMultiSk extends ElementSk {
     } catch (error: unknown) {
       console.error('Error fetching defaults:', error);
       const e = error as { message?: string };
-      errorMessage(`Failed to load default configuration: ${e.message || error}`);
+      errorMessage(`Failed to load default configuration: ${e.message || error}`, 0, {
+        countMetricSource: CountMetric.FrontendErrorReported,
+        source: EXPLORE_MULTI_PAGE_SOURCE,
+        errorCode: StatusCodes.INTERNAL_SERVER_ERROR.toString(),
+      });
       this.defaults = null;
     }
 
@@ -1412,7 +1429,11 @@ export class ExploreMultiSk extends ElementSk {
         allTracesets = await Promise.race([tracesetsReadyPromise, timeoutPromise]);
       } catch (error: unknown) {
         const e = error as { message?: string };
-        errorMessage(e.message || 'An unknown error occurred while getting tracesets.');
+        errorMessage(e.message || 'An unknown error occurred while getting tracesets.', 0, {
+          countMetricSource: CountMetric.FrontendErrorReported,
+          source: EXPLORE_MULTI_PAGE_SOURCE,
+          errorCode: StatusCodes.INTERNAL_SERVER_ERROR.toString(),
+        });
         return;
       }
 
@@ -1694,7 +1715,11 @@ export class ExploreMultiSk extends ElementSk {
       try {
         await graph.extendRange(range, offset);
       } catch (error) {
-        errorMessage(`Error in graph.extendRange: ${error}`);
+        errorMessage(`Error in graph.extendRange: ${error}`, 0, {
+          countMetricSource: CountMetric.FrontendErrorReported,
+          source: EXPLORE_MULTI_PAGE_SOURCE,
+          errorCode: StatusCodes.INTERNAL_SERVER_ERROR.toString(),
+        });
       }
     });
     await Promise.allSettled(promises);
@@ -2048,7 +2073,19 @@ export class ExploreMultiSk extends ElementSk {
     return (await DataService.getInstance()
       .getShortcut(shortcut)
       .catch((msg) => {
-        errorMessage(msg);
+        if (msg instanceof DataServiceError) {
+          errorMessage(msg.message, 0, {
+            countMetricSource: CountMetric.FrontendErrorReported,
+            source: EXPLORE_MULTI_PAGE_SOURCE,
+            errorCode: msg.status!.toString(),
+          });
+        } else {
+          errorMessage(msg, 0, {
+            countMetricSource: CountMetric.FrontendErrorReported,
+            source: EXPLORE_MULTI_PAGE_SOURCE,
+            errorCode: StatusCodes.INTERNAL_SERVER_ERROR.toString(),
+          });
+        }
         return [];
       })) as unknown as GraphConfig[];
   }
@@ -2070,9 +2107,17 @@ export class ExploreMultiSk extends ElementSk {
       })
       .catch((err: unknown) => {
         if (err instanceof DataServiceError) {
-          errorMessage(err.message);
+          errorMessage(err.message, 0, {
+            countMetricSource: CountMetric.FrontendErrorReported,
+            source: EXPLORE_MULTI_PAGE_SOURCE,
+            errorCode: err.status!.toString(),
+          });
         } else {
-          errorMessage(err as string);
+          errorMessage(err as string, 0, {
+            countMetricSource: CountMetric.FrontendErrorReported,
+            source: EXPLORE_MULTI_PAGE_SOURCE,
+            errorCode: StatusCodes.INTERNAL_SERVER_ERROR.toString(),
+          });
         }
       });
   }

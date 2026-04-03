@@ -40,6 +40,7 @@ sk_element(
         "//perf/modules/common:graph-config_ts_lib",
         "//perf/modules/const:const_ts_lib",
         "//perf/modules/data-service:index_ts_lib",
+        "//:node_modules/http-status-codes",
     ],
     ts_srcs = [
         "explore-multi-sk.ts",
