@@ -65,6 +65,7 @@ pkg_tar(
 skia_app_container(
     name = "fiddler_container-base",
     base_image = "@debian11",
+    ca_certs = True,
     create_skia_user = True,
     dirs = {
         "/usr/local/bin": [
