@@ -44,6 +44,10 @@ deps = {
       {
         'package': 'package3/' + Var('host_os') + '-' + Var('host_cpu'),
         'version': 'pkg3-version',
+      },
+	  {
+		'package': 'chromium/chrome/android/orderfiles/arm64',
+		'version_file': 'chrome/build/android-arm64.orderfile.txt',
       }
     ],
     'dep_type': 'cipd',
@@ -120,6 +124,12 @@ func TestParseDeps(t *testing.T) {
 			Version: "pkg3-version",
 			Path:    "cipd/deps",
 			Type:    DepType_Cipd,
+		},
+		"chromium/chrome/android/orderfiles/arm64": {
+			Id:          "chromium/chrome/android/orderfiles/arm64",
+			VersionFile: "chrome/build/android-arm64.orderfile.txt",
+			Path:        "cipd/deps",
+			Type:        DepType_Cipd,
 		},
 		"my-host/expr-dep": {
 			Id:      "my-host/expr-dep",
@@ -201,6 +211,11 @@ func TestSetDep(t *testing.T) {
 	testSetDep("https://my-host/dict-repo.git", "newrev")
 	testSetDep("package1", "newrev")
 	testSetDep("package2", "newrev")
+
+	// We should fail to SetDep when the dependency is versioned in a different
+	// file.
+	_, err = SetDep(fakeDepsContent, "chromium/chrome/android/orderfiles/arm64", "newrev")
+	require.ErrorContains(t, err, "dependency \"chromium/chrome/android/orderfiles/arm64\" is versioned in \"chrome/build/android-arm64.orderfile.txt\", not DEPS")
 }
 
 func TestHasGitSubmodules(t *testing.T) {

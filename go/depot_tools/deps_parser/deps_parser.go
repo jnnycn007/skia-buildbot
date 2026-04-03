@@ -85,6 +85,11 @@ type DepsEntry struct {
 	// Version is the currently-pinned version of this dependency.
 	Version string
 
+	// VersionFile indicates the file in the repository where the version of
+	// this dependency is pinned. If present, it is expected that Version will
+	// be empty.
+	VersionFile string
+
 	// Path is the path to which the dependency should be downloaded. It is
 	// also used as the key in the 'deps' map in the DEPS file.
 	Path string
@@ -155,6 +160,9 @@ func SetDep(depsContent, depId, version string) (string, error) {
 	pos := poss[depId]
 	if dep == nil || pos == nil {
 		return "", skerr.Fmt("Failed to find dependency with id %q", depId)
+	}
+	if dep.VersionFile != "" {
+		return "", skerr.Fmt("dependency %q is versioned in %q, not DEPS", dep.Id, dep.VersionFile)
 	}
 
 	// Replace the old version with the new.
@@ -365,9 +373,12 @@ func parseCIPDDeps(path string, dict *ast.Dict) ([]*DepsEntry, []*ast.Pos, error
 					} else if strKey == "version" {
 						entry.Version = strVal
 						pos = exprPos
+					} else if strKey == "version_file" {
+						entry.VersionFile = strVal
+						pos = exprPos
 					}
 				}
-				if entry.Id == "" || entry.Version == "" {
+				if entry.Id == "" || (entry.Version == "" && entry.VersionFile == "") {
 					return nil, nil, skerr.Fmt("CIPD package dict for %q is incomplete", path)
 				}
 				entries = append(entries, entry)
