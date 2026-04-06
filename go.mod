@@ -47,6 +47,7 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/google/go-github/v29 v29.0.3
 	github.com/google/go-licenses/v2 v2.0.0-alpha.1
+	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/google/uuid v1.6.0
 	github.com/googleapis/gax-go/v2 v2.15.0
 	github.com/gorilla/securecookie v1.1.1

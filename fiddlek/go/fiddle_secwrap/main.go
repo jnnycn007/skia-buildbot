@@ -17,6 +17,7 @@ import (
 	"strings"
 	"unsafe"
 
+	"github.com/google/shlex"
 	"go.skia.org/infra/go/skerr"
 	"golang.org/x/sys/unix"
 )
@@ -83,8 +84,13 @@ var execveAllowedBinaries = []string{
 	"/usr/bin/ninja",
 	"/usr/bin/nm",
 	"/usr/lib/llvm-19/bin/clang",
-	// The below are run by ninja, so they need to be included here.
+	// The below is run by ninja, so it needs to be included here. If you add
+	// any more shells, be sure to keep them in sync with isShellCommand.
 	"/bin/sh",
+}
+
+func isShellCommand(name string) bool {
+	return name == "/bin/sh" || name == "sh"
 }
 
 var (
@@ -126,18 +132,78 @@ var (
 	}
 )
 
-func isAllowedExec(name string, allowedExec string) bool {
+var allowedCmdRegex = regexp.MustCompile(`^[a-zA-Z0-9\s\-\.\/_=\+:,*\?\@\"']+$`)
+
+func isAllowedExec(name string, allowedExec string, args, envp []string, buildMode bool) bool {
 	if name == allowedExec {
 		return true
 	}
-	if buildMode {
-		for _, allowed := range execveAllowedBinaries {
-			if allowed == name {
-				return true
-			}
+	if !buildMode {
+		return false
+	}
+	isAllowedBinary := false
+	for _, allowed := range execveAllowedBinaries {
+		if allowed == name || filepath.Base(allowed) == name {
+			isAllowedBinary = true
+			break
 		}
 	}
-	return false
+	if !isAllowedBinary {
+		return false
+	}
+	if isShellCommand(name) {
+		if len(args) != 3 || args[1] != "-c" {
+			return false
+		}
+		cmd := args[2]
+		cmdArgs, err := shlex.Split(cmd)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed parsing command: %s", err)
+			return false
+		}
+		if len(cmdArgs) == 0 {
+			return false
+		}
+		name := cmdArgs[0]
+
+		// Disallow nested shells.
+		if isShellCommand(name) {
+			return false
+		}
+		return isAllowedExec(name, allowedExec, cmdArgs, envp, buildMode)
+	}
+
+	// Prevent shell injection, redirection, piping, command substitution, etc.
+	fullCmd := strings.Join(args, " ")
+	if !allowedCmdRegex.MatchString(fullCmd) {
+		return false
+	}
+
+	// Inspect for dangerous compiler flags that could allow arbitrary code
+	// execution.
+	if strings.Contains(fullCmd, "-fplugin=") ||
+		strings.Contains(fullCmd, "-Xclang") ||
+		strings.Contains(fullCmd, "-load") ||
+		strings.Contains(fullCmd, "-specs=") {
+		return false
+	}
+
+	// Prevent attackers from using LD_PRELOAD, LD_LIBRARY_PATH, or other
+	// dangerous variables to hijack the process.
+	for _, env := range envp {
+		if strings.HasPrefix(env, "LD_") ||
+			strings.HasPrefix(env, "DYLD_") ||
+			strings.HasPrefix(env, "PYTHON") ||
+			strings.HasPrefix(env, "PERL") ||
+			strings.HasPrefix(env, "RUBY") ||
+			strings.HasPrefix(env, "NODE_") ||
+			strings.HasPrefix(env, "BASH_FUNC_") ||
+			strings.Contains(env, "IFS=") {
+			return false
+		}
+	}
+
+	return true
 }
 
 // testAgainstPrefixes verifies that the given name begins with one of the given
@@ -186,7 +252,12 @@ func readString(pid int, addr uint64) string {
 
 	// Read one 64-bit register's worth of bytes at a time.
 	data := make([]byte, 8)
+	readBytes := 0
+	const maxReadBytes = 128 * 1024 // 128 KB limit
 	for {
+		if readBytes >= maxReadBytes {
+			childFail(pid, fmt.Sprintf("readString hit maxReadBytes (%d)", maxReadBytes))
+		}
 		n, err := unix.PtracePeekData(pid, uintptr(addr), data)
 		if err != nil || n == 0 {
 			break
@@ -198,6 +269,7 @@ func readString(pid int, addr uint64) string {
 		}
 		buf.Write(data[:n])
 		addr += 8
+		readBytes += n
 	}
 	return buf.String()
 }
@@ -208,7 +280,11 @@ func readStringArray(pid int, addr uint64) []string {
 
 	// Read one 64-bit register's worth of bytes at a time.
 	ptrData := make([]byte, 8)
-	for {
+	const maxElements = 4096 // Limit array size to prevent infinite loops
+	for i := 0; ; i++ {
+		if i == maxElements {
+			childFail(pid, fmt.Sprintf("readStringArray hit maxElements (%d)", maxElements))
+		}
 		n, err := unix.PtracePeekData(pid, uintptr(addr), ptrData)
 		if err != nil || n != 8 {
 			break
@@ -221,47 +297,6 @@ func readStringArray(pid int, addr uint64) []string {
 		addr += 8
 	}
 	return strs
-}
-
-var allowedShellCmdRegex = regexp.MustCompile(`^[a-zA-Z0-9\s\-\.\/_=\+:,*\?\@\"']+$`)
-
-func isAllowedShellCmd(args []string) bool {
-	if len(args) != 3 || args[1] != "-c" {
-		return false
-	}
-	cmd := args[2]
-
-	// The first field must be an allowed binary other than /bin/sh.
-	binary := strings.Fields(cmd)[0]
-	isAllowedBinary := false
-	for _, allowed := range execveAllowedBinaries {
-		if allowed == "/bin/sh" {
-			continue
-		}
-		if binary == allowed || binary == filepath.Base(allowed) {
-			isAllowedBinary = true
-			break
-		}
-	}
-	if !isAllowedBinary {
-		return false
-	}
-
-	// Prevent shell injection, redirection, piping, command substitution, etc.
-	if !allowedShellCmdRegex.MatchString(cmd) {
-		return false
-	}
-
-	// Inspect for dangerous compiler flags that could allow arbitrary code
-	// execution.
-	if strings.Contains(cmd, "-fplugin=") ||
-		strings.Contains(cmd, "-Xclang") ||
-		strings.Contains(cmd, "-load") ||
-		strings.Contains(cmd, "-specs=") {
-		return false
-	}
-
-	return true
 }
 
 // buildSeccompFilter builds a set of filters used to allow, deny, or trace
@@ -504,16 +539,11 @@ func doTrace(child int, allowedExec string) int {
 					switch syscallNum {
 					case unix.SYS_EXECVE:
 						name := readString(wpid, regs.Rdi)
-						if !isAllowedExec(name, allowedExec) {
+						args := readStringArray(wpid, regs.Rsi)
+						envp := readStringArray(wpid, regs.Rdx)
+						if !isAllowedExec(name, allowedExec, args, envp, buildMode) {
 							fmt.Fprintf(os.Stderr, "Invalid exec: %s\n", name)
 							childFail(wpid, "Invalid exec.")
-						}
-						if buildMode && name == "/bin/sh" {
-							args := readStringArray(wpid, regs.Rsi)
-							if !isAllowedShellCmd(args) {
-								fmt.Fprintf(os.Stderr, "Invalid shell cmd: %v\n", args)
-								childFail(wpid, "Invalid shell cmd.")
-							}
 						}
 					case unix.SYS_OPEN:
 						name := readString(wpid, regs.Rdi)

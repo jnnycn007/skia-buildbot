@@ -9,46 +9,57 @@ go_library(
     deps = select({
         "@rules_go//go/platform:aix": [
             "//go/skerr",
+            "@com_github_google_shlex//:shlex",
             "@org_golang_x_sys//unix",
         ],
         "@rules_go//go/platform:android": [
             "//go/skerr",
+            "@com_github_google_shlex//:shlex",
             "@org_golang_x_sys//unix",
         ],
         "@rules_go//go/platform:darwin": [
             "//go/skerr",
+            "@com_github_google_shlex//:shlex",
             "@org_golang_x_sys//unix",
         ],
         "@rules_go//go/platform:dragonfly": [
             "//go/skerr",
+            "@com_github_google_shlex//:shlex",
             "@org_golang_x_sys//unix",
         ],
         "@rules_go//go/platform:freebsd": [
             "//go/skerr",
+            "@com_github_google_shlex//:shlex",
             "@org_golang_x_sys//unix",
         ],
         "@rules_go//go/platform:illumos": [
             "//go/skerr",
+            "@com_github_google_shlex//:shlex",
             "@org_golang_x_sys//unix",
         ],
         "@rules_go//go/platform:ios": [
             "//go/skerr",
+            "@com_github_google_shlex//:shlex",
             "@org_golang_x_sys//unix",
         ],
         "@rules_go//go/platform:linux": [
             "//go/skerr",
+            "@com_github_google_shlex//:shlex",
             "@org_golang_x_sys//unix",
         ],
         "@rules_go//go/platform:netbsd": [
             "//go/skerr",
+            "@com_github_google_shlex//:shlex",
             "@org_golang_x_sys//unix",
         ],
         "@rules_go//go/platform:openbsd": [
             "//go/skerr",
+            "@com_github_google_shlex//:shlex",
             "@org_golang_x_sys//unix",
         ],
         "@rules_go//go/platform:solaris": [
             "//go/skerr",
+            "@com_github_google_shlex//:shlex",
             "@org_golang_x_sys//unix",
         ],
         "//conditions:default": [],
