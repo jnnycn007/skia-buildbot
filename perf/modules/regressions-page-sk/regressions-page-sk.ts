@@ -24,6 +24,9 @@ import { HintableObject } from '../../../infra-sk/modules/hintable';
 import { errorMessage } from '../errorMessage';
 import { CountMetric, telemetry } from '../telemetry/telemetry';
 import { equals } from '../../../infra-sk/modules/object';
+import { StatusCodes } from 'http-status-codes';
+
+const REGRESSIONS_PAGE_SOURCE = 'regressions-page-sk';
 
 // State is the local UI state of regressions-page-sk
 interface State {
@@ -216,7 +219,11 @@ export class RegressionsPageSk extends LitElement {
         page: 'regressions',
         endpoint: '/_/anomalies/anomaly_list',
       });
-      errorMessage(msg as any);
+      errorMessage(msg as any, 0, {
+        countMetricSource: CountMetric.FrontendErrorReported,
+        source: REGRESSIONS_PAGE_SOURCE,
+        errorCode: StatusCodes.INTERNAL_SERVER_ERROR.toString(),
+      });
       this.anomaliesLoadingSpinner = false;
       this.showMoreLoadingSpinner = false;
     } finally {

@@ -32,6 +32,7 @@ sk_element(
         "//perf/modules/telemetry:telemetry_ts_lib",
         "//infra-sk/modules:object_ts_lib",
         "//infra-sk/modules:query_ts_lib",
+        "//:node_modules/http-status-codes",
     ],
     ts_srcs = [
         "regressions-page-sk.ts",
