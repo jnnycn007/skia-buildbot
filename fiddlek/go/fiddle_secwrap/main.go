@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"unsafe"
@@ -222,29 +223,45 @@ func readStringArray(pid int, addr uint64) []string {
 	return strs
 }
 
-func allowedShellCmds(checkout string) []string {
-	return []string{
-		strings.Join([]string{
-			"clang",
-			filepath.Join(checkout, "tools/fiddle/main.cpp"),
-			filepath.Join(checkout, "tools/fiddle/draw.cpp"),
-			"-lstdc++",
-			"-o",
-			filepath.Join(checkout, "out/Static/fiddle"),
-		}, " "),
-	}
-}
+var allowedShellCmdRegex = regexp.MustCompile(`^[a-zA-Z0-9\s\-\.\/_=\+:,*\?\@\"']+$`)
 
-func isAllowedShellCmd(args []string, checkout string) bool {
-	if len(args) >= 3 && args[1] == "-c" {
-		cmd := args[2]
-		for _, allowed := range allowedShellCmds(checkout) {
-			if cmd == allowed {
-				return true
-			}
+func isAllowedShellCmd(args []string) bool {
+	if len(args) != 3 || args[1] != "-c" {
+		return false
+	}
+	cmd := args[2]
+
+	// The first field must be an allowed binary other than /bin/sh.
+	binary := strings.Fields(cmd)[0]
+	isAllowedBinary := false
+	for _, allowed := range execveAllowedBinaries {
+		if allowed == "/bin/sh" {
+			continue
+		}
+		if binary == allowed || binary == filepath.Base(allowed) {
+			isAllowedBinary = true
+			break
 		}
 	}
-	return false
+	if !isAllowedBinary {
+		return false
+	}
+
+	// Prevent shell injection, redirection, piping, command substitution, etc.
+	if !allowedShellCmdRegex.MatchString(cmd) {
+		return false
+	}
+
+	// Inspect for dangerous compiler flags that could allow arbitrary code
+	// execution.
+	if strings.Contains(cmd, "-fplugin=") ||
+		strings.Contains(cmd, "-Xclang") ||
+		strings.Contains(cmd, "-load") ||
+		strings.Contains(cmd, "-specs=") {
+		return false
+	}
+
+	return true
 }
 
 // buildSeccompFilter builds a set of filters used to allow, deny, or trace
@@ -416,7 +433,7 @@ func buildSeccompFilter() []unix.SockFilter {
 	return filter
 }
 
-func doTrace(child int, allowedExec, checkout string) int {
+func doTrace(child int, allowedExec string) int {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
@@ -491,10 +508,10 @@ func doTrace(child int, allowedExec, checkout string) int {
 							fmt.Fprintf(os.Stderr, "Invalid exec: %s\n", name)
 							childFail(wpid, "Invalid exec.")
 						}
-						if buildMode && (name == "/bin/sh") {
+						if buildMode && name == "/bin/sh" {
 							args := readStringArray(wpid, regs.Rsi)
-							if !isAllowedShellCmd(args, checkout) {
-								fmt.Fprintf(os.Stderr, "Invalid shell cmd: %v\nAllowed: %v", args, allowedShellCmds(checkout))
+							if !isAllowedShellCmd(args) {
+								fmt.Fprintf(os.Stderr, "Invalid shell cmd: %v\n", args)
 								childFail(wpid, "Invalid shell cmd.")
 							}
 						}
@@ -651,6 +668,6 @@ func main() {
 		os.Exit(-1)
 	}
 
-	exitCode := doTrace(cmd.Process.Pid, allowedExec, checkout)
+	exitCode := doTrace(cmd.Process.Pid, allowedExec)
 	os.Exit(exitCode)
 }
