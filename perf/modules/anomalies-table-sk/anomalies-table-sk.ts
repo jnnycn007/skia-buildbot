@@ -17,6 +17,10 @@ import {
   AnomalyGroupingConfig,
 } from './grouping';
 import { errorMessage } from '../errorMessage';
+import { CountMetric } from '../telemetry/telemetry';
+import { StatusCodes } from 'http-status-codes';
+
+const ANOMALIES_TABLE_SOURCE = 'anomalies-table-sk';
 
 import { formatPercentage } from '../common/anomaly';
 import '../window/window';
@@ -283,7 +287,11 @@ export class AnomaliesTableSk extends LitElement implements KeyboardShortcutHand
     const results = await Promise.all(reportPromises);
 
     if (results.some((success) => !success)) {
-      errorMessage('Popups blocked. Allow them (in the address bar) and retry');
+      errorMessage('Popups blocked. Allow them (in the address bar) and retry', 0, {
+        countMetricSource: CountMetric.FrontendErrorReported,
+        source: ANOMALIES_TABLE_SOURCE,
+        errorCode: StatusCodes.OK.toString(),
+      });
     }
   }
 

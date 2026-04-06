@@ -39,6 +39,8 @@ sk_element(
         ":anomalies-grouping-settings-sk_ts_lib",
         ":anomaly-transformer_ts_lib",
         "//perf/modules/errorMessage:index_ts_lib",
+        "//:node_modules/http-status-codes",
+        "//perf/modules/telemetry:telemetry_ts_lib",
     ],
     ts_srcs = [
         "anomalies-table-sk.ts",
