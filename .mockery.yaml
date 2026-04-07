@@ -348,6 +348,9 @@ packages:
   go.skia.org/infra/perf/go/regression:
     interfaces:
       Store:
+  go.skia.org/infra/perf/go/regrshortcut:
+    interfaces:
+      Store:
   go.skia.org/infra/perf/go/shortcut:
     interfaces:
       Store:

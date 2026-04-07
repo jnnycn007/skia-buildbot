@@ -5,14 +5,13 @@ package issuetracker
 import (
 	"context"
 	"fmt"
-	"maps"
 	"net/http"
-	"slices"
 	"strconv"
 	"strings"
 
 	"go.skia.org/infra/perf/go/config"
 	"go.skia.org/infra/perf/go/regression"
+	"go.skia.org/infra/perf/go/regrshortcut"
 	"go.skia.org/infra/perf/go/userissue"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
@@ -53,6 +52,7 @@ type issueTrackerImpl struct {
 	client                *issuetracker.Service
 	FetchAnomaliesFromSql bool
 	regStore              regression.Store
+	regrShortcutStore     regrshortcut.Store
 	userIssueStore        userissue.Store
 	urlBase               string
 }
@@ -249,9 +249,11 @@ func (s *issueTrackerImpl) FileBug(ctx context.Context, req *FileBugRequest) (in
 	topAnomalies, err := ags.TopAnomaliesMedianCmp(regData, int64(TOP_ANOMALIES_COUNT))
 	description := ""
 	// TODO(b/464211673) Make sure the links lead to correct graphs.
-	description += s.generateLinkToGraph(regressionIds)
-	description += s.describeTopAnomalies(topAnomalies)
-	description += s.describeBots(regData)
+	link, err := s.generateLinkToGraph(ctx, regressionIds)
+	if err != nil {
+		return 0, skerr.Wrap(err)
+	}
+	description += s.describeTopAnomalies(topAnomalies, link)
 
 	descriptionDebugSection := "\n\n## DEBUG BELOW\n\n"
 	sklog.Warningf("File Bug would use the following component: %d. Using a default component until migration is done.", componentID)
@@ -404,53 +406,35 @@ func (s *issueTrackerImpl) checkUnusedFieldsAreEmpty(req *FileBugRequest) {
 	}
 }
 
-func (s *issueTrackerImpl) describeBots(regs []*regression.Regression) string {
-	uniqueBots := make(map[string]struct{})
-	for _, r := range regs {
-		for _, b := range r.Frame.DataFrame.ParamSet["bot"] {
-			uniqueBots[b] = struct{}{}
-		}
-	}
-	sortedBots := slices.Collect(maps.Keys(uniqueBots))
-	slices.Sort(sortedBots)
-	desc := "  \nBots for regressions of this bug:  \n"
-	for _, b := range sortedBots {
-		desc += fmt.Sprintf("  - %s  \n", b)
-	}
-	return desc + "  \n\n"
-}
-
-func (s *issueTrackerImpl) describeTopAnomalies(anom []*v1.Anomaly) (desc string) {
-	desc = fmt.Sprintf("Top %d anomalies in this report:  \n", len(anom))
+func (s *issueTrackerImpl) describeTopAnomalies(anom []*v1.Anomaly, link string) (desc string) {
+	desc = fmt.Sprintf("Top %d anomalies in [this report](%s):  \n\n", len(anom), link)
+	desc += generateAnomTableHeaders()
 	for _, a := range anom {
 		desc += describeAnomaly(a)
 	}
 	return
 }
 
-func (s *issueTrackerImpl) generateLinkToGraph(keys []string) string {
-	anomalyIdsLink := "anomalyIDs"
-	graphLink := fmt.Sprintf("%s/u?%s=", s.urlBase, anomalyIdsLink)
-	link := fmt.Sprintf("Link to graph with regressions:  \n  %s", graphLink)
+func generateAnomTableHeaders() string {
+	return "  \n| Bot | Benchmark | Measurement | Story | Median Before | Median After | Change | Commit range |  \n" +
+		"| --- | --- | --- | --- | --- | --- | --- | --- | \n"
+}
 
-	BAN_LONG_URLS := true
-	// Links longer than 2k might be problematic. We will rely on report by bugID.
-	MAX_LEN := 2000
-	urlLength := len(link)
-
-	for _, key := range keys {
-		if BAN_LONG_URLS && urlLength+len(key)+1 >= MAX_LEN {
-			sklog.Warningf("URL is too long, need to use link by bug id - there are %d regressions", len(keys))
-			prefix := "The link to a graph with all regressions would be too long.  \n"
-			prefix += "Please check the first comment for an alternative link to the graph\n\n"
-			link = prefix
-			break
-		}
-		link += key + ","
-		urlLength += len(key) + 1
+func (s *issueTrackerImpl) generateLinkToGraph(ctx context.Context, keys []string) (string, error) {
+	if len(keys) == 0 {
+		sklog.Error("generating empty graph, make sure it's just for testing!")
+		return fmt.Sprintf("%s/u?anomalyIDs=", s.urlBase), nil
+	}
+	if len(keys) == 1 {
+		return fmt.Sprintf("%s/u?anomalyIDs=%s", s.urlBase, keys[0]), nil
+	}
+	link := fmt.Sprintf("%s/u?sid=", s.urlBase)
+	sid, err := s.regrShortcutStore.Create(ctx, keys)
+	if err != nil {
+		return "", skerr.Wrapf(err, "failed to generate link to graph")
 	}
 
-	return fmt.Sprintf("%s\n\n", strings.TrimSuffix(link, ","))
+	return link + sid, nil
 }
 
 // There may be several subscriptions
