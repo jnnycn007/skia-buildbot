@@ -34,7 +34,7 @@
     },
     "data_store_config": {
       "datastore_type": "spanner",
-      "connection_string": "postgresql://root@localhost:5432/androidx_autopush?sslmode=disable",
+      "connection_string": "postgresql://root@127.0.0.1:5432/androidx_autopush?sslmode=disable",
       "tile_size": 512,
       "min_db_connections": 5
     },
