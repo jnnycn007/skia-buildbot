@@ -63,7 +63,8 @@ const (
 	readBySid
 	readByIDs
 	readIdsByManualTriageBugId
-	readBySubName
+	readBySubNameUntriagedOnly
+	readBySubNameIncludeTriaged
 	deleteByCommit
 	readRangeFiltered
 	readRangeFilteredByTraceId
@@ -227,7 +228,7 @@ var statementFormats = map[statementFormat]string{
 		ORDER BY
 			id
 		`,
-	readBySubName: `
+	readBySubNameUntriagedOnly: `
 		SELECT
 			{{ .Columns }}
 		FROM
@@ -235,13 +236,29 @@ var statementFormats = map[statementFormat]string{
 		WHERE
 			sub_name = $1 and
 			(is_improvement = $2 OR is_improvement = false) AND -- toggle improvements on the flag, show regressions always
-			(triage_status = 'untriaged' OR (triage_status != '' AND $3 = true)) -- show untriaged always, and show all statuses except for NONE if showTriaged is true
+			triage_status = 'untriaged'
 		ORDER BY
-  		creation_time DESC
+    	creation_time ASC
 		LIMIT
-			$4
+			$3
 		OFFSET
-			$5
+			$4
+	`,
+	readBySubNameIncludeTriaged: `
+		SELECT
+			{{ .Columns }}
+		FROM
+			Regressions2
+		WHERE
+			sub_name = $1 and
+			(is_improvement = $2 OR is_improvement = false) AND -- toggle improvements on the flag, show regressions always
+			triage_status != '' -- show all statuses except for NONE if showTriaged is true
+		ORDER BY
+			creation_time DESC
+		LIMIT
+			$3
+		OFFSET
+			$4
 		`,
 	deleteByCommit: `
 		DELETE
@@ -520,8 +537,11 @@ func (s *SQLRegression2Store) Write(ctx context.Context, regressions map[types.C
 // the specified subscription. The response will be paginated according to the provided
 // limit and offset.
 func (s *SQLRegression2Store) GetRegressionsBySubName(ctx context.Context, req regression.GetAnomalyListRequest, limit int) ([]*regression.Regression, error) {
-	statement := s.statements[readBySubName]
-	rows, err := s.db.Query(ctx, statement, req.SubName, req.IncludeImprovements, req.IncludeTriaged, limit, req.PaginationOffset)
+	statement := s.statements[readBySubNameUntriagedOnly]
+	if req.IncludeTriaged {
+		statement = s.statements[readBySubNameIncludeTriaged]
+	}
+	rows, err := s.db.Query(ctx, statement, req.SubName, req.IncludeImprovements, limit, req.PaginationOffset)
 	if err != nil {
 		return nil, skerr.Wrapf(err, "failed to get regressions. Query: %s", statement)
 	}

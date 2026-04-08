@@ -691,6 +691,7 @@ func TestGetRegressionsBySubName(t *testing.T) {
 		offset       int
 		expectedLen  int
 		improvements bool
+		showTriaged  bool
 		// expectedIDs is used to verify the exact order of return
 		expectedIDs []string
 	}{
@@ -701,6 +702,7 @@ func TestGetRegressionsBySubName(t *testing.T) {
 			offset:       0,
 			expectedLen:  3,
 			improvements: true,
+			showTriaged:  true,
 			expectedIDs:  rIds,
 		},
 		{
@@ -710,6 +712,7 @@ func TestGetRegressionsBySubName(t *testing.T) {
 			offset:       0,
 			expectedLen:  1,
 			improvements: true,
+			showTriaged:  true,
 			expectedIDs:  []string{rImp.Id},
 		},
 		{
@@ -719,6 +722,7 @@ func TestGetRegressionsBySubName(t *testing.T) {
 			offset:       len(rIds) - 1,
 			expectedLen:  1,
 			improvements: true,
+			showTriaged:  true,
 			expectedIDs:  []string{r1.Id},
 		},
 		{
@@ -728,6 +732,7 @@ func TestGetRegressionsBySubName(t *testing.T) {
 			offset:       0,
 			expectedLen:  0,
 			improvements: true,
+			showTriaged:  true,
 			expectedIDs:  []string{},
 		},
 		{
@@ -737,6 +742,7 @@ func TestGetRegressionsBySubName(t *testing.T) {
 			offset:       0,
 			expectedLen:  0,
 			improvements: true,
+			showTriaged:  true,
 			expectedIDs:  []string{},
 		},
 		{
@@ -746,7 +752,18 @@ func TestGetRegressionsBySubName(t *testing.T) {
 			offset:       0,
 			expectedLen:  2,
 			improvements: false,
+			showTriaged:  true,
 			expectedIDs:  []string{r2.Id, r1.Id}, // Expect r2 (newer) then r1 (older)
+		},
+		{
+			name:         "hide triaged returns oldest first",
+			subName:      "my-sub",
+			limit:        10,
+			offset:       0,
+			expectedLen:  3,
+			improvements: true,
+			showTriaged:  false,
+			expectedIDs:  []string{r1.Id, r2.Id, rImp.Id},
 		},
 	}
 
@@ -756,7 +773,7 @@ func TestGetRegressionsBySubName(t *testing.T) {
 				SubName:             tc.subName,
 				PaginationOffset:    tc.offset,
 				IncludeImprovements: tc.improvements,
-				IncludeTriaged:      true,
+				IncludeTriaged:      tc.showTriaged,
 			}
 			regs, err := store.GetRegressionsBySubName(ctx, req, tc.limit)
 			require.NoError(t, err)
