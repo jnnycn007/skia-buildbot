@@ -390,6 +390,11 @@ func (b *builder) newNFromQuery(ctx context.Context, end time.Time, q *query.Que
 		return dataframe.NewEmpty(), nil
 	}
 
+	// Track the search range and all traces found to provide a summary if no data is found.
+	originalEndIndex := endIndex
+	var lastBeginIndex types.CommitNumber
+	allFoundTraces := map[string]bool{}
+
 	// beginIndex is the index of the first commit in the tile that endIndex is
 	// in. We are OK if beginIndex == endIndex because fromIndexRange returns
 	// headers from begin to end *inclusive*.
@@ -408,6 +413,7 @@ func (b *builder) newNFromQuery(ctx context.Context, end time.Time, q *query.Que
 	// showing slower response times and have a smaller tile size.
 	sklog.Infof("BeginIndex: %d  EndIndex: %d", beginIndex, endIndex)
 	for total < n {
+		lastBeginIndex = beginIndex
 		// Query for traces.
 		headers, indices, skip, err := fromIndexRange(ctx, b.git, beginIndex, endIndex)
 		if err != nil {
@@ -417,6 +423,11 @@ func (b *builder) newNFromQuery(ctx context.Context, end time.Time, q *query.Que
 		df, err := b.new(ctx, headers, indices, q, progress, skip)
 		if err != nil {
 			return nil, fmt.Errorf("Failed while querying: %s", err)
+		}
+
+		// Track all traces found in this tile.
+		for key := range df.TraceSet {
+			allFoundTraces[key] = true
 		}
 
 		nonMissing := 0
@@ -491,6 +502,20 @@ func (b *builder) newNFromQuery(ctx context.Context, end time.Time, q *query.Que
 			beginIndex = 0
 		}
 	}
+
+	// If no data points were found, return commits representing the range searched.
+	if total == 0 && len(allFoundTraces) > 0 {
+		headers, _, _, err := fromIndexRange(ctx, b.git, lastBeginIndex, originalEndIndex)
+		if err == nil && len(headers) >= 2 {
+			ret.Header = []*dataframe.ColumnHeader{headers[0], headers[len(headers)-1]}
+			for key := range allFoundTraces {
+				ret.TraceSet[key] = types.Trace{vec32.MissingDataSentinel, vec32.MissingDataSentinel}
+			}
+			ret.BuildParamSet()
+			return ret, nil
+		}
+	}
+
 	ps.Normalize()
 	ret.ParamSet = ps.Freeze()
 	if b.filterParentTraces == doFilterParentTraces && !disableFilterParentTraces {

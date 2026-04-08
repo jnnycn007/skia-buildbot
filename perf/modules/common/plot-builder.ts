@@ -76,10 +76,9 @@ export const convertFromDataframe = (
   if (domain === 'date' || domain === 'both') {
     firstRow.push({ type: 'date', role: 'domain', label: 'Date' });
   }
-  keys.forEach((k) => firstRow.push(k));
+  keys.forEach((k) => firstRow.push({ type: 'number', label: k }));
 
   const rows: any[][] = [firstRow];
-  const isAllMissing = keys.map((k) => df!.traceset[k].every((v) => v === MISSING_DATA_SENTINEL));
 
   df!.header?.forEach((column, idx) => {
     const row: any[] = [];
@@ -89,13 +88,9 @@ export const convertFromDataframe = (
     if (domain === 'date' || domain === 'both') {
       row.push(new Date(column!.timestamp * 1000));
     }
-    keys.forEach((k, keyIndex) => {
+    keys.forEach((k) => {
       const val = df!.traceset[k][idx];
-      if (isAllMissing[keyIndex] && idx === df!.header!.length - 1) {
-        row.push(0);
-      } else {
-        row.push(val === MISSING_DATA_SENTINEL ? null : val);
-      }
+      row.push(val === MISSING_DATA_SENTINEL ? null : val);
     });
     rows.push(row);
   });

@@ -277,9 +277,9 @@ describe('plot-builder', () => {
       assert.equal(result!.length, 3);
 
       // Header check
-      // [ {role: domain...}, 'trace1', 'trace2' ]
-      assert.equal(result![0][1], 'trace1');
-      assert.equal(result![0][2], 'trace2');
+      // [ {role: domain...}, {type: 'number', label: 'trace1'}, {type: 'number', label: 'trace2'} ]
+      assert.deepEqual(result![0][1], { type: 'number', label: 'trace1' });
+      assert.deepEqual(result![0][2], { type: 'number', label: 'trace2' });
 
       // Data check
       // Row 1: [100, 1, 3]
@@ -291,6 +291,34 @@ describe('plot-builder', () => {
       assert.equal(result![2][0], 101);
       assert.equal(result![2][1], 2);
       assert.isNull(result![2][2]);
+    });
+
+    it('converts placeholder dataframe with all missing data correctly', () => {
+      // Verify that a dataframe containing only missing data points (returned when
+      // a search matches traces but finds no data in the requested range)
+      // is handled correctly.
+      const traceset: TraceSet = TraceSet({
+        ',arch=x86,': Trace([MISSING_DATA_SENTINEL, MISSING_DATA_SENTINEL]),
+      });
+      const header: ColumnHeader[] = [
+        { offset: 100, timestamp: 1000 },
+        { offset: 500, timestamp: 5000 },
+      ] as any;
+
+      const result = convertFromDataframe({ traceset, header }, 'commit');
+      assert.isNotNull(result);
+      assert.equal(result!.length, 3); // Header + 2 data rows
+
+      // Header should be typed correctly
+      assert.deepEqual(result![0][1], { type: 'number', label: ',arch=x86,' });
+
+      // First Data Row: [100, null]
+      assert.equal(result![1][0], 100);
+      assert.isNull(result![1][1]);
+
+      // Second Data Row: [500, null]
+      assert.equal(result![2][0], 500);
+      assert.isNull(result![2][1]);
     });
   });
 });
