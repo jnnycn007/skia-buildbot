@@ -2802,16 +2802,6 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
     replaceAnomalies: boolean = false
   ): Promise<void> {
     this.render();
-    if (
-      frameResponse.dataframe?.traceset &&
-      Object.keys(frameResponse.dataframe.traceset).length === 0
-    ) {
-      errorMessage('No data found for the given query.', 0, {
-        source: EXPLORE_SIMPLE_PAGE_SOURCE,
-        errorCode: StatusCodes.BAD_REQUEST.toString(),
-      });
-      return;
-    }
     const dfRepo = this.dfRepo.value;
     if (!dfRepo) {
       console.error('DataFrameRepository is not available.');
