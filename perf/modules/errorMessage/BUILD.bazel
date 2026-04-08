@@ -7,6 +7,7 @@ ts_library(
     deps = [
         "//elements-sk/modules:errormessage_ts_lib",
         "//perf/modules/telemetry:telemetry_ts_lib",
+        "//perf/modules/telemetry:types_ts_lib",
     ],
 )
 

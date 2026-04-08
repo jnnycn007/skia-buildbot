@@ -1,3 +1,4 @@
+import { CountMetric, SummaryMetric, TelemetryErrorOptions } from './types';
 import { reportErrorToServer } from './reportErrorToServer';
 
 /**
@@ -11,11 +12,11 @@ import { reportErrorToServer } from './reportErrorToServer';
  * navigates away or closes the tab) to prevent data loss.
  *
  * To add a new counter metric:
- * 1. Add the metric name to the `CountMetric` enum.
+ * 1. Add the metric name to the `CountMetric` enum in types.ts.
  * 2. Call `telemetry.increaseCounter()` with the new metric name and optional tags.
  *
  * To add a new summary metric:
- * 1. Add the metric name to the `SummaryMetric` enum.
+ * 1. Add the metric name to the `SummaryMetric` enum in types.ts.
  * 2. Call `telemetry.recordSummary()` with the new metric name, value, and optional tags.
  */
 interface FrontendMetric {
@@ -25,34 +26,7 @@ interface FrontendMetric {
   metric_type: 'counter' | 'summary';
 }
 
-export enum CountMetric {
-  // go/keep-sorted start
-  // AnomalyDataRaceTraceNotFound - Anomalies miss on graph due to race condition,
-  // trace was not there yet during anomalies assigment.
-  AnomalyDataRaceTraceNotFound = 'fe_anomaly_data_race_trace_not_found',
-  DataFetchFailure = 'fe_data_fetch_failure',
-  MultiGraphVisit = 'fe_multi_graph_page_visit',
-  ReportPageVisit = 'fe_report_page_visit',
-  SIDRequiringActionTaken = 'fe_sid_requiring_action_taken',
-  ExistingBugDialogSkBugIdUsedAsAnomalyKey = 'fe_exisitng_dialog_sk_bug_id_used_as_anomaly_key',
-  TriageActionTaken = 'fe_triage_action_taken',
-  FrontendErrorReported = 'fe_errors_reported_count',
-  // go/keep-sorted end
-}
-
-export enum SummaryMetric {
-  // go/keep-sorted start
-  GoogleGraphPlotTime = 'fe_google_graph_plot_time_s',
-  MultiGraphDataLoadTime = 'fe_multi_graph_data_load_time_s',
-  ReportAnomaliesTableLoadTime = 'fe_report_anomalies_table_load_time_s',
-  ReportChartContainerLoadTime = 'fe_report_chart_container_load_time_s',
-  ReportGraphChunkLoadTime = 'fe_report_graph_chunk_load_time_s',
-  ReportPageLoadTime = 'fe_report_page_load_time_s',
-  SingleGraphLoadTime = 'fe_single_graph_load_time_s',
-  // go/keep-sorted end
-}
-
-export { reportErrorToServer };
+export { CountMetric, SummaryMetric, reportErrorToServer, TelemetryErrorOptions };
 
 class Telemetry {
   private static readonly BUFFER_FLUSH_INTERVAL_MS = 5000; // 5 seconds
@@ -147,8 +121,8 @@ class Telemetry {
    * Reports an error message to the server.
    * This is a pass-through to the reportErrorToServer function.
    */
-  reportErrorToServer(errorBody: string, errorSource: string) {
-    return reportErrorToServer(errorBody, errorSource);
+  reportErrorToServer(errorBody: string, options: TelemetryErrorOptions = {}) {
+    return reportErrorToServer(errorBody, options);
   }
 
   // The following are exposed for testing purposes.

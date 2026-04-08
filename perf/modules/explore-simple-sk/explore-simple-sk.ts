@@ -17,7 +17,7 @@ import { TabsSk } from '../../../elements-sk/modules/tabs-sk/tabs-sk';
 import { ToastSk } from '../../../elements-sk/modules/toast-sk/toast-sk';
 import { ParamSet as CommonSkParamSet } from '../../../infra-sk/modules/query';
 import { SpinnerSk } from '../../../elements-sk/modules/spinner-sk/spinner-sk';
-import { errorMessage, logErrorMessage } from '../errorMessage';
+import { errorMessage } from '../errorMessage';
 import { StatusCodes } from 'http-status-codes';
 import { ElementSk } from '../../../infra-sk/modules/ElementSk';
 
@@ -133,7 +133,7 @@ import { CommitLinks } from '../point-links-sk/point-links-sk';
 import { handleKeyboardShortcut, KeyboardShortcutHandler } from '../common/keyboard-shortcuts';
 import { GraphConfig, updateShortcut } from '../common/graph-config';
 import { DataService, DataServiceError } from '../data-service';
-import { CountMetric } from '../telemetry/telemetry';
+
 import { DEFAULT_OPTION_LABEL } from '../common/test-picker';
 
 const DOMAIN_DATE = 'date';
@@ -1106,7 +1106,6 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
         this.summaryOptionsField.value!.selectedItems = [option];
       } else {
         errorMessage(`Summary bar not properly set for this trace. Trace Name: ${traceName}`, 0, {
-          countMetricSource: CountMetric.FrontendErrorReported,
           source: EXPLORE_SIMPLE_PAGE_SOURCE,
           errorCode: StatusCodes.INTERNAL_SERVER_ERROR.toString(),
         });
@@ -1246,7 +1245,6 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
         })
         .catch((msg) =>
           errorMessage(msg, 0, {
-            countMetricSource: CountMetric.FrontendErrorReported,
             source: EXPLORE_SIMPLE_PAGE_SOURCE,
             errorCode: StatusCodes.UNAUTHORIZED.toString(),
           })
@@ -1274,13 +1272,14 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
         .catch((msg) => {
           if (msg instanceof DataServiceError) {
             errorMessage(msg.message, 0, {
-              countMetricSource: CountMetric.FrontendErrorReported,
               source: EXPLORE_SIMPLE_PAGE_SOURCE,
-              errorCode: msg.status!.toString(),
+              errorCode: msg.status?.toString() || '500',
+              endpoint: msg.endpoint,
+              method: msg.method,
+              stack: msg.stack,
             });
           } else {
             errorMessage(msg, 0, {
-              countMetricSource: CountMetric.FrontendErrorReported,
               source: EXPLORE_SIMPLE_PAGE_SOURCE,
               errorCode: StatusCodes.INTERNAL_SERVER_ERROR.toString(),
             });
@@ -1554,7 +1553,6 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
       .catch((error) => {
         if (error instanceof DataServiceError && error.status === 500) {
           errorMessage('Unable to update shortcut.', 2000, {
-            countMetricSource: CountMetric.FrontendErrorReported,
             source: EXPLORE_SIMPLE_PAGE_SOURCE,
             errorCode: StatusCodes.INTERNAL_SERVER_ERROR.toString(),
           });
@@ -1818,13 +1816,11 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
         .catch((msg) => {
           if (msg instanceof DataServiceError) {
             errorMessage(msg.message, 0, {
-              countMetricSource: CountMetric.FrontendErrorReported,
               source: EXPLORE_SIMPLE_PAGE_SOURCE,
               errorCode: msg.status!.toString(),
             });
           } else {
             errorMessage(msg, 0, {
-              countMetricSource: CountMetric.FrontendErrorReported,
               source: EXPLORE_SIMPLE_PAGE_SOURCE,
               errorCode: StatusCodes.INTERNAL_SERVER_ERROR.toString(),
             });
@@ -2143,7 +2139,6 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
     if (!subDataframe || subDataframe.header?.length === 0) {
       // If the subDataframe is empty, we cannot proceed.
       errorMessage('Unable to find requested data range.', 0, {
-        countMetricSource: CountMetric.FrontendErrorReported,
         source: EXPLORE_SIMPLE_PAGE_SOURCE,
         errorCode: StatusCodes.NOT_FOUND.toString(),
       });
@@ -2770,7 +2765,6 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
       .then(async (json) => {
         if (json === null || json === undefined) {
           errorMessage('Failed to find any matching traces.', 0, {
-            countMetricSource: CountMetric.FrontendErrorReported,
             source: EXPLORE_SIMPLE_PAGE_SOURCE,
             errorCode: StatusCodes.NOT_FOUND.toString(),
           });
@@ -2781,13 +2775,11 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
       .catch((msg) => {
         if (msg instanceof DataServiceError) {
           errorMessage(msg.message, 0, {
-            countMetricSource: CountMetric.FrontendErrorReported,
             source: EXPLORE_SIMPLE_PAGE_SOURCE,
             errorCode: msg.status!.toString(),
           });
         } else {
           errorMessage(msg, 0, {
-            countMetricSource: CountMetric.FrontendErrorReported,
             source: EXPLORE_SIMPLE_PAGE_SOURCE,
             errorCode: StatusCodes.INTERNAL_SERVER_ERROR.toString(),
           });
@@ -2815,14 +2807,9 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
       Object.keys(frameResponse.dataframe.traceset).length === 0
     ) {
       errorMessage('No data found for the given query.', 0, {
-        countMetricSource: CountMetric.FrontendErrorReported,
         source: EXPLORE_SIMPLE_PAGE_SOURCE,
         errorCode: StatusCodes.BAD_REQUEST.toString(),
       });
-      logErrorMessage(
-        `No data found for the given query: ${JSON.stringify(frameResponse.dataframe.traceset)}`,
-        EXPLORE_SIMPLE_PAGE_SOURCE
-      );
       return;
     }
     const dfRepo = this.dfRepo.value;
@@ -2891,7 +2878,6 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
 
     if (dataframe.header!.length * Object.keys(dataframe.traceset).length > DATAPOINT_THRESHOLD) {
       errorMessage('Large amount of data requsted, performance may be affected.', 2000, {
-        countMetricSource: CountMetric.FrontendErrorReported,
         source: EXPLORE_SIMPLE_PAGE_SOURCE,
         errorCode: StatusCodes.OK.toString(),
       });
@@ -3121,7 +3107,6 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
     if (plotType === 'query') {
       if (!q || q.trim() === '') {
         errorMessage('The query must not be empty.', 0, {
-          countMetricSource: CountMetric.FrontendErrorReported,
           source: EXPLORE_SIMPLE_PAGE_SOURCE,
           errorCode: StatusCodes.BAD_REQUEST.toString(),
         });
@@ -3130,7 +3115,6 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
     } else if (plotType === 'formula') {
       if (f.trim() === '') {
         errorMessage('The formula must not be empty.', 0, {
-          countMetricSource: CountMetric.FrontendErrorReported,
           source: EXPLORE_SIMPLE_PAGE_SOURCE,
           errorCode: StatusCodes.BAD_REQUEST.toString(),
         });
@@ -3139,7 +3123,6 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
     } else if (plotType === 'pivot') {
       if (!q || q.trim() === '') {
         errorMessage('The query must not be empty.', 0, {
-          countMetricSource: CountMetric.FrontendErrorReported,
           source: EXPLORE_SIMPLE_PAGE_SOURCE,
           errorCode: StatusCodes.BAD_REQUEST.toString(),
         });
@@ -3149,7 +3132,6 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
       const pivotMsg = validatePivotRequest(this.pivotControl!.pivotRequest!);
       if (pivotMsg !== '') {
         errorMessage(pivotMsg, 0, {
-          countMetricSource: CountMetric.FrontendErrorReported,
           source: EXPLORE_SIMPLE_PAGE_SOURCE,
           errorCode: StatusCodes.BAD_REQUEST.toString(),
         });
@@ -3158,7 +3140,6 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
     } else if (plotType === 'json') {
       if (j.trim() === '') {
         errorMessage('The JSON must not be empty.', 0, {
-          countMetricSource: CountMetric.FrontendErrorReported,
           source: EXPLORE_SIMPLE_PAGE_SOURCE,
           errorCode: StatusCodes.BAD_REQUEST.toString(),
         });
@@ -3168,7 +3149,6 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
         JSON.parse(j);
       } catch (e) {
         errorMessage(`Invalid JSON: ${e}`, 0, {
-          countMetricSource: CountMetric.FrontendErrorReported,
           source: EXPLORE_SIMPLE_PAGE_SOURCE,
           errorCode: StatusCodes.BAD_REQUEST.toString(),
         });
@@ -3176,7 +3156,6 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
       }
     } else {
       errorMessage('Unknown plotType', 0, {
-        countMetricSource: CountMetric.FrontendErrorReported,
         source: EXPLORE_SIMPLE_PAGE_SOURCE,
         errorCode: StatusCodes.BAD_REQUEST.toString(),
       });
@@ -3500,13 +3479,11 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
     } catch (msg) {
       if (msg instanceof DataServiceError && msg.status === 500) {
         errorMessage('Unable to update shortcut.', 2000, {
-          countMetricSource: CountMetric.FrontendErrorReported,
           source: EXPLORE_SIMPLE_PAGE_SOURCE,
           errorCode: msg.status!.toString(),
         });
       } else if (msg instanceof DataServiceError) {
         errorMessage(msg.message, 0, {
-          countMetricSource: CountMetric.FrontendErrorReported,
           source: EXPLORE_SIMPLE_PAGE_SOURCE,
           errorCode: msg.status!.toString(),
         });
@@ -3649,7 +3626,6 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
     if (this._requestId !== '') {
       const err = new Error('There is a pending query already running.');
       errorMessage(err.message, 0, {
-        countMetricSource: CountMetric.FrontendErrorReported,
         source: EXPLORE_SIMPLE_PAGE_SOURCE,
         errorCode: StatusCodes.CONFLICT.toString(),
       });
@@ -3668,7 +3644,6 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
       }
       this.spinning = false;
       errorMessage(err as string, 0, {
-        countMetricSource: CountMetric.FrontendErrorReported,
         source: EXPLORE_SIMPLE_PAGE_SOURCE,
         errorCode: StatusCodes.INTERNAL_SERVER_ERROR.toString(),
       });
@@ -3693,7 +3668,6 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
       },
       onMessage: (msg: string) => {
         errorMessage(msg, 0, {
-          countMetricSource: CountMetric.FrontendErrorReported,
           source: EXPLORE_SIMPLE_PAGE_SOURCE,
           errorCode: StatusCodes.INTERNAL_SERVER_ERROR.toString(),
         });

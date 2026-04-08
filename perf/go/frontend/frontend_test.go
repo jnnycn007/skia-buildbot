@@ -323,7 +323,7 @@ func TestFrontend_feErrorLogHandler_Success(t *testing.T) {
 	f := &Frontend{}
 
 	// Test case 1: Successful decoding with a non-empty message.
-	body := `{"message": "Test error message", "source": "test-source"}`
+	body := `{"message": "Test error message", "source": "test-source", "errorCode": "500", "endpoint": "test-endpoint", "method": "test-method", "url": "test-url", "stack": "test-stack-trace" }`
 	r := httptest.NewRequest("POST", "/_/fe_error_log", strings.NewReader(body))
 	w := httptest.NewRecorder()
 

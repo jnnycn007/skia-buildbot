@@ -24,10 +24,16 @@ import {
 export class DataServiceError extends Error {
   status?: number;
 
-  constructor(message: string, status?: number) {
+  endpoint?: string;
+
+  method?: string;
+
+  constructor(message: string, status?: number, endpoint?: string, method?: string) {
     super(message);
     this.name = 'DataServiceError';
     this.status = status;
+    this.endpoint = endpoint;
+    this.method = method;
   }
 }
 
@@ -55,11 +61,12 @@ export class DataService {
    * Helper to fetch JSON from a URL.
    */
   private async fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
+    const method = init?.method || 'GET';
     try {
       const response = await fetch(url, init);
       return await jsonOrThrow(response);
     } catch (error: any) {
-      throw new DataServiceError(error.message || error.toString(), error.status);
+      throw new DataServiceError(error.message || error.toString(), error.status, url, method);
     }
   }
 

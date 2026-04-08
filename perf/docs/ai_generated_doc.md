@@ -14938,7 +14938,7 @@ The module exports two primary functions for handling errors:
 
 #### Telemetry Integration
 
-The telemetry functionality is designed to categorize errors using a specific metric source (defined by `CountMetric`). This allows the team to create dashboards based on the "source" and "errorCode" labels, providing a clear picture of application health.
+The telemetry functionality is designed to categorize errors using the `CountMetric.FrontendErrorReported` metric. This allows the team to create dashboards based on the "source" and "errorCode" labels, providing a clear picture of application health.
 
 ### Error Workflow
 
@@ -14948,9 +14948,9 @@ The following diagram illustrates how an error propagates from a functional call
 [ Function Call ]
       |
       V
-[ errorMessageWithTelemetry(msg, dur, options) ]
+[ errorMessage(msg, dur, options) ]
       |
-      +----( If options.countMetricSource exists )----> [ telemetry.increaseCounter ]
+      +------------------------------------------------> [ telemetry.increaseCounter ]
       |                                                        |
       |                                                        V
       |                                             [ External Metrics System ]

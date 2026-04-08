@@ -988,8 +988,13 @@ type feMetric struct {
 
 // feErrorLog is the structure of the JSON we receive from the frontend when it sends error logs.
 type feErrorLog struct {
-	Message string `json:"message"`
-	Source  string `json:"source"`
+	Message   string `json:"message"`
+	Source    string `json:"source"`
+	ErrorCode string `json:"errorCode"`
+	Endpoint  string `json:"endpoint"`
+	Method    string `json:"method"`
+	Url       string `json:"url"`
+	Stack     string `json:"stack"`
 }
 
 func (f *Frontend) feErrorLogHandler(w http.ResponseWriter, r *http.Request) {
@@ -1000,7 +1005,7 @@ func (f *Frontend) feErrorLogHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if errorLog.Message != "" {
-		sklog.Errorf("Frontend Error Log: %v in %v", errorLog.Message, errorLog.Source)
+		sklog.Errorf("Frontend Error Log: %v in %v from Url %v, ErrorCode: %v, Method: %v, Stack: %v", errorLog.Message, errorLog.Source, errorLog.Url, errorLog.ErrorCode, errorLog.Method, errorLog.Stack)
 	}
 	w.WriteHeader(http.StatusOK)
 }

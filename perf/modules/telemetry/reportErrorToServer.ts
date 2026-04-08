@@ -2,19 +2,21 @@
  * @fileoverview This file defines a function to report frontend errors to the backend.
  */
 
-interface FrontendErrorLog {
-  message: string;
-  source: string;
-}
+import { TelemetryErrorOptions } from './types';
 
 /**
  * Logs an error message to the backend.
  * Sends the data immediately to the `/_/fe_error_log` endpoint.
  */
-export async function reportErrorToServer(errorBody: string, errorSource: string) {
-  const errorLog: FrontendErrorLog = {
+export async function reportErrorToServer(errorBody: string, options: TelemetryErrorOptions = {}) {
+  const errorLog = {
     message: errorBody,
-    source: errorSource,
+    source: options.source || 'default',
+    errorCode: options.errorCode || '500',
+    endpoint: options.endpoint || '',
+    method: options.method || '',
+    url: options.url || '',
+    stack: options.stack || '',
   };
 
   try {

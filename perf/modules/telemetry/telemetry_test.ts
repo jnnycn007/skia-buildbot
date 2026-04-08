@@ -167,11 +167,19 @@ describe('reportErrorToServer', () => {
   it('sends an error log to the backend', async () => {
     const errorBody = 'test error';
     const errorSource = 'test source';
-    await reportErrorToServer(errorBody, errorSource);
+    await reportErrorToServer(errorBody, { source: errorSource, errorCode: '500' });
 
     expect(fetchStub.callCount).to.equal(1);
     expect(fetchStub.getCall(0).args[0]).to.equal('/_/fe_error_log');
-    const expectedBody = JSON.stringify({ message: errorBody, source: errorSource });
+    const expectedBody = JSON.stringify({
+      message: errorBody,
+      source: errorSource,
+      errorCode: '500',
+      endpoint: '',
+      method: '',
+      url: '',
+      stack: '',
+    });
     expect(fetchStub.getCall(0).args[1].method).to.equal('POST');
     expect(fetchStub.getCall(0).args[1].body).to.equal(expectedBody);
   });
@@ -182,7 +190,7 @@ describe('reportErrorToServer', () => {
     const errorSource = 'test source';
 
     // This should not throw an error as it's caught in reportErrorToServer
-    await reportErrorToServer(errorBody, errorSource);
+    await reportErrorToServer(errorBody, { source: errorSource });
 
     expect(fetchStub.callCount).to.equal(1);
   });

@@ -16,11 +16,21 @@ ts_library(
     name = "telemetry_ts_lib",
     srcs = ["telemetry.ts"],
     visibility = ["//visibility:public"],
-    deps = [":reporterrortoserver_ts_lib"],
+    deps = [
+        ":reporterrortoserver_ts_lib",
+        ":types_ts_lib",
+    ],
 )
 
 ts_library(
     name = "reporterrortoserver_ts_lib",
     srcs = ["reportErrorToServer.ts"],
+    visibility = ["//visibility:public"],
+    deps = [":types_ts_lib"],
+)
+
+ts_library(
+    name = "types_ts_lib",
+    srcs = ["types.ts"],
     visibility = ["//visibility:public"],
 )

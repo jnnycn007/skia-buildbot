@@ -1,11 +1,6 @@
 import { errorMessage as elementsErrorMessage } from '../../../elements-sk/modules/errorMessage';
 import { CountMetric, telemetry } from '../telemetry/telemetry';
-
-export interface TelemetryErrorOptions {
-  countMetricSource?: CountMetric;
-  source?: string;
-  errorCode?: string;
-}
+import { TelemetryErrorOptions } from '../telemetry/types';
 
 /**
  * Helper method to convert different error body types into a string.
@@ -41,38 +36,26 @@ export const convertToErrorString = (
 export const errorMessage = (
   message: string | { message: string } | { resp: Response } | object,
   duration: number = 0,
-  options: TelemetryErrorOptions = {}
+  options?: TelemetryErrorOptions
 ): void => {
-  if (options.source) {
-    logErrorMessage(message, options.source);
-  }
+  if (options) {
+    const source = options.source || 'default';
+    const errorCode =
+      options.errorCode ||
+      (isMessageWithResponse(message) ? message.resp.status.toString() : '500');
 
-  if (options.countMetricSource) {
-    let errorCode = options.errorCode;
+    // 1. Log the full high-cardinality metadata to the backend
+    telemetry.reportErrorToServer(convertToErrorString(message), options);
 
-    if (!errorCode && isMessageWithResponse(message)) {
-      errorCode = message.resp.status.toString();
-    }
-
-    if (!errorCode) {
-      errorCode = '500';
-    }
-    telemetry.increaseCounter(options.countMetricSource, {
-      source: options.source || 'default',
+    // 2. Increment the time-series metric counter with safe tags
+    const metricName = options.countMetricSource || CountMetric.FrontendErrorReported;
+    telemetry.increaseCounter(metricName, {
+      source: source,
       errorCode: errorCode,
     });
   }
+  // 3. Display the UI toast
   elementsErrorMessage(message, duration);
-};
-
-/**
- * logErrorMessage logs the error message to the server.
- */
-export const logErrorMessage = (
-  errorBody: string | { message: string } | { resp: Response } | object,
-  errorSource: string
-): void => {
-  telemetry.reportErrorToServer(convertToErrorString(errorBody), errorSource);
 };
 
 /**
