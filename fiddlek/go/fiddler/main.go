@@ -167,16 +167,15 @@ func runHandler(w http.ResponseWriter, r *http.Request) {
 	setState(types.COMPILING)
 	ninjaPath := "/usr/bin/ninja"
 	// Build just the fiddle binary
-	args := []string{"fiddle_secwrap", "--build", ninjaPath, *checkout, ninjaPath, "-C", "out/Static", "fiddle"}
-	buildResults, err := build(ctx, *checkout, args...)
-	buildLogs := strings.Split(buildResults, "\n")
-	sklog.Info("BuildLog")
+	args := []string{"fiddle_secwrap", "--build", ninjaPath, *checkout, ninjaPath, "-v", "-C", "out/Static", "fiddle"}
+	buildLogs, err := build(ctx, *checkout, args...)
+	sklog.Info("BuildLog:\n%s", buildLogs)
 	for _, s := range buildLogs {
 		sklog.Info(s)
 	}
 	if err != nil {
 		res.Compile.Errors = err.Error()
-		res.Compile.Output = buildResults
+		res.Compile.Output = buildLogs
 		serializeOutput(ctx, w, res)
 		return
 	}
@@ -382,6 +381,7 @@ func oneStep(ctx context.Context, checkout string, res *types.Result, frame floa
 func main() {
 	common.InitWithMust(
 		"fiddler",
+		common.StructuredLogging(local),
 	)
 	if *fiddleRoot == "" {
 		sklog.Fatalf("The --fiddle_root flag is required.")

@@ -207,20 +207,20 @@ func isAllowedExec(name string, allowedExec string, args, envp []string, buildMo
 }
 
 // testAgainstPrefixes verifies that the given name begins with one of the given
-// prefixes, or that it is a path relative to CWD. Exits the process with a
-// non-zero code if the name is invalid.
+// prefixes. If the name is a relative path, it is resolved against the child's
+// current working directory. Exits the process with a non-zero code if the
+// name is invalid.
 func testAgainstPrefixes(child int, caller string, name string, prefixes []string) {
-	normalized := filepath.Clean(name)
-
-	// Relative paths are allowed, unless they escape CWD. In that case the
-	// normalized path returned by filepath.Clean would start with "..".
+	var normalized string
 	if !strings.HasPrefix(name, "/") {
-		if strings.HasPrefix(normalized, "..") {
-			fmt.Fprintf(os.Stderr, "Relative paths cannot escape CWD.\n")
-			fmt.Fprintf(os.Stderr, "%s: %s\n", caller, name)
-			childFail(child, "Relative paths cannot escape CWD.")
+		cwd, err := os.Readlink(fmt.Sprintf("/proc/%d/cwd", child))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to read CWD of child %d: %v\n", child, err)
+			childFail(child, "Failed to read CWD.")
 		}
-		return
+		normalized = filepath.Join(cwd, name)
+	} else {
+		normalized = filepath.Clean(name)
 	}
 
 	okay := false
