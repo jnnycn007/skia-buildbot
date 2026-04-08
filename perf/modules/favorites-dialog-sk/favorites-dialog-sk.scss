@@ -42,6 +42,20 @@ favorites-dialog-sk {
       padding: 6px;
     }
 
+    .include-time-container {
+      margin-bottom: 20px;
+      label {
+        font-size: 1.2em !important;
+        margin-left: 8px;
+        vertical-align: middle;
+      }
+      input {
+        vertical-align: middle;
+        transform: scale(1.5);
+        margin-left: 4px;
+      }
+    }
+
     .buttons {
       float: right;
       button {

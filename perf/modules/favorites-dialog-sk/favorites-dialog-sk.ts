@@ -37,6 +37,11 @@ export class FavoritesDialogSk extends LitElement {
   @state()
   private updatingFavorite: boolean = false;
 
+  @state()
+  private includeTime: boolean = false;
+
+  private originalUrl: string = '';
+
   private resolve: ((value?: any) => void) | null = null;
 
   private reject: ((value?: any) => void) | null = null;
@@ -49,6 +54,34 @@ export class FavoritesDialogSk extends LitElement {
     this.dialog.close();
     if (this.reject) {
       this.reject();
+    }
+  }
+
+  private toggleIncludeTime(): void {
+    this.includeTime = !this.includeTime;
+    this.url = this.getFilteredUrl(this.originalUrl, this.includeTime);
+  }
+
+  private getFilteredUrl(urlStr: string, includeTime: boolean): string {
+    try {
+      const url = new URL(urlStr, window.location.origin);
+      if (!includeTime) {
+        let modified = false;
+        if (url.searchParams.has('begin')) {
+          url.searchParams.delete('begin');
+          modified = true;
+        }
+        if (url.searchParams.has('end')) {
+          url.searchParams.delete('end');
+          modified = true;
+        }
+        if (modified) {
+          return url.toString();
+        }
+      }
+      return urlStr;
+    } catch (_e) {
+      return urlStr;
     }
   }
 
@@ -107,7 +140,9 @@ export class FavoritesDialogSk extends LitElement {
     this.favId = favId || '';
     this.name = name || '';
     this.description = description || '';
-    this.url = url || window.location.href;
+    this.originalUrl = url || window.location.href;
+    this.includeTime = false;
+    this.url = this.getFilteredUrl(this.originalUrl, this.includeTime);
 
     await this.updateComplete;
     this.dialog.showModal();
@@ -168,7 +203,17 @@ export class FavoritesDialogSk extends LitElement {
           placeholder="URL"
           .value="${this.url}"
           @input=${(e: Event) => (this.url = (e.target as HTMLInputElement).value)}></input>
-        <br/><br/>
+        <br/>
+
+        <div class="include-time-container">
+          <input
+            id="include-time-${this.uniqueId}"
+            type="checkbox"
+            .checked=${this.includeTime}
+            @change=${this.toggleIncludeTime}>
+          <label for="include-time-${this.uniqueId}">Include begin and end time in URL</label>
+        </div>
+        <br/>
 
         <div ?hidden="${!this.updatingFavorite}">
           Working on it...
