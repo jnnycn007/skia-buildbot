@@ -270,9 +270,15 @@ describe('explore-simple-sk', () => {
       expect(traceKeys[0]).to.include(',arch=arm,os=Android,');
     });
 
-    it('switches x-axis to "date" mode', async () => {
+    it('switches x-axis to date mode and back to commit mode', async () => {
       // Show a graph.
       await testBed.page.click('#demo-show-graph');
+
+      // Manually enable plotSummary as ExploreSimpleSk doesn't read URL params in demo mode
+      const element = await testBed.page.$('explore-simple-sk');
+      await testBed.page.evaluate((el: any) => {
+        el.state = { ...el.state, plotSummary: true };
+      }, element);
 
       const plotPO = await simplePageSkPO.plotGoogleChartSk;
       await plotPO.waitForChartVisible({ timeout: CLIPBOARD_READ_TIMEOUT_MS });
@@ -283,10 +289,37 @@ describe('explore-simple-sk', () => {
         return traceKeys.length > 0;
       }, 'timed out waiting for traces to load');
 
+      const plotSummaryPO = simplePageSkPO.plotSummary;
+      await plotSummaryPO.waitForPlotSummaryToLoad();
+      const initialRange = await plotSummaryPO.getSelectedRange();
+
       expect(await simplePageSkPO.getXAxisDomain()).to.equal('commit');
       await simplePageSkPO.clickXAxisSwitch();
       // After click, should be 'date'
       expect(await simplePageSkPO.getXAxisDomain()).to.equal('date');
+
+      // Poll until the range actually changes to avoid a race condition.
+      await poll(async () => {
+        const dateRange = await plotSummaryPO.getSelectedRange();
+        return initialRange!.begin !== dateRange!.begin;
+      }, 'The date range did not change after switching the x-axis.');
+
+      // Now that we know it has changed, we can assert.
+      const finalDateRange = await plotSummaryPO.getSelectedRange();
+      expect(initialRange!.begin).not.to.equal(finalDateRange!.begin);
+
+      // Switch back to 'commit'
+      await simplePageSkPO.clickXAxisSwitch();
+      expect(await simplePageSkPO.getXAxisDomain()).to.equal('commit');
+
+      // Poll until the range reverts to the initial commit-based range.
+      await poll(async () => {
+        const commitRange = await plotSummaryPO.getSelectedRange();
+        return initialRange!.begin === commitRange!.begin;
+      }, 'The commit range did not revert after switching back the x-axis.');
+
+      const finalCommitRange = await plotSummaryPO.getSelectedRange();
+      expect(initialRange!.begin).to.equal(finalCommitRange!.begin);
     });
 
     it('switches zoom direction to horizontal', async () => {
