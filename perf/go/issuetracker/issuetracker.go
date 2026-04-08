@@ -51,6 +51,7 @@ type IssueTracker interface {
 type issueTrackerImpl struct {
 	client                *issuetracker.Service
 	FetchAnomaliesFromSql bool
+	OverrideComponent     bool
 	regStore              regression.Store
 	regrShortcutStore     regrshortcut.Store
 	userIssueStore        userissue.Store
@@ -111,7 +112,7 @@ func setupSecretClient(ctx context.Context, cfg config.IssueTrackerConfig, optio
 }
 
 // NewIssueTracker returns a new issueTracker object.
-func NewIssueTracker(ctx context.Context, cfg config.IssueTrackerConfig, fetchAnomFromSql bool, regStore regression.Store, userIssueStore userissue.Store, devMode bool, urlBase string) (IssueTracker, error) {
+func NewIssueTracker(ctx context.Context, cfg config.IssueTrackerConfig, fetchAnomFromSql bool, overrideBugComponent bool, regStore regression.Store, userIssueStore userissue.Store, devMode bool, urlBase string) (IssueTracker, error) {
 	var client *http.Client
 	var err error
 	var options []option.ClientOption
@@ -140,6 +141,7 @@ func NewIssueTracker(ctx context.Context, cfg config.IssueTrackerConfig, fetchAn
 	return &issueTrackerImpl{
 		client:                c,
 		FetchAnomaliesFromSql: fetchAnomFromSql,
+		OverrideComponent:     overrideBugComponent,
 		regStore:              regStore,
 		userIssueStore:        userIssueStore,
 		urlBase:               urlBase,
@@ -242,9 +244,6 @@ func (s *issueTrackerImpl) FileBug(ctx context.Context, req *FileBugRequest) (in
 	if req.Component != fmt.Sprintf("%d", componentID) {
 		sklog.Warningf("we ignore componentID: %s passed by fe and use data from the db: %d", req.Component, componentID)
 	}
-	// TODO(b/454614028) remove this assignment after migration is done.
-	// This is to prevent spamming other teams while testing.
-	componentID = 1325852
 
 	topAnomalies, err := ags.TopAnomaliesMedianCmp(regData, int64(TOP_ANOMALIES_COUNT))
 	description := ""
@@ -256,9 +255,13 @@ func (s *issueTrackerImpl) FileBug(ctx context.Context, req *FileBugRequest) (in
 	description += s.describeTopAnomalies(topAnomalies, link)
 
 	descriptionDebugSection := "\n\n## DEBUG BELOW\n\n"
-	sklog.Warningf("File Bug would use the following component: %d. Using a default component until migration is done.", componentID)
-	descriptionDebugSection += fmt.Sprintf("component %d should be used.\nUntil migration is done, we use the default one.\n", componentID)
-	description += descriptionDebugSection + "\n\n"
+	// This is to prevent spamming other teams while testing.
+	if s.OverrideComponent {
+		componentID = 1325852
+		sklog.Warningf("File Bug would use the following component: %d. Using a default component until migration is done.", componentID)
+		descriptionDebugSection += fmt.Sprintf("component %d should be used.\nUntil migration is done, we use the default one.\n", componentID)
+		description += descriptionDebugSection + "\n\n"
+	}
 
 	var ccs []*issuetracker.User
 	for _, cc := range req.Ccs {

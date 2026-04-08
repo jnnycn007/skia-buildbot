@@ -244,10 +244,8 @@ func TestFileBug_RequestBody(t *testing.T) {
 	require.Contains(t, receivedReq.IssueComment.Comment, "test.com")
 	require.Contains(t, receivedCommentReq.Comment, "Link to graph by bugID")
 	require.Contains(t, receivedCommentReq.Comment, "12345")
-	// TODO(b/454614028) Change it to regStore value once migration is done.
-	defaultComponentId := int64(1325852)
 	// Note that componentID is overriden by the default value
-	require.Equal(t, defaultComponentId, receivedReq.IssueState.ComponentId)
+	require.Equal(t, int64(8765), receivedReq.IssueState.ComponentId)
 	require.Equal(t, testSubEmail, receivedReq.IssueState.Assignee.EmailAddress)
 	require.Len(t, receivedReq.IssueState.Ccs, 3)
 	require.Equal(t, "cc1@google.com", receivedReq.IssueState.Ccs[0].EmailAddress)
@@ -348,8 +346,7 @@ func TestFileBug_SelectSubscription(t *testing.T) {
 	require.NoError(t, err)
 
 	// Note that componentID is overriden by the default value
-	defaultComponentId := int64(1325852)
-	require.Equal(t, defaultComponentId, receivedReq.IssueState.ComponentId)
+	require.Equal(t, int64(222), receivedReq.IssueState.ComponentId)
 	require.Equal(t, "P1", receivedReq.IssueState.Priority)
 	require.Equal(t, "S2", receivedReq.IssueState.Severity)
 	require.Equal(t, testSubEmail, receivedReq.IssueState.Assignee.EmailAddress)
@@ -388,9 +385,7 @@ func TestFileBug_SelectSubscription_SamePrio(t *testing.T) {
 	_, err := s.FileBug(context.Background(), req)
 	require.NoError(t, err)
 
-	// Note that componentID is overriden by the default value
-	defaultComponentId := int64(1325852)
-	require.Equal(t, defaultComponentId, receivedReq.IssueState.ComponentId)
+	require.Equal(t, int64(222), receivedReq.IssueState.ComponentId)
 	require.Equal(t, "P2", receivedReq.IssueState.Priority)
 	require.Equal(t, "S1", receivedReq.IssueState.Severity)
 	require.Equal(t, testSubEmail, receivedReq.IssueState.Assignee.EmailAddress)
@@ -403,6 +398,7 @@ func TestFileBug_SelectSubscription_SamePrio(t *testing.T) {
 func TestFileBug_SelectSubscription_NotBerfDevTest(t *testing.T) {
 	s, regStore, _, _, ts, receivedReq, _ := createIssueTrackerForTestInterceptRequests(t)
 	defer ts.Close()
+	s.OverrideComponent = true
 
 	regStore.On("GetByIDs", mock.Anything, mock.AnythingOfType("[]string")).Return([]*regression.Regression{}, nil)
 

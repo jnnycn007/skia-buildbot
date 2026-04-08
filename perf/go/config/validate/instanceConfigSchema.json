@@ -172,6 +172,9 @@
     },
     "Experiments": {
       "properties": {
+        "override_bug_component": {
+          "type": "boolean"
+        },
         "remove_default_stat_value": {
           "type": "boolean"
         },

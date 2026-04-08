@@ -972,6 +972,8 @@ type ApplyDefault struct {
 
 // Experiments contains experiment flags for the instance.
 type Experiments struct {
+	// Flag to override component when filing bugs and always target 1325852 (chrome perf testing).
+	OverrideBugComponent bool `json:"override_bug_component,omitempty"`
 	// Flag to remove default stat=value value in cache.
 	RemoveDefaultStatValue bool `json:"remove_default_stat_value,omitempty"`
 	// Flag to enable aggregation in skia-bridge.

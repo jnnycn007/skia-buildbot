@@ -26,7 +26,8 @@
       "tile_size": 256
     },
     "experiments": {
-      "regressions_trace_id_field": true
+      "regressions_trace_id_field": true,
+      "override_bug_component": true
     },
     "ingestion_config": {
       "source_config": {
