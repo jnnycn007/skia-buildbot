@@ -21,8 +21,8 @@ export enum CountMetric {
   DataFetchFailure = 'fe_data_fetch_failure',
   ExistingBugDialogSkBugIdUsedAsAnomalyKey = 'fe_exisitng_dialog_sk_bug_id_used_as_anomaly_key',
   FrontendErrorReported = 'fe_errors_reported_count',
-  MultiGraphVisit = 'fe_multi_graph_page_visit',
-  ReportPageVisit = 'fe_report_page_visit',
+  MultiGraphVisit = 'fe_multi_graph_page_visit_count',
+  ReportPageVisit = 'fe_report_page_visit_count',
   SIDRequiringActionTaken = 'fe_sid_requiring_action_taken',
   TriageActionTaken = 'fe_triage_action_taken',
   // go/keep-sorted end
