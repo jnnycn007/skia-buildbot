@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 
 	issuetracker "go.skia.org/infra/go/issuetracker/v1"
 	"go.skia.org/infra/go/paramtools"
+	v1 "go.skia.org/infra/perf/go/anomalygroup/proto/v1"
 	"go.skia.org/infra/perf/go/dataframe"
 	"go.skia.org/infra/perf/go/regression"
 	regMocks "go.skia.org/infra/perf/go/regression/mocks"
@@ -478,4 +480,42 @@ func TestFileUserIssue_NilRequest(t *testing.T) {
 	defer ts.Close()
 	_, err := s.FileUserIssue(context.Background(), nil)
 	require.Error(t, err)
+}
+
+func TestGenerateAnomTableHeaders(t *testing.T) {
+	headers := generateAnomTableHeaders()
+
+	lines := strings.Split(headers, "\n")
+	require.GreaterOrEqual(t, len(lines), 3)
+
+	headerLine := lines[1]
+	dividerLine := lines[2]
+
+	headerPipes := strings.Count(headerLine, "|")
+	dividerPipes := strings.Count(dividerLine, "|")
+	dividerDashes := strings.Count(dividerLine, "---")
+
+	require.Equal(t, headerPipes, dividerPipes)
+	// There are 8 columns, so 9 pipes and 8 dividers
+	require.Equal(t, 8, dividerDashes)
+}
+
+func TestDescribeAnomaly(t *testing.T) {
+	anomaly := &v1.Anomaly{
+		Paramset: map[string]string{
+			"bot":         "bot1",
+			"benchmark":   "bench1",
+			"measurement": "meas1",
+			"story":       "story1",
+		},
+		MedianBefore: 10.0,
+		MedianAfter:  15.0,
+		StartCommit:  100,
+		EndCommit:    101,
+	}
+	desc := describeAnomaly(anomaly)
+
+	pipes := strings.Count(desc, "|")
+	// Expected 8 columns separated by pipes (7 inner pipes + 2 optional outer)
+	require.Equal(t, 9, pipes)
 }

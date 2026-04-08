@@ -30,6 +30,7 @@ go_test(
     deps = [
         "//go/issuetracker/v1:issuetracker",
         "//go/paramtools",
+        "//perf/go/anomalygroup/proto/v1",
         "//perf/go/dataframe",
         "//perf/go/regression",
         "//perf/go/regression/mocks",

@@ -415,11 +415,6 @@ func (s *issueTrackerImpl) describeTopAnomalies(anom []*v1.Anomaly, link string)
 	return
 }
 
-func generateAnomTableHeaders() string {
-	return "  \n| Bot | Benchmark | Measurement | Story | Median Before | Median After | Change | Commit range |  \n" +
-		"| --- | --- | --- | --- | --- | --- | --- | --- | \n"
-}
-
 func (s *issueTrackerImpl) generateLinkToGraph(ctx context.Context, keys []string) (string, error) {
 	if len(keys) == 0 {
 		sklog.Error("generating empty graph, make sure it's just for testing!")
@@ -466,9 +461,16 @@ func calcChange(before, after float32) float32 {
 	return (after - before) / before * 100.0
 }
 
+func generateAnomTableHeaders() string {
+	return "  \n| Bot | Benchmark | Measurement | Story | Median Before | Median After | Change | Commit range |  \n" +
+		"| --- | --- | --- | --- | --- | --- | --- | --- | \n"
+}
+
 func describeAnomaly(a *v1.Anomaly) string {
-	return fmt.Sprintf("  - Bot: %s, Benchmark: %s, Measurement: %s, Story: %s.  \n    Change: %.2f -> %.2f (%+.2f%%); Commit range: %d -> %d\n\n",
+	// MD table, see `generateAnomTableHeaders` for headers.
+	return fmt.Sprintf("| %s | %s | %s | %s | %.2f | %.2f | %+.2f%% | %d -> %d | \n",
 		a.Paramset["bot"], a.Paramset["benchmark"], a.Paramset["measurement"], a.Paramset["story"],
-		a.MedianBefore, a.MedianAfter, calcChange(a.MedianBefore, a.MedianAfter), a.StartCommit, a.EndCommit,
+		a.MedianBefore, a.MedianAfter, calcChange(a.MedianBefore, a.MedianAfter),
+		a.StartCommit, a.EndCommit,
 	)
 }
