@@ -13,6 +13,8 @@ packages:
   - ffmpeg
   - file
   - git
+  - libclang-rt-19-dev
+  - libclang-common-19-dev
   - libfontconfig-dev
   - libfontconfig1
   - libgl1-mesa-dev

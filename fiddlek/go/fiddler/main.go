@@ -167,12 +167,9 @@ func runHandler(w http.ResponseWriter, r *http.Request) {
 	setState(types.COMPILING)
 	ninjaPath := "/usr/bin/ninja"
 	// Build just the fiddle binary
-	args := []string{"fiddle_secwrap", "--build", ninjaPath, *checkout, ninjaPath, "-v", "-C", "out/Static", "fiddle"}
+	args := []string{"/usr/local/bin/fiddle_secwrap", "--build", ninjaPath, *checkout, ninjaPath, "-v", "-C", "out/Static", "fiddle"}
 	buildLogs, err := build(ctx, *checkout, args...)
-	sklog.Info("BuildLog:\n%s", buildLogs)
-	for _, s := range buildLogs {
-		sklog.Info(s)
-	}
+	sklog.Infof("BuildLog:\n%s", buildLogs)
 	if err != nil {
 		res.Compile.Errors = err.Error()
 		res.Compile.Output = buildLogs
@@ -350,7 +347,7 @@ func oneStep(ctx context.Context, checkout string, res *types.Result, frame floa
 	stderr := bytes.Buffer{}
 	stdout := bytes.Buffer{}
 	runCmd := &exec.Command{
-		Name:        "fiddle_secwrap",
+		Name:        "/usr/local/bin/fiddle_secwrap",
 		Args:        args,
 		Dir:         *fiddleRoot,
 		InheritPath: true,

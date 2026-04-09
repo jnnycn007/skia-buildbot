@@ -94,9 +94,9 @@ func isShellCommand(name string) bool {
 }
 
 var (
-	mkdirAllowedPrefixes    = []string{"/tmp", "/var/cache/fontconfig"}
-	unlinkAllowedPrefixes   = []string{"/tmp"}
-	writingAllowedPrefixes  = []string{"/tmp/", "/var/cache/fontconfig", "/dev/null"}
+	mkdirAllowedPrefixes    = []string{"/tmp", "/var/cache/fontconfig", "/home/skia/.cache/fontconfig"}
+	unlinkAllowedPrefixes   = []string{"/tmp", "/home/skia/.cache/fontconfig"}
+	writingAllowedPrefixes  = []string{"/tmp/", "/var/cache/fontconfig", "/home/skia/.cache/fontconfig", "/dev/null"}
 	linkAllowedPrefixes     = []string{"/tmp/"}
 	mknodAllowedPrefixes    = []string{"/tmp/"}
 	renameAllowedPrefixes   = []string{"/tmp/"}
@@ -116,11 +116,13 @@ var (
 		"/etc/lsb-release",
 		"/etc/os-release",
 		"/etc/redhat-release",
+		"/home/skia/.cache/fontconfig",
 		"/lib/",
 		"/mnt/pd0/",
 		"/proc/self/",
 		"/sys/fs/",
-		"/tmp/",
+		"/sys/devices/system/cpu/",
+		"/tmp",
 		"/usr/etc/",
 		"/usr/lib/",
 		"/usr/lib32/",
@@ -132,13 +134,14 @@ var (
 	}
 )
 
-var allowedCmdRegex = regexp.MustCompile(`^[a-zA-Z0-9\s\-\.\/_=\+:,*\?\@\"']+$`)
+var allowedCmdRegex = regexp.MustCompile(`^[a-zA-Z0-9\s\-\.\/_=\+:,*\?\@\"'\$]+$`)
 
 func isAllowedExec(name string, allowedExec string, args, envp []string, buildMode bool) bool {
 	if name == allowedExec {
 		return true
 	}
 	if !buildMode {
+		fmt.Fprintf(os.Stderr, "not in build mode but exec is %s\n", name)
 		return false
 	}
 	isAllowedBinary := false
@@ -149,25 +152,29 @@ func isAllowedExec(name string, allowedExec string, args, envp []string, buildMo
 		}
 	}
 	if !isAllowedBinary {
+		fmt.Fprintf(os.Stderr, "%s is not in %v\n", name, execveAllowedBinaries)
 		return false
 	}
 	if isShellCommand(name) {
 		if len(args) != 3 || args[1] != "-c" {
+			fmt.Fprintf(os.Stderr, "invalid shell command: %v\n", args)
 			return false
 		}
 		cmd := args[2]
 		cmdArgs, err := shlex.Split(cmd)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed parsing command: %s", err)
+			fmt.Fprintf(os.Stderr, "failed parsing command: %s\n", err)
 			return false
 		}
 		if len(cmdArgs) == 0 {
+			fmt.Fprintf(os.Stderr, "no args for shell command: %v\n", args)
 			return false
 		}
 		name := cmdArgs[0]
 
 		// Disallow nested shells.
 		if isShellCommand(name) {
+			fmt.Fprintf(os.Stderr, "disallowing nested shell command: %v\n", args)
 			return false
 		}
 		return isAllowedExec(name, allowedExec, cmdArgs, envp, buildMode)
@@ -176,6 +183,7 @@ func isAllowedExec(name string, allowedExec string, args, envp []string, buildMo
 	// Prevent shell injection, redirection, piping, command substitution, etc.
 	fullCmd := strings.Join(args, " ")
 	if !allowedCmdRegex.MatchString(fullCmd) {
+		fmt.Fprintf(os.Stderr, "invalid characters in command: %s\n", fullCmd)
 		return false
 	}
 
@@ -185,6 +193,7 @@ func isAllowedExec(name string, allowedExec string, args, envp []string, buildMo
 		strings.Contains(fullCmd, "-Xclang") ||
 		strings.Contains(fullCmd, "-load") ||
 		strings.Contains(fullCmd, "-specs=") {
+		fmt.Fprintf(os.Stderr, "command contains illegal flags: %s\n", fullCmd)
 		return false
 	}
 
@@ -199,6 +208,7 @@ func isAllowedExec(name string, allowedExec string, args, envp []string, buildMo
 			strings.HasPrefix(env, "NODE_") ||
 			strings.HasPrefix(env, "BASH_FUNC_") ||
 			strings.Contains(env, "IFS=") {
+			fmt.Fprintf(os.Stderr, "command has illegal environment variable: %s\n", env)
 			return false
 		}
 	}
@@ -449,6 +459,7 @@ func buildSeccompFilter() []unix.SockFilter {
 		unix.SYS_MKNODAT,
 		unix.SYS_OPEN,
 		unix.SYS_OPENAT,
+		unix.SYS_OPENAT2,
 		unix.SYS_READLINK,
 		unix.SYS_READLINKAT,
 		unix.SYS_RENAME,
@@ -536,13 +547,16 @@ func doTrace(child int, allowedExec string) int {
 					}
 
 					syscallNum := regs.Orig_rax
+					// Uncomment for very verbose logging of all traced syscalls.
+					// fmt.Fprintf(os.Stderr, "Traced syscall: %d\n", syscallNum)
+
 					switch syscallNum {
 					case unix.SYS_EXECVE:
 						name := readString(wpid, regs.Rdi)
 						args := readStringArray(wpid, regs.Rsi)
 						envp := readStringArray(wpid, regs.Rdx)
 						if !isAllowedExec(name, allowedExec, args, envp, buildMode) {
-							fmt.Fprintf(os.Stderr, "Invalid exec: %s\n", name)
+							fmt.Fprintf(os.Stderr, "Invalid exec: %v\n", args)
 							childFail(wpid, "Invalid exec.")
 						}
 					case unix.SYS_OPEN:
@@ -553,7 +567,7 @@ func doTrace(child int, allowedExec string) int {
 							prefixes = writingAllowedPrefixes
 						}
 						testAgainstPrefixes(wpid, "open", name, prefixes)
-					case unix.SYS_OPENAT:
+					case unix.SYS_OPENAT, unix.SYS_OPENAT2:
 						name := readString(wpid, regs.Rsi)
 						flags := regs.Rdx
 						prefixes := readonlyAllowedPrefixes
