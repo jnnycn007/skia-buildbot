@@ -32,7 +32,6 @@
         "min_db_connections": 5
     },
     "experiments": {
-        "remove_default_stat_value": true,
         "enable_skia_bridge_aggregation": true,
         "regressions_trace_id_field": true
     },
@@ -89,7 +88,6 @@
             "benchmark",
             "bot",
             "test",
-	    "stat",
             "subtest_1",
             "subtest_2",
             "subtest_3"
@@ -106,6 +104,7 @@
             "show_google_plot": "true"
         },
         "max_empty_tiles": 5,
+        "default_range": 604800,
         "cache_config": {
             "type": "redis",
             "level1_cache_key": "benchmark",
