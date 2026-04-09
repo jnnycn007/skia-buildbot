@@ -45,6 +45,7 @@ import (
 	"go.skia.org/infra/go/cleanup"
 	"go.skia.org/infra/go/common"
 	"go.skia.org/infra/go/httputils"
+	"go.skia.org/infra/go/netutils"
 	"go.skia.org/infra/go/roles"
 	"go.skia.org/infra/go/secret"
 	"go.skia.org/infra/go/skerr"
@@ -131,7 +132,41 @@ func (p *proxy) setAllowedRoles(allowedRoles map[roles.Role]allowed.Allow) {
 	p.allowedRoles = allowedRoles
 }
 
+func isSafeRedirect(r *http.Request, target string) bool {
+	u, err := url.Parse(target)
+	if err != nil {
+		return false
+	}
+	// Relative URLs are safe.
+	if u.Host == "" {
+		return true
+	}
+	// Same host is safe.
+	if u.Host == r.Host {
+		return true
+	}
+	// Subdomains of the same root domain are safe.
+	root := netutils.RootDomain(r.Host)
+	if root != "" && strings.HasSuffix(u.Host, "."+root) {
+		return true
+	}
+	return false
+}
+
 func (p *proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/logout/" {
+		redirectURL := r.URL.Query().Get("redirect")
+		if redirectURL != "" {
+			if isSafeRedirect(r, redirectURL) {
+				http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+				return
+			}
+			// Fall back to / on the current host if the redirect URL is unsafe.
+			http.Redirect(w, r, "/", http.StatusSeeOther)
+			return
+		}
+	}
+
 	email, err := p.authProvider.LoggedInAs(r)
 	if err != nil {
 		if !p.passive {

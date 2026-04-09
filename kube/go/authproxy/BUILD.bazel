@@ -11,6 +11,7 @@ go_library(
         "//go/cleanup",
         "//go/common",
         "//go/httputils",
+        "//go/netutils",
         "//go/roles",
         "//go/secret",
         "//go/skerr",

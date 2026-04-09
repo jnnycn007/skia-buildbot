@@ -75,6 +75,38 @@ func TestProxyServeHTTP_AllowPostAndNotAuthenticated_WebAuthHeaderValueIsEmptySt
 	require.True(t, *called)
 }
 
+func TestProxyServeHTTP_LogoutWithSafeRedirect_RedirectsToTarget(t *testing.T) {
+	u, called, w, r := setupForTest(t, func(w http.ResponseWriter, r *http.Request) {})
+	r.Method = "GET"
+	r.URL.Path = "/logout/"
+	r.URL.RawQuery = "redirect=/foo"
+
+	authMock := mocks.NewAuth(t)
+
+	proxy := newProxy(u, authMock, false, false, false, false, true)
+
+	proxy.ServeHTTP(w, r)
+	require.False(t, *called) // Should not have called the target server
+	require.Equal(t, http.StatusSeeOther, w.Result().StatusCode)
+	require.Equal(t, "/foo", w.Result().Header.Get("Location"))
+}
+
+func TestProxyServeHTTP_LogoutWithUnsafeRedirect_FallsBackToRoot(t *testing.T) {
+	u, called, w, r := setupForTest(t, func(w http.ResponseWriter, r *http.Request) {})
+	r.Method = "GET"
+	r.URL.Path = "/logout/"
+	r.URL.RawQuery = "redirect=https://evil.com"
+
+	authMock := mocks.NewAuth(t)
+
+	proxy := newProxy(u, authMock, false, false, false, false, true)
+
+	proxy.ServeHTTP(w, r)
+	require.False(t, *called) // Should not have called the target server
+	require.Equal(t, http.StatusSeeOther, w.Result().StatusCode)
+	require.Equal(t, "/", w.Result().Header.Get("Location"))
+}
+
 func TestProxyServeHTTP_UserIsLoggedIn_HeaderWithUserEmailIsIncludedInRequest(t *testing.T) {
 	u, called, w, r := setupForTest(t, assertValidEmailAndRole(t))
 
