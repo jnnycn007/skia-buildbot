@@ -1,15 +1,14 @@
 /**
  * Function that returns the root domain of a sub-domain.
  *
- * I.e. it will return "skia.org" if the host is "perf.skia.org".
+ * I.e. it will return "skia.org" if the current location is "perf.skia.org".
  *
- * For internal "corp.goog" domains, it returns the full host to preserve
- * the specific instance name.
+ * In addition it will fallback to "skia.org" is case we are on corp.goog.
  */
-export function rootDomain(host: string = window.location.host): string {
-  const ret = host.split('.').slice(-2).join('.');
+export function rootDomain(): string {
+  let ret = window.location.host.split('.').slice(-2).join('.');
   if (ret === 'corp.goog') {
-    return host;
+    ret = 'skia.org';
   }
   return ret;
 }
