@@ -10,9 +10,14 @@ import (
 	"go.skia.org/infra/go/skerr"
 	ag_pb "go.skia.org/infra/perf/go/anomalygroup/proto/v1"
 	c_pb "go.skia.org/infra/perf/go/culprit/proto/v1"
-	legacyPinpoint "go.skia.org/infra/perf/go/pinpoint"
+
 	"go.skia.org/infra/perf/go/types"
 	"go.skia.org/infra/perf/go/workflows"
+
+	// TODO(b/500974820): Replace `legacyPinpoint` with `pinpoint`.
+	legacyPinpoint "go.skia.org/infra/pinpoint/go/pinpoint"
+
+	// TODO(b/500974820): Remove the new `pinpoint` backend.
 	pinpoint "go.skia.org/infra/pinpoint/go/workflows"
 	pp_pb "go.skia.org/infra/pinpoint/proto/v1"
 	"go.temporal.io/api/enums/v1"

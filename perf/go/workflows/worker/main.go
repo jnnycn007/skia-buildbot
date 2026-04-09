@@ -6,9 +6,9 @@ import (
 
 	"go.skia.org/infra/go/common"
 	"go.skia.org/infra/go/sklog"
-	"go.skia.org/infra/perf/go/pinpoint"
 	"go.skia.org/infra/perf/go/workflows"
 	"go.skia.org/infra/perf/go/workflows/internal"
+	"go.skia.org/infra/pinpoint/go/pinpoint"
 	"go.skia.org/infra/temporal/go/metrics"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"

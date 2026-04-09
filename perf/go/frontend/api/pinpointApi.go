@@ -13,7 +13,7 @@ import (
 	"go.skia.org/infra/go/skerr"
 	"go.skia.org/infra/go/sklog"
 	backendClient "go.skia.org/infra/perf/go/backend/client"
-	"go.skia.org/infra/perf/go/pinpoint"
+	"go.skia.org/infra/pinpoint/go/pinpoint"
 	pinpoint_pb "go.skia.org/infra/pinpoint/proto/v1"
 )
 

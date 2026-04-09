@@ -58,7 +58,6 @@ import (
 	"go.skia.org/infra/perf/go/issuetracker"
 	"go.skia.org/infra/perf/go/notify"
 	"go.skia.org/infra/perf/go/notifytypes"
-	"go.skia.org/infra/perf/go/pinpoint"
 	"go.skia.org/infra/perf/go/playground/anomaly"
 	"go.skia.org/infra/perf/go/progress"
 	"go.skia.org/infra/perf/go/psrefresh"
@@ -74,6 +73,7 @@ import (
 	"go.skia.org/infra/perf/go/types"
 	"go.skia.org/infra/perf/go/urlprovider"
 	"go.skia.org/infra/perf/go/userissue"
+	"go.skia.org/infra/pinpoint/go/pinpoint"
 	pp_service "go.skia.org/infra/pinpoint/go/service"
 )
 

@@ -23,7 +23,6 @@ import (
 	"go.skia.org/infra/perf/go/graphsshortcut"
 	"go.skia.org/infra/perf/go/ingest/format"
 	"go.skia.org/infra/perf/go/notifytypes"
-	"go.skia.org/infra/perf/go/pinpoint"
 	"go.skia.org/infra/perf/go/pivot"
 	"go.skia.org/infra/perf/go/progress"
 	"go.skia.org/infra/perf/go/regression"
@@ -31,6 +30,7 @@ import (
 	subProto "go.skia.org/infra/perf/go/subscription/proto/v1"
 	"go.skia.org/infra/perf/go/types"
 	"go.skia.org/infra/perf/go/ui/frame"
+	"go.skia.org/infra/pinpoint/go/pinpoint"
 )
 
 type unionAndName struct {

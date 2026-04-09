@@ -9,8 +9,10 @@ import (
 	anomalygroup_proto "go.skia.org/infra/perf/go/anomalygroup/proto/v1"
 	anomalygroup_mock "go.skia.org/infra/perf/go/anomalygroup/proto/v1/mocks"
 	culprit_proto "go.skia.org/infra/perf/go/culprit/proto/v1"
-	legacyPinpoint "go.skia.org/infra/perf/go/pinpoint"
+
 	"go.skia.org/infra/perf/go/workflows"
+	// TODO(b/500974820): Replace `legacyPinpoint` with `pinpoint`.
+	legacyPinpoint "go.skia.org/infra/pinpoint/go/pinpoint"
 	pinpoint "go.skia.org/infra/pinpoint/go/workflows"
 	"go.skia.org/infra/pinpoint/go/workflows/catapult"
 	pinpoint_proto "go.skia.org/infra/pinpoint/proto/v1"

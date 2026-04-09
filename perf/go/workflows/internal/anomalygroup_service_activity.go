@@ -7,7 +7,9 @@ import (
 	"go.skia.org/infra/go/skerr"
 	pb "go.skia.org/infra/perf/go/anomalygroup/proto/v1"
 	backend "go.skia.org/infra/perf/go/backend/client"
-	legacyPinpoint "go.skia.org/infra/perf/go/pinpoint"
+
+	// TODO(b/500974820): Replace `legacyPinpoint` with `pinpoint`.
+	legacyPinpoint "go.skia.org/infra/pinpoint/go/pinpoint"
 	"golang.org/x/time/rate"
 )
 
