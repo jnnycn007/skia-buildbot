@@ -493,7 +493,221 @@ describe('anomalies-table-sk', () => {
         dummyAnomaly('1', 0, 0, 0, 'master/bot/suite/test1/sub1'),
         dummyAnomaly('2', 0, 0, 0, 'master/bot/suite/test1/sub2'),
       ];
-      assert.equal(AnomalyTransformer.findLongestSubTestPath(anomalies), 'test1/sub*');
+      assert.equal(AnomalyTransformer.findLongestSubTestPath(anomalies), 'test1/*');
+    });
+
+    it('handles various amounts of subtest parts', () => {
+      const anomalies = [
+        dummyAnomaly(
+          '1',
+          0,
+          0,
+          0,
+          'internal.client.v8/x64/v8/JetStream2/turbolev/mandreel/Wall-Time/pgo'
+        ),
+        dummyAnomaly(
+          '2',
+          0,
+          0,
+          0,
+          'internal.client.v8/x64/v8/JetStream2/turbolev/mandreel/Average/pgo'
+        ),
+      ];
+      assert.equal(
+        AnomalyTransformer.findLongestSubTestPath(anomalies),
+        'JetStream2/turbolev/mandreel/*'
+      );
+    });
+
+    it('handles long common prefix across many levels', () => {
+      const anomalies = [
+        dummyAnomaly(
+          '1',
+          0,
+          0,
+          0,
+          'internal.client.v8/MacM1/v8/JetStream3/future/json-stringify-inspector/Wall-Time'
+        ),
+        dummyAnomaly(
+          '2',
+          0,
+          0,
+          0,
+          'internal.client.v8/MacM1/v8/JetStream3/future/json-stringify-inspector/Average-Time'
+        ),
+        dummyAnomaly(
+          '3',
+          0,
+          0,
+          0,
+          'internal.client.v8/MacM1/v8/JetStream3/future/json-stringify-inspector/Score'
+        ),
+        dummyAnomaly(
+          '4',
+          0,
+          0,
+          0,
+          'internal.client.v8/MacM1/v8/JetStream3/future/json-stringify-inspector/Worst-Time'
+        ),
+      ];
+      assert.equal(
+        AnomalyTransformer.findLongestSubTestPath(anomalies),
+        'JetStream3/future/json-stringify-inspector/*'
+      );
+    });
+
+    it('ignores partial token matches', () => {
+      const anomalies = [
+        dummyAnomaly(
+          '1',
+          0,
+          0,
+          0,
+          'internal.client.v8/Pixel4/v8/JSTests/Array/Array.at(0)-double/pgo'
+        ),
+        dummyAnomaly(
+          '2',
+          0,
+          0,
+          0,
+          'internal.client.v8/Pixel4/v8/JSTests/Array/Array.at(-1)-double/pgo'
+        ),
+      ];
+      assert.equal(AnomalyTransformer.findLongestSubTestPath(anomalies), 'JSTests/Array/*');
+    });
+
+    it('handles identical paths', () => {
+      const anomalies = [
+        dummyAnomaly(
+          '1',
+          0,
+          0,
+          0,
+          'internal.client.v8/MacM4/v8/JetStream2/maglev/pdfjs/Worst-Case'
+        ),
+        dummyAnomaly(
+          '2',
+          0,
+          0,
+          0,
+          'internal.client.v8/MacM4/v8/JetStream2/maglev/pdfjs/Worst-Case'
+        ),
+      ];
+      assert.equal(
+        AnomalyTransformer.findLongestSubTestPath(anomalies),
+        'JetStream2/maglev/pdfjs/Worst-Case'
+      );
+    });
+
+    it('returns * when there is no common prefix', () => {
+      const anomalies = [dummyAnomaly('1', 0, 0, 0, 'a/b/c'), dummyAnomaly('2', 0, 0, 0, 'd/e/f')];
+      assert.equal(AnomalyTransformer.findLongestSubTestPath(anomalies), '*');
+    });
+
+    it('handles real world test case with many different bots and test paths', () => {
+      const anomalies = [
+        dummyAnomaly(
+          '1',
+          0,
+          0,
+          0,
+          'internal.client.v8/x64/v8/Infra/Durations/SuperIC/Compare-Megamorphic-1-noopt/super'
+        ),
+        dummyAnomaly(
+          '2',
+          0,
+          0,
+          0,
+          'internal.client.v8/MacM1/v8/Infra/Durations/Wasm/PsWeb-202109-Lazy'
+        ),
+        dummyAnomaly(
+          '3',
+          0,
+          0,
+          0,
+          'internal.client.v8/MacM4/v8/Infra/Durations/Liftoff-Micro/add-small-i32-10-Turbofan'
+        ),
+        dummyAnomaly(
+          '4',
+          0,
+          0,
+          0,
+          'internal.client.v8/MacM4/v8/Infra/Durations/Liftoff-Micro/add-small-i32-10-Liftoff'
+        ),
+        dummyAnomaly(
+          '5',
+          0,
+          0,
+          0,
+          'internal.client.v8/MacM1/v8/Infra/Durations/JSTests/ManyClosures'
+        ),
+        dummyAnomaly('6', 0, 0, 0, 'internal.client.v8/MacM1/v8/Infra/Durations/PunchStartup'),
+        dummyAnomaly(
+          '7',
+          0,
+          0,
+          0,
+          'internal.client.v8/Pixel4-arm32/v8/Infra/Durations/JSTests/Inspector'
+        ),
+        dummyAnomaly(
+          '8',
+          0,
+          0,
+          0,
+          'internal.client.v8/MacM4/v8/Infra/Durations/Wasm/AngryBots-Async'
+        ),
+        dummyAnomaly('9', 0, 0, 0, 'internal.client.v8/MacM1/v8/Infra/Durations/Compile/stalls'),
+        dummyAnomaly(
+          '10',
+          0,
+          0,
+          0,
+          'internal.client.v8/Pixel4/v8/Infra/Durations/Wasm/PsWeb-202109-TurboFan'
+        ),
+        dummyAnomaly(
+          '11',
+          0,
+          0,
+          0,
+          'internal.client.v8/MacM1/v8/Infra/Durations/Wasm/PsWeb-202109-Liftoff'
+        ),
+        dummyAnomaly(
+          '12',
+          0,
+          0,
+          0,
+          'internal.client.v8/MacM1/v8/Infra/Durations/Promises/DoxbeeAsyncBabel'
+        ),
+        dummyAnomaly(
+          '13',
+          0,
+          0,
+          0,
+          'internal.client.v8/MacM1/v8/Infra/Durations/Wasm-Future/AngryBots'
+        ),
+        dummyAnomaly(
+          '14',
+          0,
+          0,
+          0,
+          'internal.client.v8/ia32/v8/Infra/Durations/SuperIC/Compare-Megamorphic-1-opt/normal-opt'
+        ),
+        dummyAnomaly(
+          '15',
+          0,
+          0,
+          0,
+          'internal.client.v8/ia32/v8/Infra/Durations/Promises/DoxbeeAsyncNative'
+        ),
+        dummyAnomaly(
+          '16',
+          0,
+          0,
+          0,
+          'internal.client.v8/x64/v8/Infra/Durations/Promises/DoxbeeAsyncNative'
+        ),
+      ];
+      assert.equal(AnomalyTransformer.findLongestSubTestPath(anomalies), 'Infra/Durations/*');
     });
   });
 
@@ -863,7 +1077,7 @@ describe('anomalies-table-sk', () => {
       const cells = summaryRow!.querySelectorAll('td');
       assert.equal(cells[5].textContent?.trim(), 'bot');
       assert.equal(cells[6].textContent?.trim(), 'suite');
-      assert.equal(cells[7].textContent?.trim(), 'test*');
+      assert.equal(cells[7].textContent?.trim(), '*');
       assert.equal(cells[8].textContent?.trim(), '-20%');
       assert.include(cells[8].className, 'regression');
     });

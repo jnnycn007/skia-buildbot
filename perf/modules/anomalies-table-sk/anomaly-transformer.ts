@@ -59,35 +59,39 @@ export class AnomalyTransformer {
     if (anomalyList.length === 0) {
       return '';
     }
-    // Check if this character exists at the same position in all other strings.
-    let longestCommonTestPath = anomalyList[0]!.test_path;
+
+    const getTestPartTokens = (testPath: string) => {
+      return testPath.split('/').slice(3);
+    };
+
+    let commonTokens = getTestPartTokens(anomalyList[0]!.test_path);
+
+    if (commonTokens.length === 0 || (commonTokens.length === 1 && commonTokens[0] === '')) {
+      return '*';
+    }
 
     for (let i = 1; i < anomalyList.length; i++) {
-      const currentString = anomalyList[i].test_path;
-      // While the current string doesn't start with the prefix, shorten the prefix
-      while (currentString.indexOf(longestCommonTestPath) !== 0) {
-        longestCommonTestPath = longestCommonTestPath.substring(
-          0,
-          longestCommonTestPath.length - 1
-        );
-
-        if (longestCommonTestPath === '') {
-          return '*';
+      const currentTokens = getTestPartTokens(anomalyList[i].test_path);
+      let matchCount = 0;
+      for (let j = 0; j < commonTokens.length && j < currentTokens.length; j++) {
+        if (commonTokens[j] === currentTokens[j]) {
+          matchCount++;
+        } else {
+          break;
         }
+      }
+      commonTokens = commonTokens.slice(0, matchCount);
+
+      if (commonTokens.length === 0) {
+        return '*';
       }
     }
 
-    // Return the common test path plus '' if the paths in the grouped rows are not the same.
-    // '*' indicates where the test names differ in the collapsed rows.
-    if (longestCommonTestPath.length !== anomalyList[0]!.test_path.length) {
-      const testPath = longestCommonTestPath.split('/');
-      // If we sliced off too much, we might have partial path segments.
-      // Ideally we should split by '/' first, but sticking to original logic for parity now.
-      // The original logic assumes test_path structure matches split('/').
-      return testPath.slice(3, testPath.length).join('/') + '*';
+    const originalTokens = getTestPartTokens(anomalyList[0]!.test_path);
+    if (commonTokens.length !== originalTokens.length) {
+      return commonTokens.join('/') + '/*';
     }
-    // else return the original test path.
-    return anomalyList[0]!.test_path;
+    return commonTokens.join('/');
   }
 
   /**
