@@ -1,0 +1,30 @@
+load("@rules_go//go:def.bzl", "go_library")
+load("//bazel/go:go_test.bzl", "go_test")
+
+go_library(
+    name = "internal",
+    srcs = [
+        "legacy_client.go",
+        "types.go",
+    ],
+    importpath = "go.skia.org/infra/pinpoint/go/pinpoint/internal",
+    visibility = ["//pinpoint/go/pinpoint:__subpackages__"],
+    deps = [
+        "//go/auth",
+        "//go/httputils",
+        "//go/metrics2",
+        "//go/skerr",
+        "//go/sklog",
+        "@org_golang_x_oauth2//google",
+    ],
+)
+
+go_test(
+    name = "internal_test",
+    srcs = ["legacy_client_test.go"],
+    embed = [":internal"],
+    deps = [
+        "//go/httputils",
+        "@com_github_stretchr_testify//assert",
+    ],
+)

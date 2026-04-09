@@ -1,5 +1,4 @@
 load("@rules_go//go:def.bzl", "go_library")
-load("//bazel/go:go_test.bzl", "go_test")
 
 go_library(
     name = "pinpoint",
@@ -10,21 +9,7 @@ go_library(
     importpath = "go.skia.org/infra/pinpoint/go/pinpoint",
     visibility = ["//visibility:public"],
     deps = [
-        "//go/auth",
-        "//go/httputils",
-        "//go/metrics2",
         "//go/skerr",
-        "//go/sklog",
-        "@org_golang_x_oauth2//google",
-    ],
-)
-
-go_test(
-    name = "pinpoint_test",
-    srcs = ["pinpoint_test.go"],
-    embed = [":pinpoint"],
-    deps = [
-        "//go/httputils",
-        "@com_github_stretchr_testify//assert",
+        "//pinpoint/go/pinpoint/internal",
     ],
 )

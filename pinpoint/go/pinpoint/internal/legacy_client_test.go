@@ -1,4 +1,4 @@
-package pinpoint
+package internal
 
 import (
 	"context"
@@ -152,13 +152,13 @@ func (m *mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return recorder.Result(), nil
 }
 
-func setupTestMocks(t *testing.T, handler http.HandlerFunc) *Client {
+func setupTestMocks(t *testing.T, handler http.HandlerFunc) *LegacyClient {
 	client := httputils.DefaultClientConfig().WithoutRetries().Client()
 	client.Transport = &mockTransport{
 		handler: handler,
 	}
 
-	pc := &Client{
+	pc := &LegacyClient{
 		httpClient: client,
 	}
 
