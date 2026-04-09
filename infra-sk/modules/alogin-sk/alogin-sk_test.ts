@@ -18,5 +18,12 @@ describe('alogin-sk', () => {
       const status = await element.statusPromise;
       assert.equal(status.email, 'test@example.com');
     });
+
+    it('constructs logout URL with redirect parameter', async () => {
+      await element.statusPromise;
+      const anchor = element.querySelector('a.logInOut') as HTMLAnchorElement;
+      assert.isNotNull(anchor);
+      assert.include(anchor.href, '/logout/?redirect=');
+    });
   });
 });

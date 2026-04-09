@@ -94,7 +94,9 @@ export class AloginSk extends LitElement {
     const domain = rootDomain();
 
     this.login = `https://${domain}/login/`;
-    this.logout = `https://${domain}/logout/`;
+    this.logout = `https://${domain}/logout/?redirect=${encodeURIComponent(
+      window.location.origin
+    )}`;
 
     if (this.testingOffline) {
       this.statusPromise = Promise.resolve(fakeStatus);
