@@ -3,6 +3,7 @@ package issuetracker
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -35,6 +36,21 @@ var sampleParamsetMap = map[string]string{
 	"measurement": "measurement",
 	"stat":        "stat",
 }
+
+func getMockRegressions(n int) []*regression.Regression {
+	res := make([]*regression.Regression, n)
+	for i := 0; i < n; i++ {
+		res[i] = &regression.Regression{
+			Frame: &frame.FrameResponse{
+				DataFrame: &dataframe.DataFrame{
+					ParamSet: paramtools.NewReadOnlyParamSet(sampleParamsetMap),
+				},
+			},
+		}
+	}
+	return res
+}
+
 var testSubOwner = "sergeirudenkov@google.com"
 var testSubEmail = "berf-issuetracker-testing@google.com"
 
@@ -113,7 +129,7 @@ func TestFileBug_Success(t *testing.T) {
 			BugComponent: "1235",
 		},
 	}, nil)
-	regStore.On("GetByIDs", mock.Anything, mock.AnythingOfType("[]string")).Return([]*regression.Regression{}, nil)
+	regStore.On("GetByIDs", mock.Anything, mock.AnythingOfType("[]string")).Return(getMockRegressions(1), nil)
 
 	req := &FileBugRequest{
 		Title:       "Test Bug",
@@ -145,7 +161,7 @@ func TestFileBug_InvalidComponent(t *testing.T) {
 			BugComponent: "invalid",
 		},
 	}, nil)
-	regStore.On("GetByIDs", mock.Anything, mock.AnythingOfType("[]string")).Return([]*regression.Regression{}, nil)
+	regStore.On("GetByIDs", mock.Anything, mock.AnythingOfType("[]string")).Return(getMockRegressions(1), nil)
 
 	req := &FileBugRequest{
 		Component: "invalid",
@@ -177,7 +193,7 @@ func TestFileBug_APIError(t *testing.T) {
 			BugComponent: "1325852",
 		},
 	}, nil)
-	regStore.On("GetByIDs", mock.Anything, mock.AnythingOfType("[]string")).Return([]*regression.Regression{}, nil)
+	regStore.On("GetByIDs", mock.Anything, mock.AnythingOfType("[]string")).Return(getMockRegressions(1), nil)
 
 	req := &FileBugRequest{
 		Title:       "Test Bug",
@@ -272,7 +288,7 @@ func TestFileBug_EmptyDescription(t *testing.T) {
 			BugComponent: "8765",
 		},
 	}, nil)
-	regStore.On("GetByIDs", mock.Anything, mock.AnythingOfType("[]string")).Return([]*regression.Regression{}, nil)
+	regStore.On("GetByIDs", mock.Anything, mock.AnythingOfType("[]string")).Return(getMockRegressions(2), nil)
 	regrShortcutStore.On("Create", mock.Anything, mock.AnythingOfType("[]string")).Return("deadbeef", nil)
 
 	_, err := s.FileBug(context.Background(), req)
@@ -305,7 +321,7 @@ func TestFileBug_EmptyDescriptionTooManyKeys(t *testing.T) {
 			BugComponent: "8765",
 		},
 	}, nil)
-	regStore.On("GetByIDs", mock.Anything, mock.AnythingOfType("[]string")).Return([]*regression.Regression{}, nil)
+	regStore.On("GetByIDs", mock.Anything, mock.AnythingOfType("[]string")).Return(getMockRegressions(200), nil)
 	regrShortcutStore.On("Create", mock.Anything, mock.AnythingOfType("[]string")).Return("deadbeef", nil)
 
 	_, err := s.FileBug(context.Background(), req)
@@ -319,7 +335,7 @@ func TestFileBug_SelectSubscription(t *testing.T) {
 	s, regStore, _, _, ts, receivedReq, _ := createIssueTrackerForTestInterceptRequests(t)
 	defer ts.Close()
 
-	regStore.On("GetByIDs", mock.Anything, mock.AnythingOfType("[]string")).Return([]*regression.Regression{}, nil)
+	regStore.On("GetByIDs", mock.Anything, mock.AnythingOfType("[]string")).Return(getMockRegressions(1), nil)
 
 	regStore.On("GetSubscriptionsForRegressions", mock.Anything, mock.AnythingOfType("[]string")).Return([]string{"1"}, []int64{1}, []*pb.Subscription{
 		{
@@ -359,7 +375,7 @@ func TestFileBug_SelectSubscription_SamePrio(t *testing.T) {
 	s, regStore, _, _, ts, receivedReq, _ := createIssueTrackerForTestInterceptRequests(t)
 	defer ts.Close()
 
-	regStore.On("GetByIDs", mock.Anything, mock.AnythingOfType("[]string")).Return([]*regression.Regression{}, nil)
+	regStore.On("GetByIDs", mock.Anything, mock.AnythingOfType("[]string")).Return(getMockRegressions(1), nil)
 
 	regStore.On("GetSubscriptionsForRegressions", mock.Anything, mock.AnythingOfType("[]string")).Return([]string{"1"}, []int64{1}, []*pb.Subscription{
 		{
@@ -400,7 +416,7 @@ func TestFileBug_SelectSubscription_NotBerfDevTest(t *testing.T) {
 	defer ts.Close()
 	s.OverrideComponent = true
 
-	regStore.On("GetByIDs", mock.Anything, mock.AnythingOfType("[]string")).Return([]*regression.Regression{}, nil)
+	regStore.On("GetByIDs", mock.Anything, mock.AnythingOfType("[]string")).Return(getMockRegressions(1), nil)
 
 	regStore.On("GetSubscriptionsForRegressions", mock.Anything, mock.AnythingOfType("[]string")).Return([]string{"1"}, []int64{1}, []*pb.Subscription{
 		{
@@ -441,7 +457,7 @@ func TestFileBug_EmptySubscriptionsList(t *testing.T) {
 	defer ts.Close()
 
 	regStore.On("GetSubscriptionsForRegressions", mock.Anything, mock.AnythingOfType("[]string")).Return([]string{"1"}, []int64{1}, []*pb.Subscription{}, nil)
-	regStore.On("GetByIDs", mock.Anything, mock.AnythingOfType("[]string")).Return([]*regression.Regression{{}}, nil)
+	regStore.On("GetByIDs", mock.Anything, mock.AnythingOfType("[]string")).Return(getMockRegressions(1), nil)
 
 	req := &FileBugRequest{
 		Keys: []string{"1"},
@@ -515,4 +531,38 @@ func TestDescribeAnomaly(t *testing.T) {
 	pipes := strings.Count(desc, "|")
 	// Expected 8 columns separated by pipes (7 inner pipes + 2 optional outer)
 	require.Equal(t, 9, pipes)
+}
+
+func TestIntersectionFooter_NonEmptyIntersection(t *testing.T) {
+	s := &issueTrackerImpl{
+		commitRangeFormatter: func(ctx context.Context, begin, end int64) string {
+			return fmt.Sprintf("http://commits/%d/%d", begin, end)
+		},
+	}
+
+	regData := []*regression.Regression{
+		{PrevCommitNumber: types.CommitNumber(10), CommitNumber: types.CommitNumber(20)},
+		{PrevCommitNumber: types.CommitNumber(15), CommitNumber: types.CommitNumber(25)},
+		{PrevCommitNumber: types.CommitNumber(12), CommitNumber: types.CommitNumber(22)},
+	}
+
+	footer := s.intersectionFooter(context.TODO(), regData)
+	require.Contains(t, footer, "Common commit range of all regressions in this bug")
+	require.Contains(t, footer, "http://commits/15/20")
+}
+
+func TestIntersectionFooter_EmptyIntersection(t *testing.T) {
+	s := &issueTrackerImpl{
+		commitRangeFormatter: func(ctx context.Context, begin, end int64) string {
+			return fmt.Sprintf("http://commits/%d/%d", begin, end)
+		},
+	}
+
+	regData := []*regression.Regression{
+		{PrevCommitNumber: types.CommitNumber(10), CommitNumber: types.CommitNumber(20)},
+		{PrevCommitNumber: types.CommitNumber(25), CommitNumber: types.CommitNumber(30)},
+	}
+
+	footer := s.intersectionFooter(context.TODO(), regData)
+	require.Contains(t, footer, "Commit intersection of regressions in this bug is empty!")
 }

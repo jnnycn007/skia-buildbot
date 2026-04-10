@@ -234,6 +234,9 @@ func (s *issueTrackerImpl) FileBug(ctx context.Context, req *FileBugRequest) (in
 	if err != nil {
 		return 0, skerr.Wrapf(err, "failed to get regressions for regression ids")
 	}
+	if len(regData) != len(regressionIds) {
+		return 0, skerr.Fmt("could not find data of some regressions")
+	}
 
 	isTestRun := s.checkTestRun(subscriptions)
 	mostImpactedSub, subCcs := s.selectSub(subscriptions)
@@ -256,6 +259,7 @@ func (s *issueTrackerImpl) FileBug(ctx context.Context, req *FileBugRequest) (in
 		return 0, skerr.Wrap(err)
 	}
 	description += s.describeTopAnomalies(ctx, topAnomalies, link)
+	description += s.intersectionFooter(ctx, regData)
 
 	descriptionDebugSection := "\n\n## DEBUG BELOW\n\n"
 	// This is to prevent spamming other teams while testing.
@@ -436,6 +440,29 @@ func (s *issueTrackerImpl) generateLinkToGraph(ctx context.Context, keys []strin
 	}
 
 	return link + sid, nil
+}
+
+func (s *issueTrackerImpl) intersectionFooter(ctx context.Context, regData []*regression.Regression) string {
+	if len(regData) == 0 {
+		sklog.Error("empty regressions list - impossible, we've checked it earlier")
+		return ""
+	}
+	begin := regData[0].PrevCommitNumber
+	end := regData[0].CommitNumber
+	for _, r := range regData {
+		begin = max(begin, r.PrevCommitNumber)
+		end = min(end, r.CommitNumber)
+	}
+
+	if begin >= end {
+		return "\nCommit intersection of regressions in this bug is empty!\n"
+	}
+
+	commitRange := fmt.Sprintf("%d -> %d", begin, end)
+	if s.commitRangeFormatter != nil {
+		commitRange = s.commitRangeFormatter(ctx, int64(begin), int64(end))
+	}
+	return fmt.Sprintf("\nCommon commit range of all regressions in this bug: %s\n", commitRange)
 }
 
 // There may be several subscriptions
