@@ -593,7 +593,17 @@ func TestNewIssueTracker_FileBug_Success(t *testing.T) {
 	regStore.On("GetByIDs", mock.Anything, mock.AnythingOfType("[]string")).Return(getMockRegressions(1), nil)
 
 	cfg := config.IssueTrackerConfig{}
-	tracker, err := NewIssueTracker(ctx, cfg, true, false, regStore, regrShortcutStore, userIssueStore, true, "http://test.com", nil)
+	tracker, err := NewIssueTracker(ctx, IssueTrackerDeps{
+		Cfg:                   cfg,
+		FetchAnomaliesFromSql: true,
+		OverrideBugComponent:  false,
+		RegStore:              regStore,
+		RegrShortcutStore:     regrShortcutStore,
+		UserIssueStore:        userIssueStore,
+		DevMode:               true,
+		UrlBase:               "http://test.com",
+		CommitRangeFormatter:  nil,
+	})
 	require.NoError(t, err)
 
 	tracker.(*issueTrackerImpl).client.BasePath = ts.URL

@@ -221,53 +221,78 @@ func (n *defaultNotifier) UpdateNotification(ctx context.Context, commit, previo
 	return n.transport.UpdateRegressionNotification(ctx, alert, notificationData.Body, notificationId)
 }
 
+// NotifierDeps contains dependencies and configuration for creating a new Notifier.
+type NotifierDeps struct {
+	Cfg                    *config.NotifyConfig
+	ItCfg                  *config.IssueTrackerConfig
+	URL                    string
+	CommitRangeURITemplate string
+	TraceStore             tracestore.TraceStore
+	RegressionStore        regression.Store
+	RegrShortcutStore      regrshortcut.Store
+	UserIssueStore         userissue.Store
+	FS                     fs.FS
+	DevMode                bool
+	CommitRangeFormatter   types.CommitRangeFormatter
+}
+
 // New returns a Notifier of the selected type.
-func New(ctx context.Context, cfg *config.NotifyConfig, itCfg *config.IssueTrackerConfig, URL, commitRangeURITemplate string, traceStore tracestore.TraceStore, regressionStore regression.Store, regrShortcutStore regrshortcut.Store, userIssueStore userissue.Store, fs fs.FS, devMode bool, commitRangeFormatter types.CommitRangeFormatter) (Notifier, error) {
-	formatter, err := getFormatter(cfg, commitRangeURITemplate)
+func New(ctx context.Context, deps NotifierDeps) (Notifier, error) {
+	formatter, err := getFormatter(deps.Cfg, deps.CommitRangeURITemplate)
 	if err != nil {
 		return nil, skerr.Wrap(err)
 	}
 	var notificationDataProvider NotificationDataProvider
-	switch cfg.NotificationDataProvider {
+	switch deps.Cfg.NotificationDataProvider {
 	case notifytypes.DefaultNotificationProvider:
 		notificationDataProvider = newDefaultNotificationProvider(formatter)
 	case notifytypes.AndroidNotificationProvider:
-		notificationDataProvider, err = NewAndroidNotificationDataProvider(commitRangeURITemplate, cfg)
+		notificationDataProvider, err = NewAndroidNotificationDataProvider(deps.CommitRangeURITemplate, deps.Cfg)
 		if err != nil {
 			return nil, skerr.Wrap(err)
 		}
 	}
 
-	switch cfg.Notifications {
+	switch deps.Cfg.Notifications {
 	case notifytypes.None:
-		return newNotifier(notificationDataProvider, formatter, NewNoopTransport(), URL, traceStore, fs), nil
+		return newNotifier(notificationDataProvider, formatter, NewNoopTransport(), deps.URL, deps.TraceStore, deps.FS), nil
 	case notifytypes.HTMLEmail:
 		tp, err := NewEmailTransport()
 		if err != nil {
 			return nil, skerr.Wrap(err)
 		}
-		return newNotifier(notificationDataProvider, formatter, tp, URL, traceStore, fs), nil
+		return newNotifier(notificationDataProvider, formatter, tp, deps.URL, deps.TraceStore, deps.FS), nil
 	case notifytypes.MarkdownIssueTracker:
-		tracker, err := NewIssueTrackerTransport(ctx, cfg)
+		tracker, err := NewIssueTrackerTransport(ctx, deps.Cfg)
 		if err != nil {
 			return nil, skerr.Wrap(err)
 		}
-		return newNotifier(notificationDataProvider, formatter, tracker, URL, traceStore, fs), nil
+		return newNotifier(notificationDataProvider, formatter, tracker, deps.URL, deps.TraceStore, deps.FS), nil
 	case notifytypes.ChromeperfAlerting:
 		return NewChromePerfNotifier(ctx, nil)
 	case notifytypes.AnomalyGrouper:
-		if !devMode {
-			if itCfg == nil || itCfg.IssueTrackerAPIKeySecretProject == "" || itCfg.IssueTrackerAPIKeySecretName == "" {
+		if !deps.DevMode {
+			if deps.ItCfg == nil || deps.ItCfg.IssueTrackerAPIKeySecretProject == "" || deps.ItCfg.IssueTrackerAPIKeySecretName == "" {
 				return nil, skerr.Fmt("Invalid issue tracker configs. It is required by anomalygroup notifier type.")
 			}
 		}
-		perfIssueTracker, err := perf_issuetracker.NewIssueTracker(ctx, *itCfg, config.Config.FetchAnomaliesFromSql, config.Config.Experiments.OverrideBugComponent, regressionStore, regrShortcutStore, userIssueStore, devMode, URL, commitRangeFormatter)
+		perfIssueTracker, err := perf_issuetracker.NewIssueTracker(ctx, perf_issuetracker.IssueTrackerDeps{
+			Cfg:                   *deps.ItCfg,
+			FetchAnomaliesFromSql: config.Config.FetchAnomaliesFromSql,
+			OverrideBugComponent:  config.Config.Experiments.OverrideBugComponent,
+			RegStore:              deps.RegressionStore,
+			RegrShortcutStore:     deps.RegrShortcutStore,
+			UserIssueStore:        deps.UserIssueStore,
+			DevMode:               deps.DevMode,
+			UrlBase:               deps.URL,
+			CommitRangeFormatter:  deps.CommitRangeFormatter,
+		})
 		if err != nil {
 			return nil, skerr.Wrap(err)
 		}
 		return ag.NewAnomalyGroupNotifier(ctx, nil, perfIssueTracker), nil
 	default:
-		return nil, skerr.Fmt("invalid Notifier type: %s, must be one of: %v", cfg.Notifications, notifytypes.AllNotifierTypes)
+		return nil, skerr.Fmt("invalid Notifier type: %s, must be one of: %v", deps.Cfg.Notifications, notifytypes.AllNotifierTypes)
 	}
 }
 

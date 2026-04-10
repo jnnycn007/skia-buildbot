@@ -113,17 +113,30 @@ func setupSecretClient(ctx context.Context, cfg config.IssueTrackerConfig, optio
 	return client, options, err
 }
 
+// IssueTrackerDeps contains dependencies and configuration for creating a new IssueTracker.
+type IssueTrackerDeps struct {
+	Cfg                   config.IssueTrackerConfig
+	FetchAnomaliesFromSql bool
+	OverrideBugComponent  bool
+	RegStore              regression.Store
+	RegrShortcutStore     regrshortcut.Store
+	UserIssueStore        userissue.Store
+	DevMode               bool
+	UrlBase               string
+	CommitRangeFormatter  types.CommitRangeFormatter
+}
+
 // NewIssueTracker returns a new issueTracker object.
-func NewIssueTracker(ctx context.Context, cfg config.IssueTrackerConfig, fetchAnomFromSql bool, overrideBugComponent bool, regStore regression.Store, regrShortcutStore regrshortcut.Store, userIssueStore userissue.Store, devMode bool, urlBase string, commitRangeFormatter types.CommitRangeFormatter) (IssueTracker, error) {
+func NewIssueTracker(ctx context.Context, deps IssueTrackerDeps) (IssueTracker, error) {
 	var client *http.Client
 	var err error
 	var options []option.ClientOption
 
-	if devMode {
+	if deps.DevMode {
 		sklog.Warning("Using a mock issue tracker.")
 		client = http.DefaultClient
 	} else {
-		client, options, err = setupSecretClient(ctx, cfg, options)
+		client, options, err = setupSecretClient(ctx, deps.Cfg, options)
 		if err != nil {
 			return nil, skerr.Wrapf(err, "creating authorized HTTP client")
 		}
@@ -134,7 +147,7 @@ func NewIssueTracker(ctx context.Context, cfg config.IssueTrackerConfig, fetchAn
 		return nil, skerr.Wrapf(err, "creating issuetracker service")
 	}
 
-	if devMode {
+	if deps.DevMode {
 		c.BasePath = "http://localhost:8081"
 	} else {
 		c.BasePath = "https://issuetracker.googleapis.com"
@@ -142,13 +155,13 @@ func NewIssueTracker(ctx context.Context, cfg config.IssueTrackerConfig, fetchAn
 
 	return &issueTrackerImpl{
 		client:                c,
-		FetchAnomaliesFromSql: fetchAnomFromSql,
-		OverrideComponent:     overrideBugComponent,
-		regStore:              regStore,
-		regrShortcutStore:     regrShortcutStore,
-		userIssueStore:        userIssueStore,
-		urlBase:               urlBase,
-		commitRangeFormatter:  commitRangeFormatter,
+		FetchAnomaliesFromSql: deps.FetchAnomaliesFromSql,
+		OverrideComponent:     deps.OverrideBugComponent,
+		regStore:              deps.RegStore,
+		regrShortcutStore:     deps.RegrShortcutStore,
+		userIssueStore:        deps.UserIssueStore,
+		urlBase:               deps.UrlBase,
+		commitRangeFormatter:  deps.CommitRangeFormatter,
 	}, nil
 }
 
