@@ -41,17 +41,13 @@ import (
 // DO NOT DROP TABLES IN VAR BELOW.
 // FOR MODIFYING COLUMNS USE ADD/DROP COLUMN INSTEAD.
 var FromLiveToNextSpanner = `
-	CREATE TABLE RegressionsShortcuts (
-		sid TEXT PRIMARY KEY,
-		anomaly_ids TEXT ARRAY,
-		createdat timestamp WITH time zone DEFAULT CURRENT_TIMESTAMP
-	);
+	CREATE INDEX by_sub_name_triage_status_creation_time_asc ON Regressions2(sub_name, triage_status, creation_time ASC)
 `
 
 // ONLY DROP TABLE IF YOU JUST CREATED A NEW TABLE.
 // FOR MODIFYING COLUMNS USE ADD/DROP COLUMN INSTEAD.
 var FromNextToLiveSpanner = `
-	DROP TABLE RegressionsShortcuts;
+	DROP INDEX by_sub_name_triage_status_creation_time_asc;
 `
 
 // This function will check whether there's a new schema checked-in,

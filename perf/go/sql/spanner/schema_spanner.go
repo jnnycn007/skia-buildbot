@@ -193,6 +193,7 @@ CREATE INDEX IF NOT EXISTS by_trace_id2 on Postings (tile_number, trace_id);
 CREATE INDEX IF NOT EXISTS by_key_value on Postings (tile_number, key_value);
 CREATE INDEX IF NOT EXISTS by_alert_id on Regressions2 (alert_id);
 CREATE INDEX IF NOT EXISTS by_sub_name_creation_time on Regressions2 (sub_name, creation_time DESC);
+CREATE INDEX IF NOT EXISTS by_sub_name_triage_status_creation_time_asc on Regressions2 (sub_name, triage_status, creation_time ASC);
 CREATE INDEX IF NOT EXISTS by_commit_alert on Regressions2 (commit_number, alert_id);
 CREATE INDEX IF NOT EXISTS by_commit_and_prev_commit on Regressions2 (commit_number, prev_commit_number);
 CREATE INDEX IF NOT EXISTS by_trace_id_and_commit on Regressions2 (trace_id, commit_number);

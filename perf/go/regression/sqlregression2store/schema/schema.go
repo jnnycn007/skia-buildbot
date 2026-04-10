@@ -64,6 +64,9 @@ type Regression2Schema struct {
 	// Index used to query regressions based on subscription name and creation time.
 	bySubNameAndCreationTime struct{} `sql:"INDEX by_sub_name_creation_time (sub_name, creation_time DESC)"`
 
+	// Index used to query untriaged regressions
+	bySubNameTriageStatusCreationTimeAsc struct{} `sql:"INDEX by_sub_name_triage_status_creation_time_asc (sub_name, triage_status, creation_time ASC)"`
+
 	// Index used to query regressions by commit and alert ids
 	byCommitAndAlertIndex struct{} `sql:"INDEX by_commit_alert (commit_number, alert_id)"`
 

@@ -53,6 +53,7 @@ const DropSpannerIndices = `
 	DROP INDEX IF EXISTS by_trace_id_and_commit;
   DROP INDEX IF EXISTS idx_alerts_subname;
   DROP INDEX IF EXISTS by_sub_name_creation_time;
+	DROP INDEX IF EXISTS by_sub_name_triage_status_creation_time_asc;
 `
 
 // LiveSchemaSpanner has to reflect what's live in prod right now in spanner
@@ -164,6 +165,11 @@ CREATE TABLE IF NOT EXISTS Regressions2 (
   triage_status TEXT,
   triage_message TEXT,
   createdat TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+) TTL INTERVAL '1095 days' ON createdat;
+CREATE TABLE RegressionsShortcuts (
+	sid TEXT PRIMARY KEY,
+	anomaly_ids TEXT ARRAY,
+	createdat timestamp WITH time zone DEFAULT CURRENT_TIMESTAMP
 ) TTL INTERVAL '1095 days' ON createdat;
 CREATE TABLE IF NOT EXISTS ReverseKeyMap (
   modified_value TEXT,
