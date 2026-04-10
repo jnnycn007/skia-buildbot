@@ -114,7 +114,7 @@ func setupSecretClient(ctx context.Context, cfg config.IssueTrackerConfig, optio
 }
 
 // NewIssueTracker returns a new issueTracker object.
-func NewIssueTracker(ctx context.Context, cfg config.IssueTrackerConfig, fetchAnomFromSql bool, overrideBugComponent bool, regStore regression.Store, userIssueStore userissue.Store, devMode bool, urlBase string, commitRangeFormatter types.CommitRangeFormatter) (IssueTracker, error) {
+func NewIssueTracker(ctx context.Context, cfg config.IssueTrackerConfig, fetchAnomFromSql bool, overrideBugComponent bool, regStore regression.Store, regrShortcutStore regrshortcut.Store, userIssueStore userissue.Store, devMode bool, urlBase string, commitRangeFormatter types.CommitRangeFormatter) (IssueTracker, error) {
 	var client *http.Client
 	var err error
 	var options []option.ClientOption
@@ -145,6 +145,7 @@ func NewIssueTracker(ctx context.Context, cfg config.IssueTrackerConfig, fetchAn
 		FetchAnomaliesFromSql: fetchAnomFromSql,
 		OverrideComponent:     overrideBugComponent,
 		regStore:              regStore,
+		regrShortcutStore:     regrShortcutStore,
 		userIssueStore:        userIssueStore,
 		urlBase:               urlBase,
 		commitRangeFormatter:  commitRangeFormatter,

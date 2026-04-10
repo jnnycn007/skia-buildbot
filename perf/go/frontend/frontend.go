@@ -640,7 +640,7 @@ func (f *Frontend) initialize() {
 
 	f.commitRangeFormatter = formatter.NewCommitRangeFormatter(f.perfGit)
 
-	f.notifier, err = notify.New(ctx, &config.Config.NotifyConfig, &config.Config.IssueTrackerConfig, config.Config.URL, f.flags.CommitRangeURL, f.traceStore, f.regStore, f.userIssueStore, f.ingestedFS, f.flags.DevMode, f.commitRangeFormatter)
+	f.notifier, err = notify.New(ctx, &config.Config.NotifyConfig, &config.Config.IssueTrackerConfig, config.Config.URL, f.flags.CommitRangeURL, f.traceStore, f.regStore, f.regrShortcutStore, f.userIssueStore, f.ingestedFS, f.flags.DevMode, f.commitRangeFormatter)
 	if err != nil {
 		sklog.Fatalf("Failed to create issue tracker: %v", err)
 	}
@@ -710,7 +710,7 @@ func (f *Frontend) initialize() {
 		}
 
 		if cfg.IssueTrackerConfig.IssueTrackerAPIKeySecretProject != "" && cfg.IssueTrackerConfig.IssueTrackerAPIKeySecretName != "" {
-			f.issuetracker, err = issuetracker.NewIssueTracker(ctx, cfg.IssueTrackerConfig, config.Config.FetchAnomaliesFromSql, config.Config.Experiments.OverrideBugComponent, f.regStore, f.userIssueStore, f.flags.DevMode, cfg.URL, f.commitRangeFormatter)
+			f.issuetracker, err = issuetracker.NewIssueTracker(ctx, cfg.IssueTrackerConfig, config.Config.FetchAnomaliesFromSql, config.Config.Experiments.OverrideBugComponent, f.regStore, f.regrShortcutStore, f.userIssueStore, f.flags.DevMode, cfg.URL, f.commitRangeFormatter)
 			if err != nil {
 				sklog.Fatalf("Failed to build issuetracker client: %s", err)
 			}
@@ -719,7 +719,7 @@ func (f *Frontend) initialize() {
 
 	// Build mock issuetracker
 	if f.flags.DevMode && f.issuetracker == nil {
-		f.issuetracker, err = issuetracker.NewIssueTracker(ctx, cfg.IssueTrackerConfig, config.Config.FetchAnomaliesFromSql, config.Config.Experiments.OverrideBugComponent, f.regStore, f.userIssueStore, f.flags.DevMode, cfg.URL, f.commitRangeFormatter)
+		f.issuetracker, err = issuetracker.NewIssueTracker(ctx, cfg.IssueTrackerConfig, config.Config.FetchAnomaliesFromSql, config.Config.Experiments.OverrideBugComponent, f.regStore, f.regrShortcutStore, f.userIssueStore, f.flags.DevMode, cfg.URL, f.commitRangeFormatter)
 		if err != nil {
 			sklog.Fatalf("Failed to build issuetracker client: %s", err)
 		}

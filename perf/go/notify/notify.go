@@ -19,6 +19,7 @@ import (
 	"go.skia.org/infra/perf/go/notify/common"
 	"go.skia.org/infra/perf/go/notifytypes"
 	"go.skia.org/infra/perf/go/regression"
+	"go.skia.org/infra/perf/go/regrshortcut"
 	"go.skia.org/infra/perf/go/stepfit"
 	"go.skia.org/infra/perf/go/tracestore"
 	"go.skia.org/infra/perf/go/types"
@@ -221,7 +222,7 @@ func (n *defaultNotifier) UpdateNotification(ctx context.Context, commit, previo
 }
 
 // New returns a Notifier of the selected type.
-func New(ctx context.Context, cfg *config.NotifyConfig, itCfg *config.IssueTrackerConfig, URL, commitRangeURITemplate string, traceStore tracestore.TraceStore, regressionStore regression.Store, userIssueStore userissue.Store, fs fs.FS, devMode bool, commitRangeFormatter types.CommitRangeFormatter) (Notifier, error) {
+func New(ctx context.Context, cfg *config.NotifyConfig, itCfg *config.IssueTrackerConfig, URL, commitRangeURITemplate string, traceStore tracestore.TraceStore, regressionStore regression.Store, regrShortcutStore regrshortcut.Store, userIssueStore userissue.Store, fs fs.FS, devMode bool, commitRangeFormatter types.CommitRangeFormatter) (Notifier, error) {
 	formatter, err := getFormatter(cfg, commitRangeURITemplate)
 	if err != nil {
 		return nil, skerr.Wrap(err)
@@ -260,7 +261,7 @@ func New(ctx context.Context, cfg *config.NotifyConfig, itCfg *config.IssueTrack
 				return nil, skerr.Fmt("Invalid issue tracker configs. It is required by anomalygroup notifier type.")
 			}
 		}
-		perfIssueTracker, err := perf_issuetracker.NewIssueTracker(ctx, *itCfg, config.Config.FetchAnomaliesFromSql, config.Config.Experiments.OverrideBugComponent, regressionStore, userIssueStore, devMode, URL, commitRangeFormatter)
+		perfIssueTracker, err := perf_issuetracker.NewIssueTracker(ctx, *itCfg, config.Config.FetchAnomaliesFromSql, config.Config.Experiments.OverrideBugComponent, regressionStore, regrShortcutStore, userIssueStore, devMode, URL, commitRangeFormatter)
 		if err != nil {
 			return nil, skerr.Wrap(err)
 		}

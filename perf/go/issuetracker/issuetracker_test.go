@@ -18,6 +18,7 @@ import (
 	issuetracker "go.skia.org/infra/go/issuetracker/v1"
 	"go.skia.org/infra/go/paramtools"
 	v1 "go.skia.org/infra/perf/go/anomalygroup/proto/v1"
+	"go.skia.org/infra/perf/go/config"
 	"go.skia.org/infra/perf/go/dataframe"
 	"go.skia.org/infra/perf/go/regression"
 	regMocks "go.skia.org/infra/perf/go/regression/mocks"
@@ -565,4 +566,48 @@ func TestIntersectionFooter_EmptyIntersection(t *testing.T) {
 
 	footer := s.intersectionFooter(context.TODO(), regData)
 	require.Contains(t, footer, "Commit intersection of regressions in this bug is empty!")
+}
+
+func TestNewIssueTracker_FileBug_Success(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		resp := &issuetracker.Issue{
+			IssueId: 54321,
+		}
+		err := json.NewEncoder(w).Encode(resp)
+		require.NoError(t, err)
+	}))
+	defer ts.Close()
+
+	ctx := context.Background()
+	regStore := &regMocks.Store{}
+	regrShortcutStore := &regrShortcutMocks.Store{}
+	userIssueStore := &userissueMocks.Store{}
+
+	// Mocking regression store
+	regStore.On("GetSubscriptionsForRegressions", mock.Anything, mock.AnythingOfType("[]string")).Return([]string{"1"}, []int64{1}, []*pb.Subscription{
+		{
+			BugComponent: "1235",
+		},
+	}, nil)
+	regStore.On("GetByIDs", mock.Anything, mock.AnythingOfType("[]string")).Return(getMockRegressions(1), nil)
+
+	cfg := config.IssueTrackerConfig{}
+	tracker, err := NewIssueTracker(ctx, cfg, true, false, regStore, regrShortcutStore, userIssueStore, true, "http://test.com", nil)
+	require.NoError(t, err)
+
+	tracker.(*issueTrackerImpl).client.BasePath = ts.URL
+
+	req := &FileBugRequest{
+		Title:       "Test Bug via NewIssueTracker",
+		Description: "This is a test bug.",
+		Component:   "1234",
+		Assignee:    "test@google.com",
+		Ccs:         []string{"test2@google.com"},
+		Keys:        []string{"1"},
+	}
+
+	issueID, err := tracker.FileBug(ctx, req)
+	require.NoError(t, err)
+	require.Equal(t, 54321, issueID)
 }
