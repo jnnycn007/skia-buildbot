@@ -12,6 +12,7 @@ import (
 	"go.skia.org/infra/perf/go/config"
 	"go.skia.org/infra/perf/go/regression"
 	"go.skia.org/infra/perf/go/regrshortcut"
+	"go.skia.org/infra/perf/go/types"
 	"go.skia.org/infra/perf/go/userissue"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
@@ -56,6 +57,7 @@ type issueTrackerImpl struct {
 	regrShortcutStore     regrshortcut.Store
 	userIssueStore        userissue.Store
 	urlBase               string
+	commitRangeFormatter  types.CommitRangeFormatter
 }
 
 // ListIssuesRequest defines the request object for ListIssues.
@@ -112,7 +114,7 @@ func setupSecretClient(ctx context.Context, cfg config.IssueTrackerConfig, optio
 }
 
 // NewIssueTracker returns a new issueTracker object.
-func NewIssueTracker(ctx context.Context, cfg config.IssueTrackerConfig, fetchAnomFromSql bool, overrideBugComponent bool, regStore regression.Store, userIssueStore userissue.Store, devMode bool, urlBase string) (IssueTracker, error) {
+func NewIssueTracker(ctx context.Context, cfg config.IssueTrackerConfig, fetchAnomFromSql bool, overrideBugComponent bool, regStore regression.Store, userIssueStore userissue.Store, devMode bool, urlBase string, commitRangeFormatter types.CommitRangeFormatter) (IssueTracker, error) {
 	var client *http.Client
 	var err error
 	var options []option.ClientOption
@@ -145,6 +147,7 @@ func NewIssueTracker(ctx context.Context, cfg config.IssueTrackerConfig, fetchAn
 		regStore:              regStore,
 		userIssueStore:        userIssueStore,
 		urlBase:               urlBase,
+		commitRangeFormatter:  commitRangeFormatter,
 	}, nil
 }
 
@@ -252,7 +255,7 @@ func (s *issueTrackerImpl) FileBug(ctx context.Context, req *FileBugRequest) (in
 	if err != nil {
 		return 0, skerr.Wrap(err)
 	}
-	description += s.describeTopAnomalies(topAnomalies, link)
+	description += s.describeTopAnomalies(ctx, topAnomalies, link)
 
 	descriptionDebugSection := "\n\n## DEBUG BELOW\n\n"
 	// This is to prevent spamming other teams while testing.
@@ -409,11 +412,11 @@ func (s *issueTrackerImpl) checkUnusedFieldsAreEmpty(req *FileBugRequest) {
 	}
 }
 
-func (s *issueTrackerImpl) describeTopAnomalies(anom []*v1.Anomaly, link string) (desc string) {
+func (s *issueTrackerImpl) describeTopAnomalies(ctx context.Context, anom []*v1.Anomaly, link string) (desc string) {
 	desc = fmt.Sprintf("Top %d anomalies in [this report](%s):  \n\n", len(anom), link)
 	desc += generateAnomTableHeaders()
 	for _, a := range anom {
-		desc += describeAnomaly(a)
+		desc += s.describeAnomaly(ctx, a)
 	}
 	return
 }
@@ -469,11 +472,16 @@ func generateAnomTableHeaders() string {
 		"| --- | --- | --- | --- | --- | --- | --- | --- | \n"
 }
 
-func describeAnomaly(a *v1.Anomaly) string {
+func (s *issueTrackerImpl) describeAnomaly(ctx context.Context, a *v1.Anomaly) string {
 	// MD table, see `generateAnomTableHeaders` for headers.
-	return fmt.Sprintf("| %s | %s | %s | %s | %.2f | %.2f | %+.2f%% | %d -> %d | \n",
+	commitRange := fmt.Sprintf("%d -> %d", a.StartCommit, a.EndCommit)
+	if s.commitRangeFormatter != nil {
+		commitRange = s.commitRangeFormatter(ctx, a.StartCommit, a.EndCommit)
+	}
+
+	return fmt.Sprintf("| %s | %s | %s | %s | %.2f | %.2f | %+.2f%% | %s | \n",
 		a.Paramset["bot"], a.Paramset["benchmark"], a.Paramset["measurement"], a.Paramset["story"],
 		a.MedianBefore, a.MedianAfter, calcChange(a.MedianBefore, a.MedianAfter),
-		a.StartCommit, a.EndCommit,
+		commitRange,
 	)
 }

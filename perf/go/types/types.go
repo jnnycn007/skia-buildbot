@@ -1,6 +1,7 @@
 package types
 
 import (
+	"context"
 	"crypto/md5"
 	"fmt"
 	"sync"
@@ -371,3 +372,6 @@ type RegressionBug struct {
 	BugId string  `json:"bug_id"`
 	Type  BugType `json:"bug_type"`
 }
+
+// CommitRangeFormatter defines the signature for callbacks that generate clickable Git range log URLs.
+type CommitRangeFormatter func(ctx context.Context, startCommit, endCommit int64) string

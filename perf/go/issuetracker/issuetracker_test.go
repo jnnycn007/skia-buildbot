@@ -509,7 +509,8 @@ func TestDescribeAnomaly(t *testing.T) {
 		StartCommit:  100,
 		EndCommit:    101,
 	}
-	desc := describeAnomaly(anomaly)
+	s := &issueTrackerImpl{}
+	desc := s.describeAnomaly(context.TODO(), anomaly)
 
 	pipes := strings.Count(desc, "|")
 	// Expected 8 columns separated by pipes (7 inner pipes + 2 optional outer)

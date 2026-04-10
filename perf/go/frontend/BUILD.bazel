@@ -42,6 +42,7 @@ go_library(
         "//perf/go/favorites:store",
         "//perf/go/frontend/api",
         "//perf/go/git",
+        "//perf/go/git/formatter",
         "//perf/go/graphsshortcut",
         "//perf/go/issuetracker",
         "//perf/go/notify",
