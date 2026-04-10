@@ -191,40 +191,7 @@ export class CommitRangeSk extends LitElement {
 
       // If we have the hashes, then we can build the link.
       if (this.hashes && this.hashes.length > 1) {
-        let url = window.perf.commit_range_url;
-
-        // Always replace {end} with the second hash.
-        if (url.includes('{end}')) {
-          url = url.replace('{end}', this.hashes[1]);
-        }
-        const isRange = this.isRange();
-        if (isRange) {
-          // Handle range URLs (Googlesource)
-          if (url.includes('{begin}')) {
-            url = url.replace('{begin}', this.hashes[0]);
-          } else {
-            // We expect a single commit range, but there are gaps in data.
-            // We display hashes instead of commit positions not to confuse users.
-            if (window.perf.show_hash_ranges_in_tooltip ?? false) {
-              this._handleHashRange();
-            }
-          }
-        } else {
-          // Handle single commit scenarios
-          if (url.includes('+log/{begin}..')) {
-            // Googlesource style: transform to single commit view
-            url = url.replace('+log/{begin}..', '+/');
-          } else {
-            // Fallback for any other template, remove {begin} if it exists
-            if (url.includes('{begin}')) {
-              url = url.replace('{begin}', '');
-            }
-            // If GitHub, show short hash instead of commit number.
-            if (url.includes('github')) {
-              this._text = this.hashes[1].substring(0, 7);
-            }
-          }
-        }
+        const url = this._buildUrl();
 
         if (requestId !== this.currentRequestId) {
           return;
@@ -246,6 +213,45 @@ export class CommitRangeSk extends LitElement {
       console.log(error);
       this.clear();
     }
+  }
+
+  // Should be as close as possible to perf/go/formatter.
+  private _buildUrl(): string {
+    let url = window.perf.commit_range_url;
+
+    // Always replace {end} with the second hash.
+    if (url.includes('{end}')) {
+      url = url.replace('{end}', this.hashes![1]);
+    }
+    const isRange = this.isRange();
+    if (isRange) {
+      // Handle range URLs (Googlesource)
+      if (url.includes('{begin}')) {
+        url = url.replace('{begin}', this.hashes![0]);
+      } else {
+        // We expect a single commit range, but there are gaps in data.
+        // We display hashes instead of commit positions not to confuse users.
+        if (window.perf.show_hash_ranges_in_tooltip ?? false) {
+          this._handleHashRange();
+        }
+      }
+    } else {
+      // Handle single commit scenarios
+      if (url.includes('+log/{begin}..')) {
+        // Googlesource style: transform to single commit view
+        url = url.replace('+log/{begin}..', '+/');
+      } else {
+        // Fallback for any other template, remove {begin} if it exists
+        if (url.includes('{begin}')) {
+          url = url.replace('{begin}', '');
+        }
+        // If GitHub, show short hash instead of commit number.
+        if (url.includes('github')) {
+          this._text = this.hashes![1].substring(0, 7);
+        }
+      }
+    }
+    return url;
   }
 
   private async _handleHashRange(): Promise<void> {

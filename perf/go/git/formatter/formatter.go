@@ -3,8 +3,8 @@ package formatter
 import (
 	"context"
 	"fmt"
-	"strings"
 
+	"go.skia.org/infra/go/sklog"
 	"go.skia.org/infra/perf/go/config"
 	"go.skia.org/infra/perf/go/git"
 	"go.skia.org/infra/perf/go/git/provider"
@@ -13,17 +13,16 @@ import (
 )
 
 // NewCommitRangeFormatter returns a standard CommitRangeFormatter that builds Git log URLs using the instance GitRepoConfig.
-// Ideally, the behavior should be exactly the same as in tooltip.
-// TODO(b/485178559) Make it identical.
+// Logic should be as close to commit-range-sk's _buildUrl as possible.
 func NewCommitRangeFormatter(perfGit git.Git) types.CommitRangeFormatter {
 	return func(ctx context.Context, startCommit, endCommit int64) string {
 		startHash, err := perfGit.GitHashFromCommitNumber(ctx, types.CommitNumber(startCommit))
 		if err != nil {
-			return fmt.Sprintf("%d -> %d", startCommit, endCommit)
+			return fmt.Sprintf("(%d..%d]", startCommit, endCommit)
 		}
 		endHash, err := perfGit.GitHashFromCommitNumber(ctx, types.CommitNumber(endCommit))
 		if err != nil {
-			return fmt.Sprintf("%d -> %d", startCommit, endCommit)
+			return fmt.Sprintf("(%d..%d]", startCommit, endCommit)
 		}
 
 		startDisplayed := startHash[:min(len(startHash), 8)]
@@ -31,20 +30,25 @@ func NewCommitRangeFormatter(perfGit git.Git) types.CommitRangeFormatter {
 
 		basePath := config.Config.GitRepoConfig.URL
 		var urlTemplate string
-		// TODO(b/485178559) rework this to be config.git.source based
-		// most of instances use gitiles, but flutter uses just github.
-		// Currently, we don't have to support any other VCS.
-		// The todo above will make it more clear.
-		if strings.Contains(basePath, "googlesource.com") {
+
+		switch config.Config.GitRepoConfig.Provider {
+		case config.GitProviderGitiles:
 			urlTemplate = basePath + "/+log/{begin}..{end}"
-		} else {
+		case config.GitProviderCLI:
 			urlTemplate = basePath + "/compare/{begin}...{end}"
+		default:
+			sklog.Errorf("unknown git provider %s", config.Config.GitRepoConfig.Provider)
+			return fmt.Sprintf("(%s..%s]", startDisplayed, endDisplayed)
 		}
 		commitUrl := notify.URLFromCommitRange(
 			provider.Commit{GitHash: endHash},
 			provider.Commit{GitHash: startHash},
 			urlTemplate,
 		)
-		return fmt.Sprintf("[%s..%s](%s)", startDisplayed, endDisplayed, commitUrl)
+
+		if startCommit+1 == endCommit {
+			return fmt.Sprintf("[%s](%s)", endDisplayed, commitUrl)
+		}
+		return fmt.Sprintf("[\\(%s..%s\\]](%s)", startDisplayed, endDisplayed, commitUrl)
 	}
 }

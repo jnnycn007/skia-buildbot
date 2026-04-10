@@ -20,14 +20,35 @@ func TestNewCommitRangeFormatter_Gitiles(t *testing.T) {
 
 	config.Config = &config.InstanceConfig{
 		GitRepoConfig: config.GitRepoConfig{
-			URL: "https://chromium.googlesource.com/chromium/src",
+			URL:      "https://chromium.googlesource.com/chromium/src",
+			Provider: config.GitProviderGitiles,
 		},
 	}
 
 	formatter := NewCommitRangeFormatter(mg)
 	res := formatter(ctx, 101, 105)
 
-	assert.Equal(t, "[12345678..abcdef12](https://chromium.googlesource.com/chromium/src/+log/1234567890abcdef..abcdef1234567890)", res)
+	assert.Equal(t, "[\\(12345678..abcdef12\\]](https://chromium.googlesource.com/chromium/src/+log/1234567890abcdef..abcdef1234567890)", res)
+}
+
+func TestNewCommitRangeFormatter_OneCommit(t *testing.T) {
+	mg := &mocks.Git{}
+	ctx := context.Background()
+
+	mg.On("GitHashFromCommitNumber", ctx, types.CommitNumber(104)).Return("1234567890abcdef", nil)
+	mg.On("GitHashFromCommitNumber", ctx, types.CommitNumber(105)).Return("abcdef1234567890", nil)
+
+	config.Config = &config.InstanceConfig{
+		GitRepoConfig: config.GitRepoConfig{
+			URL:      "https://chromium.googlesource.com/chromium/src",
+			Provider: config.GitProviderGitiles,
+		},
+	}
+
+	formatter := NewCommitRangeFormatter(mg)
+	res := formatter(ctx, 104, 105)
+
+	assert.Equal(t, "[abcdef12](https://chromium.googlesource.com/chromium/src/+log/1234567890abcdef..abcdef1234567890)", res)
 }
 
 func TestNewCommitRangeFormatter_NonGitilesFallback(t *testing.T) {
@@ -39,14 +60,15 @@ func TestNewCommitRangeFormatter_NonGitilesFallback(t *testing.T) {
 
 	config.Config = &config.InstanceConfig{
 		GitRepoConfig: config.GitRepoConfig{
-			URL: "https://github.com/foo/bar",
+			URL:      "https://github.com/foo/bar",
+			Provider: config.GitProviderCLI,
 		},
 	}
 
 	formatter := NewCommitRangeFormatter(mg)
 	res := formatter(ctx, 101, 105)
 
-	assert.Equal(t, "[12345678..abcdef12](https://github.com/foo/bar/compare/1234567890abcdef...abcdef1234567890)", res)
+	assert.Equal(t, "[\\(12345678..abcdef12\\]](https://github.com/foo/bar/compare/1234567890abcdef...abcdef1234567890)", res)
 }
 
 func TestNewCommitRangeFormatter_ShortHashPanicSafety(t *testing.T) {
@@ -58,12 +80,13 @@ func TestNewCommitRangeFormatter_ShortHashPanicSafety(t *testing.T) {
 
 	config.Config = &config.InstanceConfig{
 		GitRepoConfig: config.GitRepoConfig{
-			URL: "https://chromium.googlesource.com/chromium/src",
+			URL:      "https://chromium.googlesource.com/chromium/src",
+			Provider: config.GitProviderGitiles,
 		},
 	}
 
 	formatter := NewCommitRangeFormatter(mg)
 	res := formatter(ctx, 201, 205)
 
-	assert.Equal(t, "[abc..123](https://chromium.googlesource.com/chromium/src/+log/abc..123)", res)
+	assert.Equal(t, "[\\(abc..123\\]](https://chromium.googlesource.com/chromium/src/+log/abc..123)", res)
 }
