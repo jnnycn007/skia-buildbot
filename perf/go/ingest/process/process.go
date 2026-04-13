@@ -182,18 +182,27 @@ func (w *workerInfo) processSingleFile(f file.File) error {
 	commitNumber, err := w.g.GetCommitNumber(ctx, gitHash, commitNumberFromFile)
 	if err != nil {
 		if err := w.g.Update(ctx); err != nil {
-			sklog.Errorf("Failed to Update: ", err)
+			sklog.Errorf("Failed to Update: %s", err)
 		}
 		commitNumber, err = w.g.GetCommitNumber(ctx, gitHash, commitNumberFromFile)
 		if err != nil {
 			w.badGitHash.Inc(1)
-			sklog.Error("Failed to find commit number %v: %s", f, err)
+			sklog.Errorf("Failed to find commit number %v: %s", f, err)
 
-			// This means the commit number in the file is invalid. There is no point
-			// in processing this file again since it will fail similarly,
-			// so let's ack the pubsub message to prevent GCP Pubsub from retrying.
 			if f.PubSubMsg != nil {
-				f.PubSubMsg.Ack()
+				// Nack the message so Pub/Sub will redeliver it later. This handles
+				// race conditions where the trace file arrives before the git syncer
+				// has updated the local database with the new commit.
+				//
+				// We use PublishTime to retry for up to 10 minutes. If it still fails
+				// after 10 minutes, we assume the commit number in the file is genuinely
+				// invalid. There is no point in processing this file again, so we Ack
+				// the message to permanently drop it and prevent infinite retries.
+				if time.Since(f.PubSubMsg.PublishTime) < 10*time.Minute {
+					f.PubSubMsg.Nack()
+				} else {
+					f.PubSubMsg.Ack()
+				}
 			}
 
 			return nil
