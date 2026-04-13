@@ -778,13 +778,13 @@ cipd.download_http(
     name = "command_wrapper",
     cipd_package = "skia/tools/command_wrapper/${platform}",
     platform_to_sha256 = {
-        "linux-amd64": "659458bf34ac199e1b0f19bbf0181d58869bd234b3aab0495eec3e460d8b66ec",
-        "linux-arm64": "ed046a8153162c1496ee8d5c999e75f8cbdc409c59148f752d33e3762f3e6bbc",
-        "mac-amd64": "2c7fd062dd0414ea612e0e8a217a963392be86e173f53698f59e51f77dbb2866",
-        "mac-arm64": "56ae48195899030232db504b7384383ae01b98cb7a0f3ffb2eea160f0538867e",
-        "windows-amd64": "05b88819b0b1b072a80c7ef683dd4ba7b9159979091215388ea16c10d1a7480f",
+        "linux-amd64": "34e8cd48954ac61df3bdcfcfc42e3c2aa9816b4c931aefb4bcb38386e643246c",
+        "linux-arm64": "5394fdc1157fdaf89a5cdf18280d4514651e1ec73c4f3ef382dcc304643a9f6c",
+        "mac-amd64": "4ca6f237438178a87ba59fbe94222c6bfbc6fe9b12d8475bc220bc5b3ce1f516",
+        "mac-arm64": "3c996934fee61547cc06c85f16e675b36f1c580255e2602c501eb790e090568d",
+        "windows-amd64": "543b97052aa703f17d9a3b895c427a1e8d29be3d3d568b2cd6b29887c459c3ef",
     },
-    tag = "git_revision:e91348a9bf0963b702a1f63605e4096f958722c6",
+    tag = "git_revision:a18359f597f780003b6fc302a77ff87913d96020",
 )
 use_repo(cipd, "command_wrapper_linux-amd64")
 
