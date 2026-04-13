@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 
@@ -195,9 +196,15 @@ func (s *anomalygroupService) FindTopAnomalies(
 
 func TopAnomaliesMedianCmp(anomalies []*reg.Regression, limit int64) ([]*ag.Anomaly, error) {
 	sort.Slice(anomalies, func(i, j int) bool {
-		// sort anomalies by the percentage changed from median_before to median_after
-		diff_i := (anomalies[i].MedianAfter - anomalies[i].MedianBefore) / anomalies[i].MedianBefore
-		diff_j := (anomalies[j].MedianAfter - anomalies[j].MedianBefore) / anomalies[j].MedianBefore
+		// sort anomalies by the percentage changed from median_before to median_after wrt. improvement direction
+		diff_i := math.Abs(float64((anomalies[i].MedianAfter - anomalies[i].MedianBefore) / anomalies[i].MedianBefore))
+		diff_j := math.Abs(float64((anomalies[j].MedianAfter - anomalies[j].MedianBefore) / anomalies[j].MedianBefore))
+		if anomalies[i].IsImprovement {
+			diff_i = -diff_i
+		}
+		if anomalies[j].IsImprovement {
+			diff_j = -diff_j
+		}
 		return diff_i > diff_j
 	})
 

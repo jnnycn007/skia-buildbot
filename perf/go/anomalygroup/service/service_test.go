@@ -479,3 +479,22 @@ func TestFindTopAnomalies_invalidParamset(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid paramset")
 }
+
+func TestTopAnomaliesMedianCmp_Sorting(t *testing.T) {
+	anomalies := []*reg.Regression{
+		{Id: "imp1", MedianBefore: 100, MedianAfter: 110, IsImprovement: true, Frame: &frame.FrameResponse{DataFrame: &dataframe.DataFrame{ParamSet: map[string][]string{"bot": {"b"}, "benchmark": {"bm"}, "test": {"t"}, "stat": {"s"}, "subtest_1": {"s1"}, "improvement_direction": {"UP"}}}}},
+		{Id: "reg1", MedianBefore: 100, MedianAfter: 95, IsImprovement: false, Frame: &frame.FrameResponse{DataFrame: &dataframe.DataFrame{ParamSet: map[string][]string{"bot": {"b"}, "benchmark": {"bm"}, "test": {"t"}, "stat": {"s"}, "subtest_1": {"s1"}, "improvement_direction": {"UP"}}}}},
+		{Id: "reg2", MedianBefore: 100, MedianAfter: 103, IsImprovement: false, Frame: &frame.FrameResponse{DataFrame: &dataframe.DataFrame{ParamSet: map[string][]string{"bot": {"b"}, "benchmark": {"bm"}, "test": {"t"}, "stat": {"s"}, "subtest_1": {"s1"}, "improvement_direction": {"UP"}}}}},
+		{Id: "imp2", MedianBefore: 100, MedianAfter: 102, IsImprovement: true, Frame: &frame.FrameResponse{DataFrame: &dataframe.DataFrame{ParamSet: map[string][]string{"bot": {"b"}, "benchmark": {"bm"}, "test": {"t"}, "stat": {"s"}, "subtest_1": {"s1"}, "improvement_direction": {"UP"}}}}},
+	}
+
+	results, err := TopAnomaliesMedianCmp(anomalies, 4)
+	assert.NoError(t, err)
+	assert.Equal(t, 4, len(results))
+
+	// Check by MedianAfter values which uniquely identify the input regressions in this test.
+	assert.Equal(t, float32(95), results[0].MedianAfter)
+	assert.Equal(t, float32(103), results[1].MedianAfter)
+	assert.Equal(t, float32(102), results[2].MedianAfter)
+	assert.Equal(t, float32(110), results[3].MedianAfter)
+}
