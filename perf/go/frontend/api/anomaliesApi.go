@@ -268,24 +268,29 @@ func (api anomaliesApi) GetAnomalyListLegacy(w http.ResponseWriter, r *http.Requ
 
 	ctx, cancel := context.WithTimeout(r.Context(), defaultAnomaliesRequestTimeout)
 	defer cancel()
-	getAnoamliesResponse := &GetAnomaliesResponse{}
+	getAnomaliesResponse := &GetAnomaliesResponse{}
 
-	err := api.chromeperfClient.SendGetRequest(ctx, "alerts_skia", "", query_values, getAnoamliesResponse)
+	err := api.chromeperfClient.SendGetRequest(ctx, "alerts_skia", "", query_values, getAnomaliesResponse)
 	if err != nil {
 		httputils.ReportError(w, err, "Get anomalies request failed due to an internal server error. Please try again.", http.StatusInternalServerError)
 		return
 	}
 
-	if getAnoamliesResponse.Error != "" {
-		httputils.ReportError(w, errors.New(getAnoamliesResponse.Error), fmt.Sprintf("Error when getting the anomaly list. Please double check each request parameter, and try again: %v", getAnoamliesResponse.Error), http.StatusBadRequest)
+	if getAnomaliesResponse.Error != "" {
+		httputils.ReportError(w, errors.New(getAnomaliesResponse.Error), fmt.Sprintf("Error when getting the anomaly list. Please double check each request parameter, and try again: %v", getAnomaliesResponse.Error), http.StatusBadRequest)
 		return
 	}
 
-	if err := json.NewEncoder(w).Encode(getAnoamliesResponse); err != nil {
-		httputils.ReportError(w, err, "Failed to write get anoamlies response.", http.StatusInternalServerError)
+	if err := cleanTestPaths(getAnomaliesResponse.Anomalies); err != nil {
+		httputils.ReportError(w, err, "Failed to clean up test name by regex.", http.StatusInternalServerError)
 		return
 	}
-	sklog.Debugf("[SkiaTriage] %d anomalies are received.", len(getAnoamliesResponse.Anomalies))
+
+	if err := json.NewEncoder(w).Encode(getAnomaliesResponse); err != nil {
+		httputils.ReportError(w, err, "Failed to write get anomalies response.", http.StatusInternalServerError)
+		return
+	}
+	sklog.Debugf("[SkiaTriage] %d anomalies are received.", len(getAnomaliesResponse.Anomalies))
 }
 
 // This function is to redirect the report page request to the group_report
@@ -357,14 +362,10 @@ func (api anomaliesApi) GetGroupReportLegacy(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// b/383913153: mitigation on the anomaly rendering scenario.
-	for i := range groupReportResponse.Anomalies {
-		groupReportResponse.Anomalies[i].TestPath, err = cleanTestName(groupReportResponse.Anomalies[i].TestPath)
-		if err != nil {
-			httputils.ReportError(w, err, "Failed to clean up test name by regex.", http.StatusInternalServerError)
-			sklog.Debugf("[SkiaTriage] Failed to clean up test name by regex: %v", err)
-			return
-		}
+	if err := cleanTestPaths(groupReportResponse.Anomalies); err != nil {
+		httputils.ReportError(w, err, "Failed to clean up test name by regex.", http.StatusInternalServerError)
+		sklog.Debugf("[SkiaTriage] Failed to clean up test name by regex: %v", err)
+		return
 	}
 
 	groupReportResponse.TimerangeMap, err = api.getTimerangeMap(ctx, groupReportResponse.Anomalies, preferLegacy(r))
@@ -484,8 +485,13 @@ func (api anomaliesApi) GetAnomalyList(w http.ResponseWriter, r *http.Request) {
 		getAnomaliesResponse.QueryCursor = "maybe_more_anomalies"
 	}
 
+	if err := cleanTestPaths(getAnomaliesResponse.Anomalies); err != nil {
+		httputils.ReportError(w, err, "Failed to clean up test name by regex.", http.StatusInternalServerError)
+		return
+	}
+
 	if err := json.NewEncoder(w).Encode(getAnomaliesResponse); err != nil {
-		httputils.ReportError(w, err, "Failed to write get anoamlies response.", http.StatusInternalServerError)
+		httputils.ReportError(w, err, "Failed to write get anomalies response.", http.StatusInternalServerError)
 		return
 	}
 	sklog.Debugf("[SkiaTriage] %d anomalies are received.", len(getAnomaliesResponse.Anomalies))
@@ -545,14 +551,10 @@ func (api anomaliesApi) GetGroupReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// b/383913153: mitigation on the anomaly rendering scenario.
-	for i := range groupReportResponse.Anomalies {
-		groupReportResponse.Anomalies[i].TestPath, err = cleanTestName(groupReportResponse.Anomalies[i].TestPath)
-		if err != nil {
-			httputils.ReportError(w, err, "Failed to clean up test name by regex.", http.StatusInternalServerError)
-			sklog.Debugf("[SkiaTriage] Failed to clean up test name by regex: %v", err)
-			return
-		}
+	if err := cleanTestPaths(groupReportResponse.Anomalies); err != nil {
+		httputils.ReportError(w, err, "Failed to clean up test name by regex.", http.StatusInternalServerError)
+		sklog.Debugf("[SkiaTriage] Failed to clean up test name by regex: %v", err)
+		return
 	}
 
 	if groupReportRequest.Sid != "" || groupReportRequest.AnomalyIDs != "" {
@@ -683,6 +685,19 @@ func cleanTestName(testName string) (string, error) {
 	}
 	// Join the cleaned parts back together.
 	return strings.Join(parts, "/"), nil
+}
+
+// cleanTestPaths cleans the TestPath field for a slice of anomalies.
+// b/501177192, b/383913153: mitigation on the anomaly rendering scenario.
+func cleanTestPaths(anomalies []chromeperf.Anomaly) error {
+	for i := range anomalies {
+		cleanedPath, err := cleanTestName(anomalies[i].TestPath)
+		if err != nil {
+			return err
+		}
+		anomalies[i].TestPath = cleanedPath
+	}
+	return nil
 }
 
 func parseGetAnomalyListRequest(r *http.Request) regression.GetAnomalyListRequest {

@@ -20,6 +20,7 @@ import (
 	alerts_mock "go.skia.org/infra/perf/go/alerts/mock"
 	anomalygroup_mocks "go.skia.org/infra/perf/go/anomalygroup/mocks"
 	"go.skia.org/infra/perf/go/chromeperf"
+	chromeperf_mocks "go.skia.org/infra/perf/go/chromeperf/mock"
 	"go.skia.org/infra/perf/go/config"
 	culprit_mocks "go.skia.org/infra/perf/go/culprit/mocks"
 	"go.skia.org/infra/perf/go/dataframe"
@@ -611,4 +612,123 @@ func TestGetAnomalyList_DefaultPagination(t *testing.T) {
 	subStore.AssertExpectations(t)
 	alertStore.AssertExpectations(t)
 	regStore.AssertExpectations(t)
+}
+
+func TestGetAnomalyList_CleansTestPaths(t *testing.T) {
+	configFileBytes := testutils.ReadFileBytes(t, "config.json")
+	err := json.Unmarshal(configFileBytes, &config.Config)
+	require.NoError(t, err)
+	anomBefore := config.Config.FetchAnomaliesFromSql
+	config.Config.FetchAnomaliesFromSql = true
+	defer func() {
+		config.Config.FetchAnomaliesFromSql = anomBefore
+	}()
+
+	loginMock := alogin_mocks.NewLogin(t)
+	subStore := subscription_mocks.NewStore(t)
+	alertStore := alerts_mock.NewStore(t)
+	regStore := reg_mocks.NewStore(t)
+
+	api := anomaliesApi{
+		loginProvider: loginMock,
+		subStore:      subStore,
+		alertStore:    alertStore,
+		regStore:      regStore,
+	}
+
+	sheriff := "test-sheriff"
+	loginMock.On("LoggedInAs", mock.Anything).Return(alogin.EMail("user@google.com"))
+
+	sub := &pb.Subscription{Name: sheriff}
+	subStore.On("GetActiveSubscription", mock.Anything, sheriff).Return(sub, nil)
+	alertStore.On("ListForSubscription", mock.Anything, sheriff).Return([]*alerts.Alert{}, nil)
+
+	testPathWithQuestionMark := "subtest?1"
+	cleanedPath := "master/bot/benchmark/test/subtest_1"
+
+	regressions := []*regression.Regression{
+		{
+			Id: "reg-1",
+			Frame: &frame.FrameResponse{
+				DataFrame: &dataframe.DataFrame{
+					TraceSet: types.TraceSet{
+						",master=master,bot=bot,benchmark=benchmark,test=test,subtest_1=" + testPathWithQuestionMark + ",": []float32{1.0},
+					},
+				},
+			},
+		},
+	}
+	req := regression.GetAnomalyListRequest{
+		SubName: sheriff,
+	}
+	regStore.On("GetRegressionsBySubName", mock.Anything, req, regressionsPageSize).Return(regressions, nil)
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", fmt.Sprintf("/_/anomalies/anomaly_list?sheriff=%s", sheriff), nil)
+
+	api.GetAnomalyListDefault(w, r)
+
+	require.Equal(t, http.StatusOK, w.Result().StatusCode)
+	var resp GetAnomaliesResponse
+	err = json.NewDecoder(w.Body).Decode(&resp)
+	require.NoError(t, err)
+
+	assert.Len(t, resp.Anomalies, 1)
+	assert.Equal(t, cleanedPath, resp.Anomalies[0].TestPath)
+
+	loginMock.AssertExpectations(t)
+	subStore.AssertExpectations(t)
+	alertStore.AssertExpectations(t)
+	regStore.AssertExpectations(t)
+}
+
+func TestGetAnomalyListLegacy_CleansTestPaths(t *testing.T) {
+	configFileBytes := testutils.ReadFileBytes(t, "config.json")
+	err := json.Unmarshal(configFileBytes, &config.Config)
+	require.NoError(t, err)
+	anomBefore := config.Config.FetchAnomaliesFromSql
+	config.Config.FetchAnomaliesFromSql = false
+	defer func() {
+		config.Config.FetchAnomaliesFromSql = anomBefore
+	}()
+
+	loginMock := alogin_mocks.NewLogin(t)
+	cpMock := chromeperf_mocks.NewChromePerfClient(t)
+
+	api := anomaliesApi{
+		loginProvider:    loginMock,
+		chromeperfClient: cpMock,
+	}
+
+	sheriff := "test-sheriff"
+	loginMock.On("LoggedInAs", mock.Anything).Return(alogin.EMail("user@google.com"))
+
+	testPathWithQuestionMark := "master/bot/benchmark/test/subtest?1"
+	cleanedPath := "master/bot/benchmark/test/subtest_1"
+
+	cpMock.On("SendGetRequest", mock.Anything, "alerts_skia", "", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		resp := args.Get(4).(*GetAnomaliesResponse)
+		resp.Anomalies = []chromeperf.Anomaly{
+			{
+				Id:       "anomaly1",
+				TestPath: testPathWithQuestionMark,
+			},
+		}
+	}).Return(nil)
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", fmt.Sprintf("/_/anomalies/anomaly_list?sheriff=%s", sheriff), nil)
+
+	api.GetAnomalyListDefault(w, r)
+
+	require.Equal(t, http.StatusOK, w.Result().StatusCode)
+	var resp GetAnomaliesResponse
+	err = json.NewDecoder(w.Body).Decode(&resp)
+	require.NoError(t, err)
+
+	assert.Len(t, resp.Anomalies, 1)
+	assert.Equal(t, cleanedPath, resp.Anomalies[0].TestPath)
+
+	loginMock.AssertExpectations(t)
+	cpMock.AssertExpectations(t)
 }

@@ -219,6 +219,51 @@ describe('anomalies-table-sk', () => {
       assert.isNotNull(popup);
     });
 
+    it('handles test paths with and without ? character when opening graph', async () => {
+      // Create a test anomaly with a '?' in the test path and one without.
+      const anomalyWithoutQuestionMark = {
+        ...anomaly_table[0],
+        test_path: 'master/bot/bench/test/subtest_1',
+        id: 'no-question-mark',
+        bug_id: 12345,
+      };
+      const anomalyWithQuestionMark = {
+        ...anomaly_table[0],
+        test_path: 'master/bot/bench/test/subtest?1',
+        id: 'with-question-mark',
+        bug_id: 67890,
+      };
+
+      // Populate the table with these two anomalies.
+      await testBed.page.evaluate(
+        (anomalies) => {
+          document.querySelectorAll('anomalies-table-sk').forEach((table: any) => {
+            table.populateTable(anomalies);
+          });
+        },
+        [anomalyWithoutQuestionMark, anomalyWithQuestionMark]
+      );
+
+      // We just ensure clicking the trending icon doesn't throw errors and opens the popup.
+      await anomaliesTableSkPO.clickCheckbox(0); // For without ?
+      const trendingIcons = await anomaliesTableSkPO.trendingIconLink;
+      const icon0 = await trendingIcons.item(0);
+
+      const [popup1] = await Promise.all([
+        new Promise<Page>((resolve) => testBed.page.once('popup', resolve)),
+        icon0.applyFnToDOMNode((el) => (el as HTMLElement).click()),
+      ]);
+      assert.isNotNull(popup1);
+
+      await anomaliesTableSkPO.clickCheckbox(1); // For with ?
+      const icon1 = await trendingIcons.item(1);
+      const [popup2] = await Promise.all([
+        new Promise<Page>((resolve) => testBed.page.once('popup', resolve)),
+        icon1.applyFnToDOMNode((el) => (el as HTMLElement).click()),
+      ]);
+      assert.isNotNull(popup2);
+    });
+
     it('opens a new report page with the correct URL for a multiple anomalies', async () => {
       await anomaliesTableSkPO.clickExpandButton(0);
       await anomaliesTableSkPO.clickCheckbox(0);
