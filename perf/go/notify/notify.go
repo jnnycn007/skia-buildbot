@@ -223,17 +223,17 @@ func (n *defaultNotifier) UpdateNotification(ctx context.Context, commit, previo
 
 // NotifierDeps contains dependencies and configuration for creating a new Notifier.
 type NotifierDeps struct {
-	Cfg                    *config.NotifyConfig
-	ItCfg                  *config.IssueTrackerConfig
-	URL                    string
-	CommitRangeURITemplate string
-	TraceStore             tracestore.TraceStore
-	RegressionStore        regression.Store
-	RegrShortcutStore      regrshortcut.Store
-	UserIssueStore         userissue.Store
-	FS                     fs.FS
-	DevMode                bool
-	CommitRangeFormatter   types.CommitRangeFormatter
+	Cfg                      *config.NotifyConfig
+	ItCfg                    *config.IssueTrackerConfig
+	URL                      string
+	CommitRangeURITemplate   string
+	TraceStore               tracestore.TraceStore
+	RegressionStore          regression.Store
+	RegrShortcutStore        regrshortcut.Store
+	UserIssueStore           userissue.Store
+	FS                       fs.FS
+	DevMode                  bool
+	CommitHashRangeFormatter types.CommitHashRangeFormatter
 }
 
 // New returns a Notifier of the selected type.
@@ -277,15 +277,15 @@ func New(ctx context.Context, deps NotifierDeps) (Notifier, error) {
 			}
 		}
 		perfIssueTracker, err := perf_issuetracker.NewIssueTracker(ctx, perf_issuetracker.IssueTrackerDeps{
-			Cfg:                   *deps.ItCfg,
-			FetchAnomaliesFromSql: config.Config.FetchAnomaliesFromSql,
-			OverrideBugComponent:  config.Config.Experiments.OverrideBugComponent,
-			RegStore:              deps.RegressionStore,
-			RegrShortcutStore:     deps.RegrShortcutStore,
-			UserIssueStore:        deps.UserIssueStore,
-			DevMode:               deps.DevMode,
-			UrlBase:               deps.URL,
-			CommitRangeFormatter:  deps.CommitRangeFormatter,
+			Cfg:                      *deps.ItCfg,
+			FetchAnomaliesFromSql:    config.Config.FetchAnomaliesFromSql,
+			OverrideBugComponent:     config.Config.Experiments.OverrideBugComponent,
+			RegStore:                 deps.RegressionStore,
+			RegrShortcutStore:        deps.RegrShortcutStore,
+			UserIssueStore:           deps.UserIssueStore,
+			DevMode:                  deps.DevMode,
+			UrlBase:                  deps.URL,
+			CommitHashRangeFormatter: deps.CommitHashRangeFormatter,
 		})
 		if err != nil {
 			return nil, skerr.Wrap(err)

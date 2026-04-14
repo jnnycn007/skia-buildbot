@@ -12,9 +12,9 @@ import (
 	"go.skia.org/infra/perf/go/types"
 )
 
-// NewCommitRangeFormatter returns a standard CommitRangeFormatter that builds Git log URLs using the instance GitRepoConfig.
+// NewCommitHashRangeFormatter returns a standard CommitHashRangeFormatter that builds Git log URLs using the instance GitRepoConfig.
 // Logic should be as close to commit-range-sk's _buildUrl as possible.
-func NewCommitRangeFormatter(perfGit git.Git) types.CommitRangeFormatter {
+func NewCommitHashRangeFormatter(perfGit git.Git) types.CommitHashRangeFormatter {
 	return func(ctx context.Context, startCommit, endCommit int64) string {
 		startHash, err := perfGit.GitHashFromCommitNumber(ctx, types.CommitNumber(startCommit))
 		if err != nil {

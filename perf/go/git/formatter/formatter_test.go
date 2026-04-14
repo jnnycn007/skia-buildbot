@@ -11,7 +11,7 @@ import (
 	"go.skia.org/infra/perf/go/types"
 )
 
-func TestNewCommitRangeFormatter_Gitiles(t *testing.T) {
+func TestNewCommitHashRangeFormatter_Gitiles(t *testing.T) {
 	mg := &mocks.Git{}
 	ctx := context.Background()
 
@@ -25,13 +25,13 @@ func TestNewCommitRangeFormatter_Gitiles(t *testing.T) {
 		},
 	}
 
-	formatter := NewCommitRangeFormatter(mg)
+	formatter := NewCommitHashRangeFormatter(mg)
 	res := formatter(ctx, 101, 105)
 
 	assert.Equal(t, "[\\(12345678..abcdef12\\]](https://chromium.googlesource.com/chromium/src/+log/1234567890abcdef..abcdef1234567890)", res)
 }
 
-func TestNewCommitRangeFormatter_OneCommit(t *testing.T) {
+func TestNewCommitHashRangeFormatter_OneCommit(t *testing.T) {
 	mg := &mocks.Git{}
 	ctx := context.Background()
 
@@ -45,13 +45,13 @@ func TestNewCommitRangeFormatter_OneCommit(t *testing.T) {
 		},
 	}
 
-	formatter := NewCommitRangeFormatter(mg)
+	formatter := NewCommitHashRangeFormatter(mg)
 	res := formatter(ctx, 104, 105)
 
 	assert.Equal(t, "[abcdef12](https://chromium.googlesource.com/chromium/src/+log/1234567890abcdef..abcdef1234567890)", res)
 }
 
-func TestNewCommitRangeFormatter_NonGitilesFallback(t *testing.T) {
+func TestNewCommitHashRangeFormatter_NonGitilesFallback(t *testing.T) {
 	mg := &mocks.Git{}
 	ctx := context.Background()
 
@@ -65,13 +65,13 @@ func TestNewCommitRangeFormatter_NonGitilesFallback(t *testing.T) {
 		},
 	}
 
-	formatter := NewCommitRangeFormatter(mg)
+	formatter := NewCommitHashRangeFormatter(mg)
 	res := formatter(ctx, 101, 105)
 
 	assert.Equal(t, "[\\(12345678..abcdef12\\]](https://github.com/foo/bar/compare/1234567890abcdef...abcdef1234567890)", res)
 }
 
-func TestNewCommitRangeFormatter_ShortHashPanicSafety(t *testing.T) {
+func TestNewCommitHashRangeFormatter_ShortHashPanicSafety(t *testing.T) {
 	mg := &mocks.Git{}
 	ctx := context.Background()
 
@@ -85,7 +85,7 @@ func TestNewCommitRangeFormatter_ShortHashPanicSafety(t *testing.T) {
 		},
 	}
 
-	formatter := NewCommitRangeFormatter(mg)
+	formatter := NewCommitHashRangeFormatter(mg)
 	res := formatter(ctx, 201, 205)
 
 	assert.Equal(t, "[\\(abc..123\\]](https://chromium.googlesource.com/chromium/src/+log/abc..123)", res)

@@ -536,7 +536,7 @@ func TestDescribeAnomaly(t *testing.T) {
 
 func TestIntersectionFooter_NonEmptyIntersection(t *testing.T) {
 	s := &issueTrackerImpl{
-		commitRangeFormatter: func(ctx context.Context, begin, end int64) string {
+		commitHashRangeFormatter: func(ctx context.Context, begin, end int64) string {
 			return fmt.Sprintf("http://commits/%d/%d", begin, end)
 		},
 	}
@@ -554,7 +554,7 @@ func TestIntersectionFooter_NonEmptyIntersection(t *testing.T) {
 
 func TestIntersectionFooter_EmptyIntersection(t *testing.T) {
 	s := &issueTrackerImpl{
-		commitRangeFormatter: func(ctx context.Context, begin, end int64) string {
+		commitHashRangeFormatter: func(ctx context.Context, begin, end int64) string {
 			return fmt.Sprintf("http://commits/%d/%d", begin, end)
 		},
 	}
@@ -594,15 +594,15 @@ func TestNewIssueTracker_FileBug_Success(t *testing.T) {
 
 	cfg := config.IssueTrackerConfig{}
 	tracker, err := NewIssueTracker(ctx, IssueTrackerDeps{
-		Cfg:                   cfg,
-		FetchAnomaliesFromSql: true,
-		OverrideBugComponent:  false,
-		RegStore:              regStore,
-		RegrShortcutStore:     regrShortcutStore,
-		UserIssueStore:        userIssueStore,
-		DevMode:               true,
-		UrlBase:               "http://test.com",
-		CommitRangeFormatter:  nil,
+		Cfg:                      cfg,
+		FetchAnomaliesFromSql:    true,
+		OverrideBugComponent:     false,
+		RegStore:                 regStore,
+		RegrShortcutStore:        regrShortcutStore,
+		UserIssueStore:           userIssueStore,
+		DevMode:                  true,
+		UrlBase:                  "http://test.com",
+		CommitHashRangeFormatter: nil,
 	})
 	require.NoError(t, err)
 

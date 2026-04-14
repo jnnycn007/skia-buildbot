@@ -50,14 +50,14 @@ type IssueTracker interface {
 
 // / IssueTrackerImpl implements IssueTracker using the issue tracker API
 type issueTrackerImpl struct {
-	client                *issuetracker.Service
-	FetchAnomaliesFromSql bool
-	OverrideComponent     bool
-	regStore              regression.Store
-	regrShortcutStore     regrshortcut.Store
-	userIssueStore        userissue.Store
-	urlBase               string
-	commitRangeFormatter  types.CommitRangeFormatter
+	client                   *issuetracker.Service
+	FetchAnomaliesFromSql    bool
+	OverrideComponent        bool
+	regStore                 regression.Store
+	regrShortcutStore        regrshortcut.Store
+	userIssueStore           userissue.Store
+	urlBase                  string
+	commitHashRangeFormatter types.CommitHashRangeFormatter
 }
 
 // ListIssuesRequest defines the request object for ListIssues.
@@ -115,15 +115,15 @@ func setupSecretClient(ctx context.Context, cfg config.IssueTrackerConfig, optio
 
 // IssueTrackerDeps contains dependencies and configuration for creating a new IssueTracker.
 type IssueTrackerDeps struct {
-	Cfg                   config.IssueTrackerConfig
-	FetchAnomaliesFromSql bool
-	OverrideBugComponent  bool
-	RegStore              regression.Store
-	RegrShortcutStore     regrshortcut.Store
-	UserIssueStore        userissue.Store
-	DevMode               bool
-	UrlBase               string
-	CommitRangeFormatter  types.CommitRangeFormatter
+	Cfg                      config.IssueTrackerConfig
+	FetchAnomaliesFromSql    bool
+	OverrideBugComponent     bool
+	RegStore                 regression.Store
+	RegrShortcutStore        regrshortcut.Store
+	UserIssueStore           userissue.Store
+	DevMode                  bool
+	UrlBase                  string
+	CommitHashRangeFormatter types.CommitHashRangeFormatter
 }
 
 // NewIssueTracker returns a new issueTracker object.
@@ -154,14 +154,14 @@ func NewIssueTracker(ctx context.Context, deps IssueTrackerDeps) (IssueTracker, 
 	}
 
 	return &issueTrackerImpl{
-		client:                c,
-		FetchAnomaliesFromSql: deps.FetchAnomaliesFromSql,
-		OverrideComponent:     deps.OverrideBugComponent,
-		regStore:              deps.RegStore,
-		regrShortcutStore:     deps.RegrShortcutStore,
-		userIssueStore:        deps.UserIssueStore,
-		urlBase:               deps.UrlBase,
-		commitRangeFormatter:  deps.CommitRangeFormatter,
+		client:                   c,
+		FetchAnomaliesFromSql:    deps.FetchAnomaliesFromSql,
+		OverrideComponent:        deps.OverrideBugComponent,
+		regStore:                 deps.RegStore,
+		regrShortcutStore:        deps.RegrShortcutStore,
+		userIssueStore:           deps.UserIssueStore,
+		urlBase:                  deps.UrlBase,
+		commitHashRangeFormatter: deps.CommitHashRangeFormatter,
 	}, nil
 }
 
@@ -473,8 +473,8 @@ func (s *issueTrackerImpl) intersectionFooter(ctx context.Context, regData []*re
 	}
 
 	commitRange := fmt.Sprintf("%d -> %d", begin, end)
-	if s.commitRangeFormatter != nil {
-		commitRange = s.commitRangeFormatter(ctx, int64(begin), int64(end))
+	if s.commitHashRangeFormatter != nil {
+		commitRange = s.commitHashRangeFormatter(ctx, int64(begin), int64(end))
 	}
 	return fmt.Sprintf("\nCommon commit range of all regressions in this bug: %s\n", commitRange)
 }
@@ -516,8 +516,8 @@ func generateAnomTableHeaders() string {
 func (s *issueTrackerImpl) describeAnomaly(ctx context.Context, a *v1.Anomaly) string {
 	// MD table, see `generateAnomTableHeaders` for headers.
 	commitRange := fmt.Sprintf("%d -> %d", a.StartCommit, a.EndCommit)
-	if s.commitRangeFormatter != nil {
-		commitRange = s.commitRangeFormatter(ctx, a.StartCommit, a.EndCommit)
+	if s.commitHashRangeFormatter != nil {
+		commitRange = s.commitHashRangeFormatter(ctx, a.StartCommit, a.EndCommit)
 	}
 
 	return fmt.Sprintf("| %s | %s | %s | %s | %.2f | %.2f | %+.2f%% | %s | \n",

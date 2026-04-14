@@ -373,5 +373,5 @@ type RegressionBug struct {
 	Type  BugType `json:"bug_type"`
 }
 
-// CommitRangeFormatter defines the signature for callbacks that generate clickable Git range log URLs.
-type CommitRangeFormatter func(ctx context.Context, startCommit, endCommit int64) string
+// CommitHashRangeFormatter defines the signature for callbacks that generate clickable Git range log URLs.
+type CommitHashRangeFormatter func(ctx context.Context, startCommit, endCommit int64) string
