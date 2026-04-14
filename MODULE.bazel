@@ -831,6 +831,23 @@ cipd.download_http(
 use_repo(cipd, "kitchen_linux-amd64")
 
 ####################################################################################################
+# GCloud SDK.
+####################################################################################################
+
+http_archive(
+    name = "gcloud_linux",
+    build_file_content = """
+filegroup(
+    name = "all_files",
+    srcs = glob(["**/*"]),
+    visibility = ["//visibility:public"]
+)
+""",
+    sha256 = "2ab0f75435a9ada0b7400500adbfbdfeceab2a6330c4043f68c543fc5c5c14da",
+    url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-cli-564.0.0-linux-x86_64.tar.gz",
+)
+
+####################################################################################################
 # protoc.
 ####################################################################################################
 

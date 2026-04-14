@@ -23,6 +23,21 @@ pkg_tar(
     },
 )
 
+pkg_tar(
+    name = "autoroll_be_gcloud_sdk",
+    srcs = ["@gcloud_linux//:all_files"],
+    # It seems like we should be able to use:
+    #
+    #     strip_prefix = "external/+_repo_rules+gcloud_linux/google-cloud-sdk/",
+    #     package_dir = "etc/gcloud/",
+    #
+    # But strip_prefix doesn't seem to work in this case. Therefore, we use
+    # remap_paths in combination with strip_prefix (to preserve the directory
+    # structure), which does work.
+    remap_paths = {"external/+_repo_rules+gcloud_linux/google-cloud-sdk/": "etc/gcloud/"},
+    strip_prefix = ".",  # Preserve the folder structure.
+)
+
 skia_app_container(
     name = "autoroll_be_container",
     base_image = "//kube/base-cipd:base-cipd",
@@ -39,12 +54,13 @@ skia_app_container(
         ],
     },
     env = {
-        "PATH": "/go/bin:${PATH}",
+        "PATH": "/go/bin:/etc/gcloud/bin:${PATH}",
     },
     extra_tars = [
         "@autoroll-be-apt-install//:flat",
         "//bazel/go:go_toolchain_tar",
         ":autoroll_be_cc_symlink",
+        ":autoroll_be_gcloud_sdk",
     ],
     repository = "skia-public/autoroll-be",
 )
