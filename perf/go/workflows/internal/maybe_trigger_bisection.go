@@ -74,11 +74,14 @@ func MaybeTriggerBisectionWorkflow(
 			return nil, skerr.Wrap(err)
 		}
 		if bisectionAllowed {
-			return processAnomaliesAsBisection(ctx, input)
-		} else {
-			// Fallback to reporting if the rate limiter prevents creating bisect jobs.
-			return processAnomaliesAsReporting(ctx, input)
+			res, err := processAnomaliesAsBisection(ctx, input)
+			if err == nil {
+				return res, nil
+			}
+			workflow.GetLogger(ctx).Error("Bisection failed, falling back to reporting.", "error", err)
 		}
+		// Fallback: bisection not allowed or failed.
+		return processAnomaliesAsReporting(ctx, input)
 	case ag_pb.GroupActionType_REPORT:
 		return processAnomaliesAsReporting(ctx, input)
 	case ag_pb.GroupActionType_NOACTION:
