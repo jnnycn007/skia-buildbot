@@ -183,7 +183,7 @@ export class ARBStatusSk extends ElementSk {
             ? html`
                 <tr>
                   <td class="nowrap">Error:</td>
-                  <td><pre>${ele.status.error}</pre></td>
+                  <td>${ele.status.error}</td>
                 </tr>
               `
             : html``
