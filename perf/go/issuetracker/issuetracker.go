@@ -472,11 +472,13 @@ func (s *issueTrackerImpl) intersectionFooter(ctx context.Context, regData []*re
 		return "\nCommit intersection of regressions in this bug is empty!\n"
 	}
 
-	commitRange := fmt.Sprintf("%d -> %d", begin, end)
+	// We add 1 since we want both ends inclusive.
+	commitRange := fmt.Sprintf("\\[%d..%d\\]", begin+1, end)
+	commitHashRange := "failed to generate"
 	if s.commitHashRangeFormatter != nil {
-		commitRange = s.commitHashRangeFormatter(ctx, int64(begin), int64(end))
+		commitHashRange = s.commitHashRangeFormatter(ctx, int64(begin), int64(end))
 	}
-	return fmt.Sprintf("\nCommon commit range of all regressions in this bug: %s\n", commitRange)
+	return fmt.Sprintf("\nCommon commit range of all regressions in this bug: %s - Hash range: %s\n", commitRange, commitHashRange)
 }
 
 // There may be several subscriptions
@@ -509,20 +511,21 @@ func calcChange(before, after float32) float32 {
 }
 
 func generateAnomTableHeaders() string {
-	return "  \n| Bot | Benchmark | Measurement | Story | Median Before | Median After | Change | Commit range |  \n" +
-		"| --- | --- | --- | --- | --- | --- | --- | --- | \n"
+	return "  \n| Bot | Benchmark | Measurement | Story | Change | Commit range | Commit Hashes | \n" +
+		"| --- | --- | --- | --- | --- | --- | --- | \n"
 }
 
 func (s *issueTrackerImpl) describeAnomaly(ctx context.Context, a *v1.Anomaly) string {
 	// MD table, see `generateAnomTableHeaders` for headers.
-	commitRange := fmt.Sprintf("%d -> %d", a.StartCommit, a.EndCommit)
+	// a.StartCommit is actually the commit position of previous, so we add 1.
+	commitRange := fmt.Sprintf("\\[%d..%d\\]", a.StartCommit+1, a.EndCommit)
+	commitHashRange := "failed to generate"
 	if s.commitHashRangeFormatter != nil {
-		commitRange = s.commitHashRangeFormatter(ctx, a.StartCommit, a.EndCommit)
+		commitHashRange = s.commitHashRangeFormatter(ctx, a.StartCommit, a.EndCommit)
 	}
 
-	return fmt.Sprintf("| %s | %s | %s | %s | %.2f | %.2f | %+.2f%% | %s | \n",
+	return fmt.Sprintf("| %s | %s | %s | %s | %+.2f%% | %s | %s | \n",
 		a.Paramset["bot"], a.Paramset["benchmark"], a.Paramset["measurement"], a.Paramset["story"],
-		a.MedianBefore, a.MedianAfter, calcChange(a.MedianBefore, a.MedianAfter),
-		commitRange,
+		calcChange(a.MedianBefore, a.MedianAfter), commitRange, commitHashRange,
 	)
 }

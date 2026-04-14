@@ -509,8 +509,8 @@ func TestGenerateAnomTableHeaders(t *testing.T) {
 	dividerDashes := strings.Count(dividerLine, "---")
 
 	require.Equal(t, headerPipes, dividerPipes)
-	// There are 8 columns, so 9 pipes and 8 dividers
-	require.Equal(t, 8, dividerDashes)
+	// There are 7 columns, so 8 pipes and 7 dividers
+	require.Equal(t, 7, dividerDashes)
 }
 
 func TestDescribeAnomaly(t *testing.T) {
@@ -530,8 +530,8 @@ func TestDescribeAnomaly(t *testing.T) {
 	desc := s.describeAnomaly(context.TODO(), anomaly)
 
 	pipes := strings.Count(desc, "|")
-	// Expected 8 columns separated by pipes (7 inner pipes + 2 optional outer)
-	require.Equal(t, 9, pipes)
+	// Expected 7 columns separated by 8 pipes (6 inner pipes + 2 optional outer)
+	require.Equal(t, 8, pipes)
 }
 
 func TestIntersectionFooter_NonEmptyIntersection(t *testing.T) {
