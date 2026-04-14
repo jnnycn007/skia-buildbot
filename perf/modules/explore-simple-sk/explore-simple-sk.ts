@@ -2138,10 +2138,6 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
     const subDataframe = generateSubDataframe(df!, selected);
     if (!subDataframe || subDataframe.header?.length === 0) {
       // If the subDataframe is empty, we cannot proceed.
-      errorMessage('Unable to find requested data range.', 0, {
-        source: EXPLORE_SIMPLE_PAGE_SOURCE,
-        errorCode: StatusCodes.NOT_FOUND.toString(),
-      });
       return;
     }
 
