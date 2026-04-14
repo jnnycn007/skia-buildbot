@@ -921,6 +921,55 @@ describe('ExploreMultiSk', () => {
       );
     });
 
+    it('correctly transforms commit offsets using the triggering graph in manual_plot_mode', async () => {
+      await setupElement({ default_xaxis_domain: 'commit' });
+      element.state.manual_plot_mode = true;
+      const graph1 = element['addEmptyGraph']()!;
+      const graph2 = element['addEmptyGraph']()!;
+      await graph1.requestComplete;
+      await graph2.requestComplete;
+
+      while ((element as any).exploreElements.length < 2) {
+        await (element as any).addGraph();
+      }
+
+      const detail: PlotSelectionEventDetails = {
+        value: { begin: 200, end: 201 },
+        domain: 'commit',
+        start: 0,
+        end: 1,
+        graphNumber: 1,
+      };
+
+      const event = new CustomEvent('selection-range-changed', {
+        detail: detail,
+        bubbles: true,
+      });
+
+      element.state.begin = 1234;
+      element.state.end = 5678;
+
+      const mockHeader0 = [
+        { offset: 100, timestamp: 1600000000 },
+        { offset: 101, timestamp: 1600000001 },
+      ];
+      sinon.stub((element as any).exploreElements[0], 'getHeader').returns(mockHeader0);
+
+      const mockHeader1 = [
+        { offset: 200, timestamp: 1700000000 },
+        { offset: 201, timestamp: 1700000001 },
+      ];
+      sinon.stub((element as any).exploreElements[1], 'getHeader').returns(mockHeader1);
+
+      sinon.stub(element as any, '_onStateChangedInUrl');
+
+      element['graphDiv']!.dispatchEvent(event);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      assert.equal(element.state.begin, 1700000000);
+      assert.equal(element.state.end, 1700000001);
+    });
+
     it('syncs extend range across all graphs', async () => {
       const graph1 = element['addEmptyGraph']()!;
       const graph2 = element['addEmptyGraph']()!;

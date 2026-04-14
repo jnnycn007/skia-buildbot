@@ -1766,7 +1766,8 @@ export class ExploreMultiSk extends ElementSk {
     // We need to convert these to timestamps (e.g. 1687875573, 1687875574) because the state.begin
     // and state.end (and thus the URL) always expect timestamps for request_type=0.
     if (e.detail.domain === 'commit') {
-      const header = this.exploreElements[0].getHeader();
+      const graphIndex = this.state.manual_plot_mode ? e.detail.graphNumber ?? 0 : 0;
+      const header = this.exploreElements[graphIndex].getHeader();
       if (header) {
         if (e.detail.start !== undefined && header[e.detail.start]) {
           newBegin = header[e.detail.start]!.timestamp;
