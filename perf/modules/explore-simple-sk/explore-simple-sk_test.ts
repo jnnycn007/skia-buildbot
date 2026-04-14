@@ -25,6 +25,8 @@ import {
 import { GraphConfig, updateShortcut } from '../common/graph-config';
 import { MdDialog } from '@material/web/dialog/dialog';
 import { MdSwitch } from '@material/web/switch/switch';
+import '../plot-summary-sk/plot-summary-sk';
+import { PlotSelectionEventDetails } from '../plot-google-chart-sk/plot-google-chart-sk';
 import { setUpElementUnderTest, waitForRender } from '../../../infra-sk/modules/test_util';
 import { generateFullDataFrame } from '../dataframe/test_utils';
 import sinon from 'sinon';
@@ -1449,6 +1451,94 @@ describe('Domain Picker Interaction', () => {
         extendRangeSpy.secondCall.args[1],
         'Expected default truncate behavior (true or undefined) for second call'
       );
+    });
+  });
+
+  describe('OnSelectionRange', () => {
+    let explore: ExploreSimpleSk;
+
+    beforeEach(async () => {
+      explore = setUpElementUnderTest<ExploreSimpleSk>('explore-simple-sk')();
+      await fetchMock.flush(true);
+
+      // Provide a deterministic mock dataframe to test getCommitIndex
+      (explore as any).dfRepo = {
+        value: {
+          extendRange: async () => {},
+          header: [
+            { offset: 0, timestamp: 1000 },
+            { offset: 1, timestamp: 2000 },
+            { offset: 2, timestamp: 3000 },
+          ],
+          dataframe: {
+            header: [
+              { offset: 0, timestamp: 1000 },
+              { offset: 1, timestamp: 2000 },
+              { offset: 2, timestamp: 3000 },
+            ],
+            traceset: {},
+          },
+        },
+      };
+    });
+
+    it('rounds sub-pixel panning ranges to integers in date domain', async () => {
+      explore.state.domain = 'date';
+      let capturedDetail: PlotSelectionEventDetails | null = null;
+      explore.addEventListener('selection-range-changed', (e) => {
+        capturedDetail = (e as CustomEvent<PlotSelectionEventDetails>).detail;
+      });
+
+      const detail: PlotSelectionEventDetails = {
+        value: { begin: 1000.4, end: 2000.6 },
+        domain: 'date',
+      };
+
+      await (explore as any).OnSelectionRange({ type: 'selection-changed', detail });
+
+      assert.isNotNull(capturedDetail);
+      assert.strictEqual(capturedDetail!.value.begin, 1000);
+      assert.strictEqual(capturedDetail!.value.end, 2001);
+    });
+
+    it('rounds sub-pixel panning ranges and extracts indices in commit domain', async () => {
+      explore.state.domain = 'commit';
+      let capturedDetail: PlotSelectionEventDetails | null = null;
+      explore.addEventListener('selection-range-changed', (e) => {
+        capturedDetail = (e as CustomEvent<PlotSelectionEventDetails>).detail;
+      });
+
+      const detail: PlotSelectionEventDetails = {
+        value: { begin: 0.1, end: 1.9 },
+        domain: 'commit',
+      };
+
+      await (explore as any).OnSelectionRange({ type: 'selection-changed', detail });
+
+      assert.isNotNull(capturedDetail);
+      assert.strictEqual(capturedDetail!.value.begin, 0);
+      assert.strictEqual(capturedDetail!.value.end, 2);
+      assert.strictEqual(capturedDetail!.start, 0);
+      assert.strictEqual(capturedDetail!.end, 2);
+    });
+
+    it('handles negative sub-pixel ranges cleanly', async () => {
+      explore.state.domain = 'date';
+      let capturedDetail: PlotSelectionEventDetails | null = null;
+      explore.addEventListener('selection-range-changed', (e) => {
+        capturedDetail = (e as CustomEvent<PlotSelectionEventDetails>).detail;
+      });
+
+      const detail: PlotSelectionEventDetails = {
+        value: { begin: -10.7, end: -5.2 },
+        domain: 'date',
+      };
+
+      await (explore as any).OnSelectionRange({ type: 'selection-changed', detail });
+
+      assert.isNotNull(capturedDetail);
+      assert.strictEqual(capturedDetail!.value.begin, -11);
+      assert.strictEqual(capturedDetail!.value.end, -5);
     });
   });
 });

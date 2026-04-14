@@ -94,6 +94,8 @@ karma_test(
         "//perf/modules/data-service:index_ts_lib",
         "//perf/modules/dataframe:test_utils_ts_lib",
         "//perf/modules/json:index_ts_lib",
+        "//perf/modules/plot-google-chart-sk",
+        "//perf/modules/plot-summary-sk",
     ],
 )
 

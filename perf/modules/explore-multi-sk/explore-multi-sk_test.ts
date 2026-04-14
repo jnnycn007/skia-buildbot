@@ -860,6 +860,44 @@ describe('ExploreMultiSk', () => {
       assert.isTrue(spy2.calledOnceWith('date'));
     });
 
+    it('correctly updates state with the exact values received from selection-range-changed event', async () => {
+      await setupElement({ default_xaxis_domain: 'date' });
+      const graph1 = element['addEmptyGraph']()!;
+      await graph1.requestComplete;
+
+      // Simulate explore-simple-sk sending a clean, rounded detail object (like we fixed)
+      const detail: PlotSelectionEventDetails = {
+        value: { begin: 1600000000, end: 1600000005 },
+        domain: 'date',
+        start: 0,
+        end: 5,
+      };
+
+      const event = new CustomEvent('selection-range-changed', {
+        detail: detail,
+        bubbles: true,
+      });
+
+      element.state.begin = 1234;
+      element.state.end = 5678;
+
+      sinon.stub(element as any, '_onStateChangedInUrl');
+
+      element['graphDiv']!.dispatchEvent(event);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      assert.equal(
+        element.state.begin,
+        1600000000,
+        'State begin should match the provided clean integer'
+      );
+      assert.equal(
+        element.state.end,
+        1600000005,
+        'State end should match the provided clean integer'
+      );
+    });
+
     it('correctly transforms commit offsets to timestamps in URL state', async () => {
       // Setup with commit domain
       await setupElement({ default_xaxis_domain: 'commit' });

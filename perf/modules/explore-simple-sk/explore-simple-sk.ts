@@ -2076,25 +2076,37 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
     type,
     detail,
   }: CustomEvent<PlotSelectionEventDetails>): Promise<void> {
+    const begin = Math.round(detail.value.begin);
+    const end = Math.round(detail.value.end);
+    const selectionDetail: PlotSelectionEventDetails = {
+      ...detail,
+      value: {
+        begin: begin,
+        end: end,
+      },
+      start: this.getCommitIndex(begin, this.state.domain),
+      end: this.getCommitIndex(end, this.state.domain, true),
+    };
+
     if (type === 'selection-changed') {
-      await this.extendRange(detail.value);
+      await this.extendRange(selectionDetail.value);
     }
 
     if (this.plotSummary.value) {
-      this.plotSummary.value.selectedValueRange = detail.value;
+      this.plotSummary.value.selectedValueRange = selectionDetail.value;
     }
     this._stateHasChanged();
     this.closeTooltip();
     // If in multi-graph view, sync all graphs.
     // This event listener will not work on the alerts page
-    detail.graphNumber = this.state.graph_index;
+    selectionDetail.graphNumber = this.state.graph_index;
     this.dispatchEvent(
       new CustomEvent<PlotSelectionEventDetails>('selection-range-changed', {
         bubbles: true,
-        detail: detail,
+        detail: selectionDetail,
       })
     );
-    this.updateSelectedRangeWithUpdatedDataframe(detail.value, detail.domain);
+    this.updateSelectedRangeWithUpdatedDataframe(selectionDetail.value, selectionDetail.domain);
   }
 
   // updateSelectedRangeWithPlotSummary is used to synchronize
