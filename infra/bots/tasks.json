@@ -40,7 +40,7 @@
         {
           "name": "infra/tools/luci-auth/${platform}",
           "path": "cipd_bin_packages",
-          "version": "git_revision:da8829f4f05eb5ea39839536b76cd252a45d4a17"
+          "version": "git_revision:8048c0858d1b3c95bdf776d30953b5be8863d29e"
         },
         {
           "name": "skia/tools/command_wrapper/${platform}",
