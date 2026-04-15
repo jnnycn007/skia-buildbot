@@ -407,6 +407,7 @@ func buildSeccompFilter() []unix.SockFilter {
 		unix.SYS_IOCTL,
 		unix.SYS_LSEEK,
 		unix.SYS_LSTAT,
+		unix.SYS_MADVISE,
 		unix.SYS_MMAP,
 		unix.SYS_MPROTECT,
 		unix.SYS_MREMAP,

@@ -3,18 +3,37 @@ set -e
 
 # This script is used to build and test the final fiddler backend image,
 # including any local changes in this repo, in order to experiment iteratively.
-# You may set the following variables:
+# You may pass the following flags:
 #
-# SKIA_REPO_PATH: Path to a local checkout of the Skia repo. Set this to test
-#     against any local changes to that repo. If unset, this script will clone
-#     a fresh copy.
+# --skia-repo-path <path>: Path to a local checkout of the Skia repo. Set this
+#     to test against any local changes to that repo. If unset, this script
+#     will clone a fresh copy.
 #
-# PORT: Port number on which fiddler should run. Set this if the default
-#     conflicts with other services on your machine.
+# --port <port>: Port number on which fiddler should run. Set this if the
+#     default conflicts with other services on your machine.
 
 # Configuration.
+SKIA_REPO_PATH=""
+PORT="8080"
 TEMP_DIR="$(mktemp -d)"
-PORT="${PORT:=8080}"
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --skia-repo-path)
+            SKIA_REPO_PATH="$2"
+            shift 2
+            ;;
+        --port)
+            PORT="$2"
+            shift 2
+            ;;
+        *)
+            echo "Unknown argument: $1"
+            echo "Usage: $0 [--skia-repo-path <path>] [--port <port>]"
+            exit 1
+            ;;
+    esac
+done
 if [[ -z "$SKIA_REPO_PATH" ]]; then
     pushd $TEMP_DIR
     git clone --depth 1 https://skia.googlesource.com/skia.git
@@ -69,9 +88,33 @@ done
 echo "Fiddler is up!"
 
 # 6. Send a request to build and run a fiddle.
+#    Edit the code below if desired.
+cat <<EOF > $TEMP_DIR/draw.cpp
+/////////////////////////////////////////
+// The fiddle server adds this header. //
+/////////////////////////////////////////
+#include "skia.h"
+#include "fiddle_main.h"
+DrawOptions GetDrawOptions() {
+  static const char *path = 0; // Either a string, or 0.
+  return DrawOptions(256, 256, true, true, false, false, false, false, false, path, skgpu::Mipmapped::kNo, 64, 64, 0, skgpu::Mipmapped::kNo);
+}
+/////////////////////////////////////////
+
+void draw(SkCanvas* canvas) {
+    SkPaint p;
+    p.setColor(SK_ColorRED);
+    p.setAntiAlias(true);
+    p.setStyle(SkPaint::kStroke_Style);
+    p.setStrokeWidth(10);
+
+    canvas->drawLine(20, 20, 100, 100, p);
+}
+EOF
+CODE=$(jq -Rs '.' $TEMP_DIR/draw.cpp)
 cat <<EOF > $TEMP_DIR/request.json
 {
-  "code": "#include \"include/core/SkCanvas.h\"\n#include \"tools/fiddle/fiddle_main.h\"\nDrawOptions GetDrawOptions() {\n  return DrawOptions(128, 128, true, true, true, true, true, false, false, nullptr, skgpu::Mipmapped::kNo, 64, 64, 0, skgpu::Mipmapped::kNo);\n}\nvoid draw(SkCanvas* canvas) { canvas->clear(SkColorSetRGB(0, 255, 0)); }",
+  "code": $CODE,
   "options": {
     "width": 128,
     "height": 128,
