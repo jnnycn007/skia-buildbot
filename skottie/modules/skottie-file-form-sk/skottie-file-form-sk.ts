@@ -33,7 +33,9 @@ export interface SkottieFileState {
   soundMap?: SoundMap;
 }
 
-export type SkottieFilesEventDetail = SkottieFileState;
+export interface SkottieFilesEventDetail extends SkottieFileState {
+  skipUpload?: boolean;
+}
 
 const allowZips =
   window.location.hostname === 'skottie-internal.corp.goog' ||
@@ -63,7 +65,7 @@ export class SkottieFileFormSk extends ElementSk {
     return html`
       <form class="upload-file" id="upload-files">
         <label class="upload-file--label">
-          ${this._state.filename || '+ Upload Lottie file'}
+          ${this._state.filename || '+ Open Lottie file'}
           <input
             type="file"
             name="file"
@@ -123,6 +125,16 @@ export class SkottieFileFormSk extends ElementSk {
         this._state.lottie = parsed;
         this._state.filename = toLoad.name;
         this._render();
+
+        this.dispatchEvent(
+          new CustomEvent<SkottieFilesEventDetail>('files-selected', {
+            detail: {
+              ...this._state,
+              skipUpload: true,
+            },
+            bubbles: true,
+          })
+        );
       });
       reader.addEventListener('error', () => {
         errorMessage('Failed to load.');

@@ -9,7 +9,7 @@ to display these.
 [Install buildbot dependencies](https://github.com/google/skia-buildbot?tab=readme-ov-file#install-dependencies)
 
 Follow instructions to
-[enable gcloud](https://cloud.google.com/container-registry/docs/advanced-authentication)
+[enable gcloud](https://docs.cloud.google.com/artifact-registry/docs/docker/authentication)
 
 Ask a Skia Maintainer to give view access to GCS buckets
 artifacts.skia-public.appspot.com (for downloading build images) and
@@ -24,8 +24,15 @@ make run-local-instance
 By default, you can connect to the web server in your browesr by going to
 [localhost:8000](localhost:8000).
 
-If you want see any module changes you make without restarting the whole server,
-open another terminal and run:
+If you want see any module changes you make without restarting the whole server-
+
+Install the tools
+
+```
+sudo apt install inotify-tools
+```
+
+Then open another terminal and run:
 
 ```
 make watch-modules

@@ -958,7 +958,13 @@ export class SkottieSk extends ElementSk {
     this.width = width;
     this.height = height;
     this.state = state;
-    this.upload();
+
+    if (state.skipUpload) {
+      this.ui = 'loaded';
+      this.render();
+    } else {
+      this.upload();
+    }
   }
 
   private skottieBackgroundUpdated(e: CustomEvent<SkottieBackgroundSettingsEventDetail>) {
