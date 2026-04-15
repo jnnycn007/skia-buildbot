@@ -466,6 +466,12 @@ func (f *Frontend) initialize() {
 	f.loadAppVersion()
 	f.loadBuildDate()
 
+	tags := map[string]string{
+		"date": f.buildDate,
+		"hash": f.appVersion,
+	}
+	metrics2.GetInt64Metric("build_info", tags).Update(1)
+
 	// Add tracker for long running requests.
 	var err error
 	f.progressTracker, err = progress.NewTracker("/_/status/")
