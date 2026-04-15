@@ -21,11 +21,26 @@ func New(ctx context.Context) (*Client, error) {
 }
 
 // CreateTryJob calls the legacy pinpoint API to create a try job.
-func (c *Client) CreateTryJob(ctx context.Context, req TryJobCreateRequest) (*CreatePinpointResponse, error) {
+func (c *Client) CreateTryJob(
+	ctx context.Context,
+	req TryJobCreateRequest,
+) (*CreatePinpointResponse, error) {
 	return c.legacyClient.CreateTryJob(ctx, req)
 }
 
 // CreateBisect calls pinpoint API to create bisect job.
-func (c *Client) CreateBisect(ctx context.Context, req BisectJobCreateRequest, isNewAnomaly bool) (*CreatePinpointResponse, error) {
+func (c *Client) CreateBisect(
+	ctx context.Context,
+	req BisectJobCreateRequest,
+	isNewAnomaly bool,
+) (*CreatePinpointResponse, error) {
 	return c.legacyClient.CreateBisect(ctx, req, isNewAnomaly)
+}
+
+// FetchJobState retrieve job state details.
+func (c *Client) FetchJobState(
+	ctx context.Context,
+	req internal.FetchJobStateRequest,
+) (*FetchJobStateResponse, error) {
+	return c.legacyClient.FetchJobState(ctx, req)
 }

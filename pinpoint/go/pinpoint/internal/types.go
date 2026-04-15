@@ -41,3 +41,95 @@ type CreatePinpointResponse struct {
 	JobID  string `json:"jobId"`
 	JobURL string `json:"jobUrl"`
 }
+
+type FetchJobStateRequest struct {
+	JobID string `json:"job_id"`
+}
+
+type Commit struct {
+	Repository     string  `json:"repository"`
+	GitHash        string  `json:"git_hash"`
+	URL            string  `json:"url,omitempty"`
+	Author         string  `json:"author,omitempty"`
+	Created        string  `json:"created,omitempty"`
+	Subject        string  `json:"subject,omitempty"`
+	Message        string  `json:"message,omitempty"`
+	CommitBranch   *string `json:"commit_branch,omitempty"`
+	CommitPosition *int    `json:"commit_position,omitempty"`
+	ReviewURL      *string `json:"review_url,omitempty"`
+	ChangeID       *string `json:"change_id,omitempty"`
+}
+
+type Patch struct {
+	Server   string `json:"server"`
+	Change   string `json:"change"`
+	Revision string `json:"revision"`
+	URL      string `json:"url,omitempty"`
+	Author   string `json:"author,omitempty"`
+	Created  string `json:"created,omitempty"`
+	Subject  string `json:"subject,omitempty"`
+	Message  string `json:"message,omitempty"`
+}
+
+type Change struct {
+	Commits []Commit    `json:"commits"`
+	Patch   *Patch      `json:"patch,omitempty"`
+	Args    interface{} `json:"args,omitempty"` // Can be a string or an array of strings.
+	Label   string      `json:"label,omitempty"`
+	Variant *int        `json:"variant,omitempty"`
+}
+
+type ExecutionDetail struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+	URL   string `json:"url,omitempty"`
+}
+
+type Exception struct {
+	Message   string `json:"message"`
+	Traceback string `json:"traceback"`
+}
+
+type Execution struct {
+	Completed bool              `json:"completed"`
+	Exception *Exception        `json:"exception,omitempty"`
+	Details   []ExecutionDetail `json:"details"`
+}
+
+type Attempt struct {
+	Executions []Execution `json:"executions"`
+}
+
+type StateItem struct {
+	Change       Change            `json:"change"`
+	Comparisons  map[string]string `json:"comparisons,omitempty"`
+	ResultValues []float64         `json:"result_values,omitempty"`
+	Attempts     []Attempt         `json:"attempts,omitempty"`
+}
+
+type FetchJobStateResponse struct {
+	JobID                string            `json:"job_id"`
+	Configuration        string            `json:"configuration"`
+	ResultsURL           *string           `json:"results_url,omitempty"`
+	ImprovementDirection *int              `json:"improvement_direction,omitempty"`
+	Arguments            map[string]string `json:"arguments"`
+	BugID                *int              `json:"bug_id,omitempty"`
+	Project              *string           `json:"project,omitempty"`
+	ComparisonMode       string            `json:"comparison_mode"`
+	Name                 string            `json:"name"`
+	User                 *string           `json:"user,omitempty"`
+	Created              string            `json:"created"`
+	Updated              string            `json:"updated"`
+	StartedTime          string            `json:"started_time"`
+	DifferenceCount      *int              `json:"difference_count,omitempty"`
+	Exception            *Exception        `json:"exception,omitempty"`
+	Status               string            `json:"status"`
+	CancelReason         *string           `json:"cancel_reason,omitempty"`
+	BatchID              *string           `json:"batch_id,omitempty"`
+	Bots                 []string          `json:"bots"`
+
+	// Fields from OPTION_STATE
+	Metric string      `json:"metric"`
+	Quests []string    `json:"quests"`
+	State  []StateItem `json:"state"`
+}

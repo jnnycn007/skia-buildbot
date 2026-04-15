@@ -25,6 +25,7 @@ go_test(
     embed = [":internal"],
     deps = [
         "//go/httputils",
+        "//go/metrics2",
         "@com_github_stretchr_testify//assert",
     ],
 )

@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"go.skia.org/infra/go/httputils"
+	"go.skia.org/infra/go/metrics2"
 )
 
 func TestExtractErrorMessageReturnsErrorMessage(t *testing.T) {
@@ -159,7 +160,13 @@ func setupTestMocks(t *testing.T, handler http.HandlerFunc) *LegacyClient {
 	}
 
 	pc := &LegacyClient{
-		httpClient: client,
+		httpClient:          client,
+		createBisectCalled:  metrics2.GetCounter("pinpoint_create_bisect_called"),
+		createBisectFailed:  metrics2.GetCounter("pinpoint_create_bisect_failed"),
+		createTryJobCalled:  metrics2.GetCounter("pinpoint_create_try_job_called"),
+		createTryJobFailed:  metrics2.GetCounter("pinpoint_create_try_job_failed"),
+		fetchJobStateCalled: metrics2.GetCounter("pinpoint_fetch_job_state_called"),
+		fetchJobStateFailed: metrics2.GetCounter("pinpoint_fetch_job_state_failed"),
 	}
 
 	return pc
@@ -167,17 +174,20 @@ func setupTestMocks(t *testing.T, handler http.HandlerFunc) *LegacyClient {
 
 func TestDoPostRequest(t *testing.T) {
 	t.Run("Returns parsed response on success", func(t *testing.T) {
+		expectedResponseBody := []byte(
+			`{"jobId": "12345", "jobUrl": "https://example.com/job/12345"}`,
+		)
 		pc := setupTestMocks(t, func(w http.ResponseWriter, r *http.Request) {
 			assert.Equal(t, "/api/new", r.URL.Path)
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"jobId": "12345", "jobUrl": "https://example.com/job/12345"}`))
+			_, _ = w.Write(expectedResponseBody)
 		})
 
 		resp, err := pc.doPostRequest(context.Background(), pinpointLegacyURL)
 		assert.NoError(t, err)
-		assert.NotNil(t, resp)
-		assert.Equal(t, "12345", resp.JobID)
-		assert.Equal(t, "https://example.com/job/12345", resp.JobURL)
+		body, err := pc.readResponseBody(resp)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedResponseBody, body)
 	})
 
 	t.Run("Returns error if non-200 status code", func(t *testing.T) {
@@ -187,21 +197,46 @@ func TestDoPostRequest(t *testing.T) {
 		})
 
 		resp, err := pc.doPostRequest(context.Background(), pinpointLegacyURL)
+		assert.NoError(t, err)
+		body, err := pc.readResponseBody(resp)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "Internal Server Error")
-		assert.Nil(t, resp)
+		assert.Nil(t, body)
 	})
+}
 
-	t.Run("Returns error if invalid JSON response", func(t *testing.T) {
+func TestDoGetRequest(t *testing.T) {
+	t.Run("Returns parsed response on success", func(t *testing.T) {
+		expectedResponseBody := []byte(`{"job_id": "12345", "status": "completed"}`)
+		testURL := "https://example.com/api/job/12345?o=STATE"
 		pc := setupTestMocks(t, func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, http.MethodGet, r.Method)
+			assert.Equal(t, "/api/job/12345", r.URL.Path)
+			assert.Equal(t, "STATE", r.URL.Query().Get("o"))
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{invalid json}`))
+			_, _ = w.Write(expectedResponseBody)
 		})
 
-		resp, err := pc.doPostRequest(context.Background(), pinpointLegacyURL)
+		resp, err := pc.doGetRequest(context.Background(), testURL)
+		assert.NoError(t, err)
+		body, err := pc.readResponseBody(resp)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedResponseBody, body)
+	})
+
+	t.Run("Returns error if non-200 status code", func(t *testing.T) {
+		testURL := "https://example.com/api/job/12345?o=STATE"
+		pc := setupTestMocks(t, func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`{"error": "Internal Server Error"}`))
+		})
+
+		resp, err := pc.doGetRequest(context.Background(), testURL)
+		assert.NoError(t, err)
+		body, err := pc.readResponseBody(resp)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "Failed to parse pinpoint response body")
-		assert.Nil(t, resp)
+		assert.Contains(t, err.Error(), "Internal Server Error")
+		assert.Nil(t, body)
 	})
 }
 
@@ -262,4 +297,38 @@ func TestBuildTryJobRequestUrlVerifiesMissingConfiguration(t *testing.T) {
 	_, err := buildTryJobRequestURL(req)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "Configuration must be specified")
+}
+
+func TestFetchJobState(t *testing.T) {
+	t.Run("Returns parsed response on success", func(t *testing.T) {
+		pc := setupTestMocks(t, func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "/api/job/12345", r.URL.Path)
+			assert.Equal(t, "STATE", r.URL.Query().Get("o"))
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"job_id": "12345", "status": "completed"}`))
+		})
+
+		resp, err := pc.FetchJobState(context.Background(), FetchJobStateRequest{JobID: "12345"})
+		assert.NoError(t, err)
+		assert.Equal(
+			t,
+			resp,
+			&FetchJobStateResponse{
+				JobID:  "12345",
+				Status: "completed",
+			},
+		)
+	})
+
+	t.Run("Returns error if non-200 status code", func(t *testing.T) {
+		pc := setupTestMocks(t, func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`{"error": "Internal Server Error"}`))
+		})
+
+		resp, err := pc.FetchJobState(context.Background(), FetchJobStateRequest{JobID: "12345"})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "Internal Server Error")
+		assert.Nil(t, resp)
+	})
 }

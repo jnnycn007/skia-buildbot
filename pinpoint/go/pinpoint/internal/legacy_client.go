@@ -26,11 +26,13 @@ const (
 )
 
 type LegacyClient struct {
-	httpClient         *http.Client
-	createBisectCalled metrics2.Counter
-	createBisectFailed metrics2.Counter
-	createTryJobCalled metrics2.Counter
-	createTryJobFailed metrics2.Counter
+	httpClient          *http.Client
+	createBisectCalled  metrics2.Counter
+	createBisectFailed  metrics2.Counter
+	createTryJobCalled  metrics2.Counter
+	createTryJobFailed  metrics2.Counter
+	fetchJobStateCalled metrics2.Counter
+	fetchJobStateFailed metrics2.Counter
 }
 
 // New returns a new LegacyClient instance.
@@ -42,11 +44,13 @@ func NewLegacyClient(ctx context.Context) (*LegacyClient, error) {
 
 	client := httputils.DefaultClientConfig().WithTokenSource(tokenSource).Client()
 	return &LegacyClient{
-		httpClient:         client,
-		createBisectCalled: metrics2.GetCounter("pinpoint_create_bisect_called"),
-		createBisectFailed: metrics2.GetCounter("pinpoint_create_bisect_failed"),
-		createTryJobCalled: metrics2.GetCounter("pinpoint_create_try_job_called"),
-		createTryJobFailed: metrics2.GetCounter("pinpoint_create_try_job_failed"),
+		httpClient:          client,
+		createBisectCalled:  metrics2.GetCounter("pinpoint_create_bisect_called"),
+		createBisectFailed:  metrics2.GetCounter("pinpoint_create_bisect_failed"),
+		createTryJobCalled:  metrics2.GetCounter("pinpoint_create_try_job_called"),
+		createTryJobFailed:  metrics2.GetCounter("pinpoint_create_try_job_failed"),
+		fetchJobStateCalled: metrics2.GetCounter("pinpoint_fetch_job_state_called"),
+		fetchJobStateFailed: metrics2.GetCounter("pinpoint_fetch_job_state_failed"),
 	}, nil
 }
 
@@ -54,22 +58,89 @@ func NewLegacyClient(ctx context.Context) (*LegacyClient, error) {
 func (pc *LegacyClient) CreateTryJob(
 	ctx context.Context,
 	req TryJobCreateRequest,
-) (*CreatePinpointResponse, error) {
+) (resp *CreatePinpointResponse, err error) {
 	pc.createTryJobCalled.Inc(1)
+	defer func() { trackError(pc.createTryJobFailed, err) }()
 
 	requestURL, err := buildTryJobRequestURL(req)
 	if err != nil {
-		pc.createTryJobFailed.Inc(1)
 		return nil, skerr.Wrapf(err, "Failed to generate Pinpoint request URL.")
 	}
-	sklog.Debugf("Preparing to call this Pinpoint service URL: %s", requestURL)
 
-	resp, err := pc.doPostRequest(ctx, requestURL)
+	httpResp, err := pc.doPostRequest(ctx, requestURL)
 	if err != nil {
-		pc.createTryJobFailed.Inc(1)
-		return nil, err
+		return nil, skerr.Wrap(err)
+	}
+
+	body, err := pc.readResponseBody(httpResp)
+	if err != nil {
+		return nil, skerr.Wrap(err)
+	}
+
+	if err = json.Unmarshal(body, &resp); err != nil {
+		return nil, skerr.Wrapf(err, "Failed to parse pinpoint response body.")
 	}
 	return resp, nil
+}
+
+// CreateBisect calls pinpoint API to create bisect job.
+func (pc *LegacyClient) CreateBisect(
+	ctx context.Context,
+	req BisectJobCreateRequest,
+	isNewAnomaly bool,
+) (resp *CreatePinpointResponse, err error) {
+	pc.createBisectCalled.Inc(1)
+	defer func() { trackError(pc.createBisectFailed, err) }()
+
+	requestURL := buildBisectJobRequestURL(req, isNewAnomaly)
+	httpResp, err := pc.doPostRequest(ctx, requestURL)
+	if err != nil {
+		return nil, skerr.Wrap(err)
+	}
+
+	body, err := pc.readResponseBody(httpResp)
+	if err != nil {
+		return nil, skerr.Wrap(err)
+	}
+
+	if err = json.Unmarshal(body, &resp); err != nil {
+		return nil, skerr.Wrapf(err, "Failed to parse pinpoint response body.")
+	}
+	return resp, nil
+}
+
+// FetchJobState queries the legacy pinpoint API to retrieve job details.
+func (pc *LegacyClient) FetchJobState(
+	ctx context.Context,
+	req FetchJobStateRequest,
+) (resp *FetchJobStateResponse, err error) {
+	pc.fetchJobStateCalled.Inc(1)
+	defer func() { trackError(pc.fetchJobStateFailed, err) }()
+
+	requestURL := fmt.Sprintf(
+		"https://pinpoint-dot-chromeperf.appspot.com/api/job/%s?o=STATE",
+		url.PathEscape(req.JobID),
+	)
+	httpResp, err := pc.doGetRequest(ctx, requestURL)
+	if err != nil {
+		return nil, skerr.Wrap(err)
+	}
+
+	body, err := pc.readResponseBody(httpResp)
+	if err != nil {
+		return nil, skerr.Wrap(err)
+	}
+
+	if err = json.Unmarshal(body, &resp); err != nil {
+		return nil, skerr.Wrapf(err, "Failed to parse pinpoint response body.")
+	}
+	return resp, err
+}
+
+func trackError(counter metrics2.Counter, err error) {
+	if err != nil {
+		counter.Inc(1)
+	}
 }
 
 func buildTryJobRequestURL(req TryJobCreateRequest) (string, error) {
@@ -98,25 +169,6 @@ func buildTryJobRequestURL(req TryJobCreateRequest) (string, error) {
 	params.Set("tags", "{\"origin\":\"skia_perf\"}")
 
 	return fmt.Sprintf("%s?%s", pinpointLegacyURL, params.Encode()), nil
-}
-
-// CreateBisect calls pinpoint API to create bisect job.
-func (pc *LegacyClient) CreateBisect(
-	ctx context.Context,
-	req BisectJobCreateRequest,
-	isNewAnomaly bool,
-) (*CreatePinpointResponse, error) {
-	pc.createBisectCalled.Inc(1)
-
-	requestURL := buildBisectJobRequestURL(req, isNewAnomaly)
-	sklog.Debugf("Preparing to call this Pinpoint service URL: %s", requestURL)
-
-	resp, err := pc.doPostRequest(ctx, requestURL)
-	if err != nil {
-		pc.createBisectFailed.Inc(1)
-		return nil, err
-	}
-	return resp, nil
 }
 
 func buildBisectJobRequestURL(req BisectJobCreateRequest, isNewAnomaly bool) string {
@@ -162,35 +214,53 @@ func setIfNotEmpty(params url.Values, key, value string) {
 func (pc *LegacyClient) doPostRequest(
 	ctx context.Context,
 	requestURL string,
-) (*CreatePinpointResponse, error) {
-	httpResponse, err := httputils.PostWithContext(ctx, pc.httpClient, requestURL, contentType, nil)
+) (*http.Response, error) {
+	sklog.Debugf("Preparing to send a Pinpoint POST request to: %s", requestURL)
+	resp, err := httputils.PostWithContext(ctx, pc.httpClient, requestURL, contentType, nil)
 	if err != nil {
 		return nil, skerr.Wrapf(err, "Failed to get pinpoint response.")
 	}
-	defer httpResponse.Body.Close()
+	sklog.Debugf("Got response from Pinpoint service: %+v", resp)
+	return resp, nil
+}
 
-	sklog.Debugf("Got response from Pinpoint service: %+v", *httpResponse)
-
-	respBody, err := io.ReadAll(httpResponse.Body)
+func (pc *LegacyClient) doGetRequest(
+	ctx context.Context,
+	requestURL string,
+) (*http.Response, error) {
+	sklog.Debugf("Preparing to send a Pinpoint GET request to: %s", requestURL)
+	resp, err := httputils.GetWithContext(ctx, pc.httpClient, requestURL)
 	if err != nil {
+		return nil, skerr.Wrapf(err, "Failed to get pinpoint response.")
+	}
+	sklog.Debugf("Got response from Pinpoint service: %+v", resp)
+	return resp, nil
+}
+
+func (pc *LegacyClient) readResponseBody(
+	resp *http.Response,
+) (body []byte, err error) {
+	defer resp.Body.Close()
+	if body, err = io.ReadAll(resp.Body); err != nil {
 		return nil, skerr.Wrapf(err, "Failed to read body from pinpoint response.")
 	}
-	if httpResponse.StatusCode != http.StatusOK {
-		requestErrorMessage := extractErrorMessage(respBody)
+	if resp.StatusCode != http.StatusOK {
+		requestErrorMessage := extractErrorMessage(body)
+
+		// A response must contain a request with a URL. Condition is just to make
+		// sure we never panic here.
+		url := "Unknown URL"
+		if resp.Request != nil && resp.Request.URL != nil {
+			url = resp.Request.URL.String()
+		}
 		errMsg := fmt.Sprintf(
 			"Request to %s failed with status code %d and error: %s",
-			requestURL,
-			httpResponse.StatusCode,
+			url,
+			resp.StatusCode,
 			requestErrorMessage,
 		)
-		// TODO(b/483366834): Refactor other error messages displaying to the user.
-		return nil, errors.New(errMsg)
+		return nil, skerr.Wrap(errors.New(errMsg))
 	}
 
-	resp := CreatePinpointResponse{}
-	if err := json.Unmarshal(respBody, &resp); err != nil {
-		return nil, skerr.Wrapf(err, "Failed to parse pinpoint response body.")
-	}
-
-	return &resp, nil
+	return body, err
 }
