@@ -640,7 +640,14 @@ func doTrace(child int, allowedExec string) int {
 			}
 		}
 
-		if err := unix.PtraceSyscall(wpid, 0); err != nil {
+		// If the child process received a signal other than SIGTRAP (which
+		// ptrace itself uses to pause the process), forward that signal to
+		// the child process.
+		var signal int
+		if status.Stopped() && status.StopSignal() != unix.SIGTRAP {
+			signal = int(status.StopSignal())
+		}
+		if err := unix.PtraceSyscall(wpid, signal); err != nil && err != unix.ESRCH {
 			fmt.Fprintf(os.Stderr, "failed ptrace: %s\n", err)
 		}
 	}
