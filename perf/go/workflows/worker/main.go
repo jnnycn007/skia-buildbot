@@ -54,14 +54,13 @@ func main() {
 		workflow.RegisterOptions{Name: workflows.ProcessCulprit},
 	)
 
-	legacyPinpointClient, err := pinpoint.New(context.Background())
+	pinpointClient, err := pinpoint.New(context.Background())
 	if err != nil {
-		// TODO(b/495782839): Make fatal a pinpoint client initialization failure.
-		// Temporary log an error in order to not crash the service.
-		sklog.Errorf("Unable to create pinpoint client: %s", err)
+		sklog.Fatalf("Unable to create pinpoint client: %s", err)
 	}
+	w.RegisterActivity(pinpointClient)
 
-	agsa := internal.NewAnomalyGroupServiceActivity(legacyPinpointClient)
+	agsa := internal.NewAnomalyGroupServiceActivity()
 	w.RegisterActivity(agsa)
 	w.RegisterWorkflowWithOptions(
 		internal.MaybeTriggerBisectionWorkflow,

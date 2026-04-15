@@ -2,10 +2,10 @@ package internal
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"go.skia.org/infra/go/metrics2"
 	"go.skia.org/infra/go/skerr"
 	ag_pb "go.skia.org/infra/perf/go/anomalygroup/proto/v1"
@@ -13,14 +13,8 @@ import (
 
 	"go.skia.org/infra/perf/go/types"
 	"go.skia.org/infra/perf/go/workflows"
+	"go.skia.org/infra/pinpoint/go/pinpoint"
 
-	// TODO(b/500974820): Replace `legacyPinpoint` with `pinpoint`.
-	legacyPinpoint "go.skia.org/infra/pinpoint/go/pinpoint"
-
-	// TODO(b/500974820): Remove the new `pinpoint` backend.
-	pinpoint "go.skia.org/infra/pinpoint/go/workflows"
-	pp_pb "go.skia.org/infra/pinpoint/proto/v1"
-	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/workflow"
 )
 
@@ -134,6 +128,21 @@ func processAnomaliesAsBisection(
 		return nil, skerr.Wrap(err)
 	}
 	workflow.GetLogger(ctx).Info("Pinpoint Job created", "jobId", jobId)
+
+	jobState, err := waitPinpointJobCompletion(ctx, jobId)
+	if err != nil {
+		return nil, skerr.Wrap(err)
+	}
+
+	workflow.GetLogger(ctx).Info(
+		"Job completed",
+		"JobID",
+		jobId,
+		"Job status",
+		jobState.Status,
+		"Culprits found",
+		jobState.DifferenceCount,
+	)
 
 	// Update the anomaly group with the bisection id.
 	updateRequest := ag_pb.UpdateAnomalyGroupRequest{
@@ -333,62 +342,8 @@ func createBisectJob(
 	anomaly *ag_pb.Anomaly,
 	startHash, endHash string,
 ) (string, error) {
-	var isLegacyPinpointEnabled bool
-	if err := workflow.ExecuteActivity(ctx, agsaToken().ShouldUseLegacyPinpoint).
-		Get(ctx, &isLegacyPinpointEnabled); err != nil {
-		return "", skerr.Wrap(err)
-	}
-	if isLegacyPinpointEnabled {
-		return createLegacyBisectJob(ctx, anomaly, startHash, endHash)
-	}
-	jobId := uuid.New().String()
-	// Childworkflow options includes:
-	//   WorkflowID: 		The UUID to be used as the Pinpoint job id. We pre-assigne it
-	//				 		here to avoid extra calls to get it from the spawned workflow.
-	//	 TaskQueue:  		Assign the child workflow to the correct task queue. If this is
-	//				 		empty, it will be assigned to the current grouping queue.
-	//   ParentClosePolicy: Using _ABANDON option to ensure the child workflow will
-	//    					continue even if the parent workflow exits.
-	options := workflow.ChildWorkflowOptions{
-		WorkflowID:        jobId,
-		TaskQueue:         input.PinpointTaskQueue,
-		ParentClosePolicy: enums.PARENT_CLOSE_POLICY_ABANDON,
-	}
 	story, chart, stat := parseStoryChartStat(anomaly)
-	wf := workflow.ExecuteChildWorkflow(
-		workflow.WithChildOptions(ctx, options),
-		pinpoint.CulpritFinderWorkflow,
-		&pinpoint.CulpritFinderParams{
-			Request: &pp_pb.ScheduleCulpritFinderRequest{
-				StartGitHash:         startHash,
-				EndGitHash:           endHash,
-				Configuration:        anomaly.Paramset["bot"],
-				Benchmark:            anomaly.Paramset["benchmark"],
-				Story:                story,
-				Chart:                chart,
-				Statistic:            stat,
-				ImprovementDirection: anomaly.ImprovementDirection,
-			},
-			CallbackParams: &pp_pb.CulpritProcessingCallbackParams{
-				AnomalyGroupId:        input.AnomalyGroupId,
-				CulpritServiceUrl:     input.CulpritServiceUrl,
-				TemporalTaskQueueName: input.GroupingTaskQueue,
-			},
-		},
-	)
-	// This Get() call will wait for the child workflow to start.
-	if err := wf.GetChildWorkflowExecution().Get(ctx, nil); err != nil {
-		return "", skerr.Wrapf(err, "Child workflow failed to start.")
-	}
-	return jobId, nil
-}
-
-func createLegacyBisectJob(ctx workflow.Context,
-	anomaly *ag_pb.Anomaly,
-	startHash, endHash string,
-) (string, error) {
-	story, chart, stat := parseStoryChartStat(anomaly)
-	req := legacyPinpoint.BisectJobCreateRequest{
+	req := pinpoint.BisectJobCreateRequest{
 		ComparisonMode: "performance",
 		StartGitHash:   startHash,
 		EndGitHash:     endHash,
@@ -399,8 +354,7 @@ func createLegacyBisectJob(ctx workflow.Context,
 		Statistic:      stat,
 		TestPath:       anomaly.Paramset["test_path"],
 	}
-	var resp *legacyPinpoint.CreatePinpointResponse
-	err := workflow.ExecuteActivity(ctx, agsaToken().CreateLegacyBisectJob, &req).Get(ctx, &resp)
+	resp, err := executeBisectJobActivity(ctx, req)
 	if err != nil {
 		return "", skerr.Wrap(err)
 	}
@@ -408,6 +362,23 @@ func createLegacyBisectJob(ctx workflow.Context,
 		return "", skerr.Wrap(errors.New("Chromeperf failed to create a new job"))
 	}
 	return resp.JobID, nil
+}
+
+func executeBisectJobActivity(
+	ctx workflow.Context,
+	req pinpoint.BisectJobCreateRequest,
+) (resp *pinpoint.CreatePinpointResponse, err error) {
+	var ppc *pinpoint.Client
+	activity := workflow.ExecuteActivity(
+		ctx,
+		ppc.CreateBisect,
+		&req,
+		true, // isNewAnomaly is set to true to avoid updating chromeperf anomalies.
+	)
+	if err = activity.Get(ctx, &resp); err != nil {
+		return nil, skerr.Wrap(err)
+	}
+	return resp, nil
 }
 
 func updateAnomalyGroup(
@@ -453,4 +424,53 @@ func parseStoryChartStat(anomaly *ag_pb.Anomaly) (string, string, string) {
 		story = updateStoryDescriptorName(story)
 	}
 	return story, chart, stat
+}
+
+// waitPinpointJobCompletion waits while a pinpoint jobs is in progress by
+// polling it's status.
+func waitPinpointJobCompletion(
+	ctx workflow.Context,
+	jobId string,
+) (*pinpoint.FetchJobStateResponse, error) {
+	// In case of increasing the timeout, keep in mind the workflow runner timeout
+	// settings in perf/go/anomalygroup/utils/anomalygrouputils.go
+	timeout := 10 * time.Hour
+	interval := 30 * time.Minute
+	startTime := workflow.Now(ctx)
+	for {
+		if err := workflow.Sleep(ctx, interval); err != nil {
+			return nil, skerr.Wrap(err)
+		}
+
+		resp, err := executeFetchJobStateActivity(ctx, jobId)
+		if err != nil {
+			return nil, skerr.Wrap(err)
+		}
+
+		doneStatuses := []string{"completed", "failed", "cancelled"}
+		if slices.Contains(doneStatuses, strings.ToLower(resp.Status)) {
+			return resp, nil
+		}
+
+		if workflow.Now(ctx).Sub(startTime) > timeout {
+			return nil, skerr.Fmt("Pinpoint job timeout: %s", jobId)
+		}
+	}
+}
+
+func executeFetchJobStateActivity(
+	ctx workflow.Context,
+	jobId string,
+) (resp *pinpoint.FetchJobStateResponse, err error) {
+	var ppc *pinpoint.Client
+	activity := workflow.ExecuteActivity(
+		ctx,
+		ppc.FetchJobState,
+		pinpoint.FetchJobStateRequest{JobID: jobId},
+	)
+	err = activity.Get(ctx, &resp)
+	if err != nil {
+		return nil, skerr.Wrap(err)
+	}
+	return resp, nil
 }

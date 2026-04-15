@@ -11,18 +11,16 @@ import (
 	culprit_proto "go.skia.org/infra/perf/go/culprit/proto/v1"
 
 	"go.skia.org/infra/perf/go/workflows"
-	// TODO(b/500974820): Replace `legacyPinpoint` with `pinpoint`.
-	legacyPinpoint "go.skia.org/infra/pinpoint/go/pinpoint"
-	pinpoint "go.skia.org/infra/pinpoint/go/workflows"
-	"go.skia.org/infra/pinpoint/go/workflows/catapult"
-	pinpoint_proto "go.skia.org/infra/pinpoint/proto/v1"
+	"go.skia.org/infra/pinpoint/go/pinpoint"
 
 	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/workflow"
 	"google.golang.org/grpc"
 )
 
-func setupAnomalyGroupService(t *testing.T) (string, *anomalygroup_mock.AnomalyGroupServiceServer, func()) {
+func setupAnomalyGroupService(
+	t *testing.T,
+) (string, *anomalygroup_mock.AnomalyGroupServiceServer, func()) {
 	lis, err := net.Listen("tcp", "localhost:0")
 	require.NoError(t, err)
 	s := grpc.NewServer()
@@ -49,7 +47,6 @@ func TestMaybeTriggerBisection_GroupActionBisect_HappyPath(t *testing.T) {
 	env.RegisterActivity(agsa)
 	env.RegisterActivity(gsa)
 	env.RegisterActivity(csa)
-	env.RegisterWorkflowWithOptions(catapult.CulpritFinderWorkflow, workflow.RegisterOptions{Name: pinpoint.CulpritFinderWorkflow})
 
 	anomalyGroupId := "group_id1"
 	mockAnomalyIds := []string{"anomaly1"}
@@ -81,34 +78,25 @@ func TestMaybeTriggerBisection_GroupActionBisect_HappyPath(t *testing.T) {
 		AnomalyGroupId: anomalyGroupId,
 		Limit:          1}).
 		Return(
-			&anomalygroup_proto.FindTopAnomaliesResponse{Anomalies: []*anomalygroup_proto.Anomaly{mockAnomaly}}, nil)
+			&anomalygroup_proto.FindTopAnomaliesResponse{
+				Anomalies: []*anomalygroup_proto.Anomaly{mockAnomaly},
+			}, nil)
 	mockStartRevision := "revision1"
 	mockEndRevision := "revision10"
 	env.OnActivity(agsa.CheckBisectionAllowed, mock.Anything).Return(true, nil).Once()
-	env.OnActivity(agsa.ShouldUseLegacyPinpoint, mock.Anything).Return(false, nil).Once()
-	env.OnActivity(gsa.GetCommitRevision, mock.Anything, startCommit).Return(mockStartRevision, nil).Once()
-	env.OnActivity(gsa.GetCommitRevision, mock.Anything, endCommit).Return(mockEndRevision, nil).Once()
+	env.OnActivity(gsa.GetCommitRevision, mock.Anything, startCommit).
+		Return(mockStartRevision, nil).
+		Once()
+	env.OnActivity(gsa.GetCommitRevision, mock.Anything, endCommit).
+		Return(mockEndRevision, nil).
+		Once()
 
-	env.OnWorkflow(pinpoint.CulpritFinderWorkflow,
-		mock.Anything,
-		&pinpoint.CulpritFinderParams{
-			Request: &pinpoint_proto.ScheduleCulpritFinderRequest{
-				StartGitHash:         mockStartRevision,
-				EndGitHash:           mockEndRevision,
-				Configuration:        mockAnomaly.Paramset["bot"],
-				Benchmark:            mockAnomaly.Paramset["benchmark"],
-				Story:                mockAnomaly.Paramset["story"],
-				Chart:                mockAnomaly.Paramset["measurement"],
-				Statistic:            "",
-				ImprovementDirection: mockAnomaly.ImprovementDirection,
-			},
-			CallbackParams: &pinpoint_proto.CulpritProcessingCallbackParams{
-				AnomalyGroupId:    anomalyGroupId,
-				CulpritServiceUrl: c_addr,
-			},
-		}).Return(&pinpoint_proto.CulpritFinderExecution{
-		JobId: "bisectionId",
-	}, nil).Once()
+	env.OnActivity((&pinpoint.Client{}).CreateBisect, mock.Anything, mock.Anything, true).
+		Return(&pinpoint.CreatePinpointResponse{JobID: "bisectionId"}, nil).
+		Once()
+	env.OnActivity((&pinpoint.Client{}).FetchJobState, mock.Anything, mock.Anything).
+		Return(&pinpoint.FetchJobStateResponse{Status: "completed"}, nil).
+		Once()
 	server.On("UpdateAnomalyGroup", mock.Anything, mock.Anything).
 		Return(
 			&anomalygroup_proto.UpdateAnomalyGroupResponse{}, nil)
@@ -136,7 +124,6 @@ func TestMaybeTriggerBisection_GroupActionBisect_ParseChartStat(t *testing.T) {
 	env.RegisterActivity(agsa)
 	env.RegisterActivity(gsa)
 	env.RegisterActivity(csa)
-	env.RegisterWorkflowWithOptions(catapult.CulpritFinderWorkflow, workflow.RegisterOptions{Name: pinpoint.CulpritFinderWorkflow})
 
 	anomalyGroupId := "group_id1"
 	mockAnomalyIds := []string{"anomaly1"}
@@ -168,33 +155,25 @@ func TestMaybeTriggerBisection_GroupActionBisect_ParseChartStat(t *testing.T) {
 		AnomalyGroupId: anomalyGroupId,
 		Limit:          1}).
 		Return(
-			&anomalygroup_proto.FindTopAnomaliesResponse{Anomalies: []*anomalygroup_proto.Anomaly{mockAnomaly}}, nil)
+			&anomalygroup_proto.FindTopAnomaliesResponse{
+				Anomalies: []*anomalygroup_proto.Anomaly{mockAnomaly},
+			}, nil)
 	mockStartRevision := "revision1"
 	mockEndRevision := "revision10"
 	env.OnActivity(agsa.CheckBisectionAllowed, mock.Anything).Return(true, nil).Once()
-	env.OnActivity(agsa.ShouldUseLegacyPinpoint, mock.Anything).Return(false, nil).Once()
-	env.OnActivity(gsa.GetCommitRevision, mock.Anything, startCommit).Return(mockStartRevision, nil).Once()
-	env.OnActivity(gsa.GetCommitRevision, mock.Anything, endCommit).Return(mockEndRevision, nil).Once()
+	env.OnActivity(gsa.GetCommitRevision, mock.Anything, startCommit).
+		Return(mockStartRevision, nil).
+		Once()
+	env.OnActivity(gsa.GetCommitRevision, mock.Anything, endCommit).
+		Return(mockEndRevision, nil).
+		Once()
 
-	env.OnWorkflow(pinpoint.CulpritFinderWorkflow,
-		mock.Anything,
-		&pinpoint.CulpritFinderParams{
-			Request: &pinpoint_proto.ScheduleCulpritFinderRequest{
-				StartGitHash:         mockStartRevision,
-				EndGitHash:           mockEndRevision,
-				Configuration:        mockAnomaly.Paramset["bot"],
-				Benchmark:            mockAnomaly.Paramset["benchmark"],
-				Story:                mockAnomaly.Paramset["story"],
-				Chart:                "runs_per_minute",
-				Statistic:            "max",
-				ImprovementDirection: mockAnomaly.ImprovementDirection,
-			},
-			CallbackParams: &pinpoint_proto.CulpritProcessingCallbackParams{
-				AnomalyGroupId: anomalyGroupId,
-			},
-		}).Return(&pinpoint_proto.CulpritFinderExecution{
-		JobId: "bisectionId",
-	}, nil).Once()
+	env.OnActivity((&pinpoint.Client{}).CreateBisect, mock.Anything, mock.Anything, true).
+		Return(&pinpoint.CreatePinpointResponse{JobID: "bisectionId"}, nil).
+		Once()
+	env.OnActivity((&pinpoint.Client{}).FetchJobState, mock.Anything, mock.Anything).
+		Return(&pinpoint.FetchJobStateResponse{Status: "completed"}, nil).
+		Once()
 	server.On("UpdateAnomalyGroup", mock.Anything, mock.Anything).
 		Return(
 			&anomalygroup_proto.UpdateAnomalyGroupResponse{}, nil)
@@ -223,7 +202,6 @@ func TestMaybeTriggerBisection_GroupActionReport_HappyPath(t *testing.T) {
 	env.RegisterActivity(agsa)
 	env.RegisterActivity(gsa)
 	env.RegisterActivity(csa)
-	env.RegisterWorkflowWithOptions(catapult.CulpritFinderWorkflow, workflow.RegisterOptions{Name: pinpoint.CulpritFinderWorkflow})
 
 	anomalyGroupId := "group_id1"
 	mockAnomalyIds := []string{"anomaly1"}
@@ -333,7 +311,6 @@ func TestMaybeTriggerBisection_GroupActionBisect_BisectionNotAllowed(t *testing.
 	env.RegisterActivity(agsa)
 	env.RegisterActivity(gsa)
 	env.RegisterActivity(csa)
-	env.RegisterWorkflowWithOptions(catapult.CulpritFinderWorkflow, workflow.RegisterOptions{Name: pinpoint.CulpritFinderWorkflow})
 
 	anomalyGroupId := "group_id1"
 	mockAnomalyIds := []string{"anomaly1"}
@@ -444,7 +421,6 @@ func TestMaybeTriggerBisection_GroupActionBisect_HappyPath_StoryNameUpdate(t *te
 	env.RegisterActivity(agsa)
 	env.RegisterActivity(gsa)
 	env.RegisterActivity(csa)
-	env.RegisterWorkflowWithOptions(catapult.CulpritFinderWorkflow, workflow.RegisterOptions{Name: pinpoint.CulpritFinderWorkflow})
 
 	anomalyGroupId := "group_id1"
 	mockAnomalyIds := []string{"anomaly1"}
@@ -476,34 +452,25 @@ func TestMaybeTriggerBisection_GroupActionBisect_HappyPath_StoryNameUpdate(t *te
 		AnomalyGroupId: anomalyGroupId,
 		Limit:          1}).
 		Return(
-			&anomalygroup_proto.FindTopAnomaliesResponse{Anomalies: []*anomalygroup_proto.Anomaly{mockAnomaly}}, nil)
+			&anomalygroup_proto.FindTopAnomaliesResponse{
+				Anomalies: []*anomalygroup_proto.Anomaly{mockAnomaly},
+			}, nil)
 	mockStartRevision := "revision1"
 	mockEndRevision := "revision10"
 	env.OnActivity(agsa.CheckBisectionAllowed, mock.Anything).Return(true, nil).Once()
-	env.OnActivity(agsa.ShouldUseLegacyPinpoint, mock.Anything).Return(false, nil).Once()
-	env.OnActivity(gsa.GetCommitRevision, mock.Anything, startCommit).Return(mockStartRevision, nil).Once()
-	env.OnActivity(gsa.GetCommitRevision, mock.Anything, endCommit).Return(mockEndRevision, nil).Once()
+	env.OnActivity(gsa.GetCommitRevision, mock.Anything, startCommit).
+		Return(mockStartRevision, nil).
+		Once()
+	env.OnActivity(gsa.GetCommitRevision, mock.Anything, endCommit).
+		Return(mockEndRevision, nil).
+		Once()
 
-	env.OnWorkflow(pinpoint.CulpritFinderWorkflow,
-		mock.Anything,
-		&pinpoint.CulpritFinderParams{
-			Request: &pinpoint_proto.ScheduleCulpritFinderRequest{
-				StartGitHash:         mockStartRevision,
-				EndGitHash:           mockEndRevision,
-				Configuration:        mockAnomaly.Paramset["bot"],
-				Benchmark:            mockAnomaly.Paramset["benchmark"],
-				Story:                "system:health:story:name",
-				Chart:                mockAnomaly.Paramset["measurement"],
-				Statistic:            "",
-				ImprovementDirection: mockAnomaly.ImprovementDirection,
-			},
-			CallbackParams: &pinpoint_proto.CulpritProcessingCallbackParams{
-				AnomalyGroupId:    anomalyGroupId,
-				CulpritServiceUrl: c_addr,
-			},
-		}).Return(&pinpoint_proto.CulpritFinderExecution{
-		JobId: "bisectionId",
-	}, nil).Once()
+	env.OnActivity((&pinpoint.Client{}).CreateBisect, mock.Anything, mock.Anything, true).
+		Return(&pinpoint.CreatePinpointResponse{JobID: "bisectionId"}, nil).
+		Once()
+	env.OnActivity((&pinpoint.Client{}).FetchJobState, mock.Anything, mock.Anything).
+		Return(&pinpoint.FetchJobStateResponse{Status: "completed"}, nil).
+		Once()
 	server.On("UpdateAnomalyGroup", mock.Anything, mock.Anything).
 		Return(
 			&anomalygroup_proto.UpdateAnomalyGroupResponse{}, nil)
@@ -542,9 +509,7 @@ func TestCreateLegacyBisectJob(t *testing.T) {
 	mockStartRevision := "revision1"
 	mockEndRevision := "revision10"
 
-	env.OnActivity(agsa.ShouldUseLegacyPinpoint, mock.Anything).Return(true, nil).Once()
-
-	expectedReq := &legacyPinpoint.BisectJobCreateRequest{
+	expectedReq := &pinpoint.BisectJobCreateRequest{
 		ComparisonMode: "performance",
 		StartGitHash:   mockStartRevision,
 		EndGitHash:     mockEndRevision,
@@ -556,8 +521,9 @@ func TestCreateLegacyBisectJob(t *testing.T) {
 		TestPath:       "ChromiumPerf/linux-perf/speedometer/runsperminute/speedometer",
 	}
 
-	env.OnActivity(agsa.CreateLegacyBisectJob, mock.Anything, expectedReq).
-		Return(&legacyPinpoint.CreatePinpointResponse{JobID: "legacyBisectionId"}, nil).Once()
+	env.OnActivity((&pinpoint.Client{}).CreateBisect, mock.Anything, *expectedReq, true).
+		Return(&pinpoint.CreatePinpointResponse{JobID: "legacyBisectionId"}, nil).
+		Once()
 
 	var actualJobId string
 	env.ExecuteWorkflow(func(ctx workflow.Context) error {
@@ -601,9 +567,7 @@ func TestCreateLegacyBisectJob_EmptyJobID(t *testing.T) {
 	mockStartRevision := "revision1"
 	mockEndRevision := "revision10"
 
-	env.OnActivity(agsa.ShouldUseLegacyPinpoint, mock.Anything).Return(true, nil).Once()
-
-	expectedReq := &legacyPinpoint.BisectJobCreateRequest{
+	expectedReq := &pinpoint.BisectJobCreateRequest{
 		ComparisonMode: "performance",
 		StartGitHash:   mockStartRevision,
 		EndGitHash:     mockEndRevision,
@@ -615,8 +579,9 @@ func TestCreateLegacyBisectJob_EmptyJobID(t *testing.T) {
 		TestPath:       "ChromiumPerf/linux-perf/speedometer/runsperminute/speedometer",
 	}
 
-	env.OnActivity(agsa.CreateLegacyBisectJob, mock.Anything, expectedReq).
-		Return(&legacyPinpoint.CreatePinpointResponse{JobID: ""}, nil).Once()
+	env.OnActivity((&pinpoint.Client{}).CreateBisect, mock.Anything, *expectedReq, true).
+		Return(&pinpoint.CreatePinpointResponse{JobID: ""}, nil).
+		Once()
 
 	env.ExecuteWorkflow(func(ctx workflow.Context) error {
 		ctx = workflow.WithActivityOptions(ctx, regularActivityOptions)
@@ -633,5 +598,122 @@ func TestCreateLegacyBisectJob_EmptyJobID(t *testing.T) {
 	require.True(t, env.IsWorkflowCompleted())
 	require.Error(t, env.GetWorkflowError())
 	require.Contains(t, env.GetWorkflowError().Error(), "Chromeperf failed to create a new job")
+	env.AssertExpectations(t)
+}
+
+func TestWaitPinpointJobCompletion_Completed(t *testing.T) {
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+
+	jobId := "test-job-id"
+
+	env.OnActivity(
+		(&pinpoint.Client{}).FetchJobState,
+		mock.Anything,
+		pinpoint.FetchJobStateRequest{JobID: jobId},
+	).Return(&pinpoint.FetchJobStateResponse{Status: "running"}, nil).
+		Once()
+	env.OnActivity(
+		(&pinpoint.Client{}).FetchJobState,
+		mock.Anything,
+		pinpoint.FetchJobStateRequest{JobID: jobId},
+	).Return(&pinpoint.FetchJobStateResponse{Status: "completed"}, nil).
+		Once()
+
+	var actualResp *pinpoint.FetchJobStateResponse
+	env.ExecuteWorkflow(func(ctx workflow.Context) error {
+		ctx = workflow.WithActivityOptions(ctx, regularActivityOptions)
+		resp, err := waitPinpointJobCompletion(ctx, jobId)
+		actualResp = resp
+		return err
+	})
+
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+	require.NotNil(t, actualResp)
+	require.Equal(t, "completed", actualResp.Status)
+	env.AssertExpectations(t)
+}
+
+func TestWaitPinpointJobCompletion_Failed(t *testing.T) {
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+
+	jobId := "test-job-id"
+
+	env.OnActivity(
+		(&pinpoint.Client{}).FetchJobState,
+		mock.Anything,
+		pinpoint.FetchJobStateRequest{JobID: jobId},
+	).Return(&pinpoint.FetchJobStateResponse{Status: "failed"}, nil).
+		Once()
+
+	var actualResp *pinpoint.FetchJobStateResponse
+	env.ExecuteWorkflow(func(ctx workflow.Context) error {
+		ctx = workflow.WithActivityOptions(ctx, regularActivityOptions)
+		resp, err := waitPinpointJobCompletion(ctx, jobId)
+		actualResp = resp
+		return err
+	})
+
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+	require.NotNil(t, actualResp)
+	require.Equal(t, "failed", actualResp.Status)
+	env.AssertExpectations(t)
+}
+
+func TestWaitPinpointJobCompletion_Cancelled(t *testing.T) {
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+
+	jobId := "test-job-id"
+
+	env.OnActivity(
+		(&pinpoint.Client{}).FetchJobState,
+		mock.Anything,
+		pinpoint.FetchJobStateRequest{JobID: jobId},
+	).Return(&pinpoint.FetchJobStateResponse{Status: "cancelled"}, nil).
+		Once()
+
+	var actualResp *pinpoint.FetchJobStateResponse
+	env.ExecuteWorkflow(func(ctx workflow.Context) error {
+		ctx = workflow.WithActivityOptions(ctx, regularActivityOptions)
+		resp, err := waitPinpointJobCompletion(ctx, jobId)
+		actualResp = resp
+		return err
+	})
+
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+	require.NotNil(t, actualResp)
+	require.Equal(t, "cancelled", actualResp.Status)
+	env.AssertExpectations(t)
+}
+
+func TestWaitPinpointJobCompletion_Timeout(t *testing.T) {
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+
+	jobId := "test-job-id"
+
+	// Timeout is 10 hours, interval is 30 minutes.
+	// It will poll 21 times before timing out.
+	env.OnActivity(
+		(&pinpoint.Client{}).FetchJobState,
+		mock.Anything,
+		pinpoint.FetchJobStateRequest{JobID: jobId},
+	).Return(&pinpoint.FetchJobStateResponse{Status: "running"}, nil).
+		Times(21)
+
+	env.ExecuteWorkflow(func(ctx workflow.Context) error {
+		ctx = workflow.WithActivityOptions(ctx, regularActivityOptions)
+		_, err := waitPinpointJobCompletion(ctx, jobId)
+		return err
+	})
+
+	require.True(t, env.IsWorkflowCompleted())
+	require.Error(t, env.GetWorkflowError())
+	require.Contains(t, env.GetWorkflowError().Error(), "Pinpoint job timeout")
 	env.AssertExpectations(t)
 }

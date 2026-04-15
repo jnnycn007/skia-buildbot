@@ -126,8 +126,8 @@ func ProcessRegression(
 
 		wo := client.StartWorkflowOptions{
 			TaskQueue: config.Config.TemporalConfig.GroupingTaskQueue,
-			// 30 minutes wait + handling time
-			WorkflowExecutionTimeout: 2 * time.Hour,
+			// 30 minutes wait + waiting for a potential bisection job to be completed.
+			WorkflowExecutionTimeout: 12 * time.Hour,
 			RetryPolicy: &temporal.RetryPolicy{
 				// We will only attempt to run the workflow exactly once as we expect any failure will be
 				// not retry-recoverable failure.
