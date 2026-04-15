@@ -288,7 +288,8 @@ export class RegressionsPageSk extends LitElement {
       <anomalies-table-sk
         id="anomaly-table"
         .anomalyList=${this.cpAnomalies}
-        .loading=${this.anomaliesLoadingSpinner}></anomalies-table-sk>
+        .loading=${this.anomaliesLoadingSpinner}
+        .showTriaged=${this.state.showTriaged}></anomalies-table-sk>
       <div id="showmore" ?hidden=${!this.showMoreAnomalies}>
         <button id="showMoreAnomalies" @click=${() => this.onShowMore()}>
           <div>Show More</div>

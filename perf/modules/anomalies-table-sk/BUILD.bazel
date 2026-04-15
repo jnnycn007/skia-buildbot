@@ -19,10 +19,11 @@ sk_element(
     sk_element_deps = [
         "//elements-sk/modules/icons/help-icon-sk",
         "//elements-sk/modules/spinner-sk",
-        "//infra-sk/modules/sort-sk",
         "//perf/modules/keyboard-shortcuts-help-sk",
         "//perf/modules/triage-menu-sk",
         "//perf/modules/bug-tooltip-sk",
+        "//elements-sk/modules/icons/arrow-drop-down-icon-sk",
+        "//elements-sk/modules/icons/arrow-drop-up-icon-sk",
     ],
     ts_deps = [
         "//perf/modules/common:anomaly_ts_lib",

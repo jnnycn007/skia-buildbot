@@ -8,8 +8,34 @@ export interface AnomalyGroupingConfig {
   groupBy: Set<GroupingCriteria>;
 }
 
+export class SummaryData {
+  startRevision: number = 0;
+
+  endRevision: number = 0;
+
+  bot: string = '';
+
+  testsuite: string = '';
+
+  test: string = '';
+
+  delta: number = 0;
+
+  isSummaryRegression: boolean = false;
+
+  // AnomalyGroup is represented by an arbitrarily chosen bug.
+  // We expect at most one distinct bug in a group.
+  // After switching to skia-based backend, we will show
+  // all bugs in a tooltip.
+  bug: number = 0;
+
+  calculated = false;
+}
+
 export class AnomalyGroup {
   anomalies: Anomaly[] = [];
+
+  summaryData: SummaryData = new SummaryData();
 
   expanded: boolean = false;
 }

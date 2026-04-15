@@ -46,6 +46,22 @@ anomalies-table-sk {
       font-weight: bold;
     }
 
+    th > button {
+      background: none;
+      border: none;
+      font: inherit;
+      cursor: pointer;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      width: 100%;
+
+      &:focus {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+      }
+    }
+
     .improvement {
       color: rgb(0, 128, 0);
     }

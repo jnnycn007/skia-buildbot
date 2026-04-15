@@ -11,6 +11,7 @@ import {
   isSameTest,
   AnomalyGroupingConfig,
   AnomalyGroup,
+  SummaryData,
 } from './grouping';
 
 import { setUpElementUnderTest } from '../../../infra-sk/modules/test_util';
@@ -124,6 +125,93 @@ describe('anomalies-table-sk', () => {
       await element.populateTable(anomalies);
       await element.updateComplete;
       assert.equal(element.anomalyList.length, 1);
+    });
+  });
+
+  describe('default sort direction', () => {
+    it('sets default sort direction to up when showTriaged is false', async () => {
+      element.showTriaged = false;
+      const anomalies = [dummyAnomaly('1', 12345, 100, 200, 'master/bot/suite/test')];
+      await element.populateTable(anomalies);
+      await element.updateComplete;
+      assert.equal(element['sortDirection'], 'up');
+    });
+
+    it('sets default sort direction to down when showTriaged is true', async () => {
+      element.showTriaged = true;
+      const anomalies = [dummyAnomaly('1', 12345, 100, 200, 'master/bot/suite/test')];
+      await element.populateTable(anomalies);
+      await element.updateComplete;
+      assert.equal(element['sortDirection'], 'down');
+    });
+  });
+
+  describe('sorting logic', () => {
+    it('updates sortKey and sortDirection on header click', async () => {
+      element['handleSort']('bugid');
+      assert.equal(element['sortKey'], 'bugid');
+      assert.equal(element['sortDirection'], 'up');
+
+      element['handleSort']('bugid');
+      assert.equal(element['sortKey'], 'bugid');
+      assert.equal(element['sortDirection'], 'down');
+    });
+
+    it('sorts groups correctly', () => {
+      const group1: AnomalyGroup = {
+        anomalies: [dummyAnomaly('1', 10, 100, 200, '')],
+        expanded: false,
+        summaryData: new SummaryData(),
+      };
+      const group2: AnomalyGroup = {
+        anomalies: [dummyAnomaly('2', 20, 150, 250, '')],
+        expanded: false,
+        summaryData: new SummaryData(),
+      };
+      const groups = [group1, group2];
+
+      element['sortKey'] = 'bugid';
+      element['sortDirection'] = 'down';
+      let sorted = element['sortGroups'](groups);
+      assert.equal(sorted[0].anomalies[0].id, '2');
+
+      element['sortDirection'] = 'up';
+      sorted = element['sortGroups'](groups);
+      assert.equal(sorted[0].anomalies[0].id, '1');
+    });
+
+    it('handles getGroupSortValue edge cases', () => {
+      const emptyGroup: AnomalyGroup = {
+        anomalies: [],
+        expanded: false,
+        summaryData: new SummaryData(),
+      };
+      element['sortKey'] = 'bugid';
+      assert.equal(element['getGroupSortValue'](emptyGroup), '');
+
+      const groupNoBug: AnomalyGroup = {
+        anomalies: [dummyAnomaly('1', 0, 100, 200, '')],
+        expanded: false,
+        summaryData: new SummaryData(),
+      };
+      assert.equal(element['getGroupSortValue'](groupNoBug), 0);
+    });
+
+    it('keeps sort direction when showTriaged changes and sortKey is not revisions', async () => {
+      element['sortKey'] = 'bugid';
+      element['sortDirection'] = 'up';
+      element.showTriaged = true;
+      await element.updateComplete;
+      assert.equal(element['sortDirection'], 'up');
+
+      element['sortKey'] = 'revisions';
+      element.showTriaged = false;
+      await element.updateComplete;
+      assert.equal(element['sortDirection'], 'up');
+
+      element.showTriaged = true;
+      await element.updateComplete;
+      assert.equal(element['sortDirection'], 'down');
     });
   });
 
@@ -737,13 +825,21 @@ describe('anomalies-table-sk', () => {
     it('returns the first anomaly with a bug id', () => {
       const anomalyWithBug = dummyAnomaly('1', 12345, 0, 0, '');
       const anomalyWithoutBug = dummyAnomaly('2', 0, 0, 0, '');
-      const group = { anomalies: [anomalyWithoutBug, anomalyWithBug], expanded: false };
+      const group = {
+        anomalies: [anomalyWithoutBug, anomalyWithBug],
+        expanded: false,
+        summaryData: new SummaryData(),
+      };
       const anomaly = element.getReportLinkForSummaryRowBugId(group);
       assert.deepEqual(anomaly, anomalyWithBug);
     });
 
     it('returns undefined if no anomalies have a bug id', () => {
-      const group = { anomalies: [dummyAnomaly('1', 0, 0, 0, '')], expanded: false };
+      const group = {
+        anomalies: [dummyAnomaly('1', 0, 0, 0, '')],
+        expanded: false,
+        summaryData: new SummaryData(),
+      };
       const anomaly = element.getReportLinkForSummaryRowBugId(group);
       assert.isUndefined(anomaly);
     });
@@ -751,7 +847,11 @@ describe('anomalies-table-sk', () => {
     it('returns the first anomaly if all bug_ids are -2', () => {
       const anomaly1 = dummyAnomaly('1', -2, 0, 0, '');
       const anomaly2 = dummyAnomaly('2', -2, 0, 0, '');
-      const group = { anomalies: [anomaly1, anomaly2], expanded: false };
+      const group = {
+        anomalies: [anomaly1, anomaly2],
+        expanded: false,
+        summaryData: new SummaryData(),
+      };
       const result = element.getReportLinkForSummaryRowBugId(group);
       assert.deepEqual(result, anomaly1);
     });
@@ -759,7 +859,11 @@ describe('anomalies-table-sk', () => {
     it('returns the anomaly with a valid bug_id when mixed with bug_id -2', () => {
       const anomalyWithBug = dummyAnomaly('1', 12345, 0, 0, '');
       const anomalyIgnored = dummyAnomaly('2', -2, 0, 0, '');
-      const group = { anomalies: [anomalyIgnored, anomalyWithBug], expanded: false };
+      const group = {
+        anomalies: [anomalyIgnored, anomalyWithBug],
+        expanded: false,
+        summaryData: new SummaryData(),
+      };
       const result = element.getReportLinkForSummaryRowBugId(group);
       assert.deepEqual(result, anomalyWithBug);
     });
@@ -767,7 +871,11 @@ describe('anomalies-table-sk', () => {
     it('returns undefined if all bug_ids are 0 or -2, but not all are -2', () => {
       const anomaly1 = dummyAnomaly('1', 0, 0, 0, '');
       const anomaly2 = dummyAnomaly('2', -2, 0, 0, '');
-      const group = { anomalies: [anomaly1, anomaly2], expanded: false };
+      const group = {
+        anomalies: [anomaly1, anomaly2],
+        expanded: false,
+        summaryData: new SummaryData(),
+      };
       const result = element.getReportLinkForSummaryRowBugId(group);
       assert.isUndefined(result);
     });
@@ -775,13 +883,21 @@ describe('anomalies-table-sk', () => {
 
   describe('get row class', () => {
     it('returns the correct class for an expanded parent row', () => {
-      const group = { anomalies: [dummyAnomaly('1', 0, 0, 0, '')], expanded: true };
+      const group = {
+        anomalies: [dummyAnomaly('1', 0, 0, 0, '')],
+        expanded: true,
+        summaryData: new SummaryData(),
+      };
       const rowClass = element.getRowClass(0, group);
       assert.equal(rowClass, 'parent-expanded-row');
     });
 
     it('returns the correct class for an expanded child row', () => {
-      const group = { anomalies: [dummyAnomaly('1', 0, 0, 0, '')], expanded: true };
+      const group = {
+        anomalies: [dummyAnomaly('1', 0, 0, 0, '')],
+        expanded: true,
+        summaryData: new SummaryData(),
+      };
       const rowClass = element.getRowClass(1, group);
       assert.equal(rowClass, 'child-expanded-row');
     });
@@ -789,7 +905,7 @@ describe('anomalies-table-sk', () => {
 
   describe('expand group', () => {
     it('toggles the expanded property of a group', () => {
-      const group = { anomalies: [], expanded: false };
+      const group = { anomalies: [], expanded: false, summaryData: new SummaryData() };
       element.expandGroup(group);
       assert.isTrue(group.expanded);
       element.expandGroup(group);
@@ -1164,6 +1280,7 @@ describe('anomalies-table-sk', () => {
       const group = {
         anomalies: [dummyAnomaly('2', 0, 0, 0, ''), dummyAnomaly('1', 0, 0, 0, '')],
         expanded: false,
+        summaryData: new SummaryData(),
       };
       const groupId = element.getGroupId(group);
       assert.equal(groupId, 'group-1-2');

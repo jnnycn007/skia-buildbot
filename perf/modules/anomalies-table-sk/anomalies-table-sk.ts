@@ -8,13 +8,13 @@
 import { html, TemplateResult, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 
-import '../../../infra-sk/modules/sort-sk';
 import { Anomaly, RegressionBug } from '../json';
 import {
   AnomalyGroup,
   RevisionGroupingMode,
   GroupingCriteria,
   AnomalyGroupingConfig,
+  SummaryData,
 } from './grouping';
 import { errorMessage } from '../errorMessage';
 import { CountMetric } from '../telemetry/telemetry';
@@ -29,6 +29,8 @@ import '../triage-menu-sk/triage-menu-sk';
 import '@material/web/button/outlined-button.js';
 
 import '../../../elements-sk/modules/spinner-sk';
+import '../../../elements-sk/modules/icons/arrow-drop-down-icon-sk';
+import '../../../elements-sk/modules/icons/arrow-drop-up-icon-sk';
 
 import '../../../elements-sk/modules/icons/help-icon-sk';
 import { handleKeyboardShortcut, KeyboardShortcutHandler } from '../common/keyboard-shortcuts';
@@ -51,8 +53,17 @@ export class AnomaliesTableSk extends LitElement implements KeyboardShortcutHand
   @property({ attribute: false })
   anomalyList: Anomaly[] = [];
 
+  @property({ type: Boolean })
+  showTriaged: boolean = false;
+
   @state()
   showPopup: boolean = false;
+
+  @state()
+  private sortKey: string = 'revisions';
+
+  @state()
+  private sortDirection: 'up' | 'down' = 'down';
 
   private selectionController = new SelectionController<Anomaly>(this);
 
@@ -123,12 +134,93 @@ export class AnomaliesTableSk extends LitElement implements KeyboardShortcutHand
   }
 
   protected willUpdate(changedProperties: Map<string, any>): void {
-    if (changedProperties.has('anomalyList')) {
-      this.initiallyRequestedAnomalyIDs.clear();
-      this.selectionController.clear();
-      if (this.anomalyList.length > 0) {
-        this.groupingController.setAnomalies(this.anomalyList);
+    if (changedProperties.has('anomalyList') || changedProperties.has('showTriaged')) {
+      if (changedProperties.has('anomalyList')) {
+        this.initiallyRequestedAnomalyIDs.clear();
+        this.selectionController.clear();
+        if (this.anomalyList.length > 0) {
+          this.groupingController.setAnomalies(this.anomalyList);
+        }
       }
+      // ShowTriaged button should change default sort order if sortKey is 'revisions'.
+      // Otherwise, we continue sorting by whatever user selected.
+      if (changedProperties.has('showTriaged') && this.sortKey === 'revisions') {
+        this.sortDirection = this.showTriaged ? 'down' : 'up';
+      }
+    }
+  }
+
+  private handleSort(key: string) {
+    if (this.sortKey === key) {
+      this.sortDirection = this.sortDirection === 'up' ? 'down' : 'up';
+    } else {
+      this.sortKey = key;
+      if (key === 'revisions') {
+        this.sortDirection = this.showTriaged ? 'down' : 'up';
+      } else {
+        this.sortDirection = 'up';
+      }
+    }
+  }
+
+  private getSortIcon(key: string): TemplateResult {
+    if (this.sortKey !== key) {
+      return html``;
+    }
+    return this.sortDirection === 'up'
+      ? html`<arrow-drop-up-icon-sk></arrow-drop-up-icon-sk>`
+      : html`<arrow-drop-down-icon-sk></arrow-drop-down-icon-sk>`;
+  }
+
+  private getAriaSort(key: string): 'ascending' | 'descending' | 'none' | 'other' {
+    if (this.sortKey !== key) {
+      return 'none';
+    }
+    return this.sortDirection === 'up' ? 'ascending' : 'descending';
+  }
+
+  private sortGroups(groups: AnomalyGroup[]): AnomalyGroup[] {
+    const up = this.sortDirection === 'up';
+    return [...groups].sort((a, b) => {
+      const valA = this.getGroupSortValue(a);
+      const valB = this.getGroupSortValue(b);
+
+      if (valA === valB) return 0;
+
+      const comparison =
+        typeof valA === 'string' && typeof valB === 'string'
+          ? valA.localeCompare(valB)
+          : (valA as number) > (valB as number)
+            ? 1
+            : -1;
+
+      return up ? comparison : -comparison;
+    });
+  }
+
+  private getGroupSortValue(group: AnomalyGroup): string | number {
+    if (group.anomalies.length === 0) return '';
+
+    // summary hasn't been calculated for the group yet, calculate & memoize it.
+    if (group.summaryData.calculated === false) {
+      this.calculateSummaryForGroup(group);
+    }
+
+    switch (this.sortKey) {
+      case 'bugid':
+        return group.summaryData.bug;
+      case 'revisions':
+        return group.summaryData.endRevision;
+      case 'bot':
+        return group.summaryData.bot;
+      case 'testsuite':
+        return group.summaryData.testsuite;
+      case 'test':
+        return group.summaryData.test;
+      case 'delta':
+        return group.summaryData.delta;
+      default:
+        return '';
     }
   }
 
@@ -186,6 +278,17 @@ export class AnomaliesTableSk extends LitElement implements KeyboardShortcutHand
     `;
   }
 
+  private renderSortableHeader(sortKey: string, label: string): TemplateResult {
+    const idPrefix = sortKey;
+    return html`
+      <th id="${idPrefix}-${this.uniqueId}" aria-sort="${this.getAriaSort(sortKey)}">
+        <button @click=${() => this.handleSort(sortKey)}>
+          ${label} ${this.getSortIcon(sortKey)}
+        </button>
+      </th>
+    `;
+  }
+
   render() {
     const totalCount = this.anomalyList.length;
     const selectedCount = this.selectionController.size;
@@ -225,42 +328,36 @@ export class AnomaliesTableSk extends LitElement implements KeyboardShortcutHand
             .traceNames=${[]}></triage-menu-sk>
         </div>
       </div>
-      <sort-sk id="as_table-${this.uniqueId}" target="rows-${this.uniqueId}">
-        <table
-          id="anomalies-table-${this.uniqueId}"
-          class="anomalies-table"
-          ?hidden=${this.anomalyList.length === 0}>
-          <tr class="headers">
-            <th id="group-${this.uniqueId}"></th>
-            <th id="checkbox-${this.uniqueId}">
-              <label for="header-checkbox-${this.uniqueId}"
-                ><input
-                  type="checkbox"
-                  id="header-checkbox-${this.uniqueId}"
-                  .checked=${isAllSelected}
-                  .indeterminate=${isIndeterminate}
-                  @change=${() => {
-                    this.toggleAllCheckboxes();
-                  }}
-              /></label>
-            </th>
-            <th id="graph_header-${this.uniqueId}">Chart</th>
-            <th id="bug_id-${this.uniqueId}" data-key="bugid">Bug ID</th>
-            <th id="revision_range-${this.uniqueId}" data-key="revisions" data-default="down">
-              Revisions
-            </th>
-            <th id="bot-${this.uniqueId}" data-key="bot" data-sort-type="alpha">Bot</th>
-            <th id="testsuite-${this.uniqueId}" data-key="testsuite" data-sort-type="alpha">
-              Test Suite
-            </th>
-            <th id="test-${this.uniqueId}" data-key="test" data-sort-type="alpha">Test</th>
-            <th id="percent_changed-${this.uniqueId}" data-key="delta">Delta %</th>
-          </tr>
-          <tbody id="rows-${this.uniqueId}">
-            ${this.generateGroups()}
-          </tbody>
-        </table>
-      </sort-sk>
+      <table
+        id="anomalies-table-${this.uniqueId}"
+        class="anomalies-table"
+        ?hidden=${this.anomalyList.length === 0}>
+        <tr class="headers">
+          <th id="group-${this.uniqueId}"></th>
+          <th id="checkbox-${this.uniqueId}">
+            <label for="header-checkbox-${this.uniqueId}"
+              ><input
+                type="checkbox"
+                id="header-checkbox-${this.uniqueId}"
+                .checked=${isAllSelected}
+                .indeterminate=${isIndeterminate}
+                @change=${() => {
+                  this.toggleAllCheckboxes();
+                }}
+            /></label>
+          </th>
+          <th id="graph_header-${this.uniqueId}">Chart</th>
+          ${this.renderSortableHeader('bugid', 'Bug ID')}
+          ${this.renderSortableHeader('revisions', 'Revisions')}
+          ${this.renderSortableHeader('bot', 'Bot')}
+          ${this.renderSortableHeader('testsuite', 'Test Suite')}
+          ${this.renderSortableHeader('test', 'Test')}
+          ${this.renderSortableHeader('delta', 'Delta %')}
+        </tr>
+        <tbody id="rows-${this.uniqueId}">
+          ${this.generateGroups()}
+        </tbody>
+      </table>
       <keyboard-shortcuts-help-sk .handler=${this}></keyboard-shortcuts-help-sk>
       <h1 id="clear-msg-${this.uniqueId}" ?hidden=${this.anomalyList.length > 0 || this.loading}>
         All anomalies are triaged!
@@ -304,14 +401,16 @@ export class AnomaliesTableSk extends LitElement implements KeyboardShortcutHand
   }
 
   private generateGroups() {
+    const sortedGroups = this.sortGroups(this.groupingController.groups);
+
     if (!this.show_requested_groups_first || this.initiallyRequestedAnomalyIDs.size === 0) {
-      return this.groupingController.groups.map((group) => this.generateRows(group));
+      return sortedGroups.map((group) => this.generateRows(group));
     }
 
     const requestedGroups: AnomalyGroup[] = [];
     const otherGroups: AnomalyGroup[] = [];
 
-    for (const group of this.groupingController.groups) {
+    for (const group of sortedGroups) {
       if (this.isGroupInitiallyRequested(group)) {
         requestedGroups.push(group);
       } else {
@@ -372,6 +471,8 @@ export class AnomaliesTableSk extends LitElement implements KeyboardShortcutHand
   private generateRows(anomalyGroup: AnomalyGroup, rowClass: string = ''): TemplateResult[] {
     const rows: TemplateResult[] | never = [];
     const length = anomalyGroup.anomalies.length;
+    this.calculateSummaryForGroup(anomalyGroup);
+
     if (length > 1) {
       rows.push(this.generateSummaryRow(anomalyGroup, rowClass));
       // optimization: if collapsed, do not render children
@@ -465,6 +566,50 @@ export class AnomaliesTableSk extends LitElement implements KeyboardShortcutHand
     return rows;
   }
 
+  private calculateSummaryForGroup(anomalyGroup: AnomalyGroup) {
+    if (!anomalyGroup.anomalies || anomalyGroup.anomalies.length === 0) {
+      return;
+    }
+    if (anomalyGroup.summaryData.calculated) {
+      return;
+    }
+
+    const [deltaValue, isSummaryRegression] =
+      AnomalyTransformer.determineSummaryDelta(anomalyGroup);
+
+    const processedAnomalies = anomalyGroup.anomalies.map((a) =>
+      AnomalyTransformer.getProcessedAnomaly(a)
+    );
+    const firstProcessed = processedAnomalies[0];
+
+    // Aggregate Revisions
+    const minStartRevision = Math.min(...anomalyGroup.anomalies.map((a) => a.start_revision));
+    const maxEndRevision = Math.max(...anomalyGroup.anomalies.map((a) => a.end_revision));
+
+    // Check for consistency
+    const allSameBot = processedAnomalies.every((p) => p.bot === firstProcessed.bot);
+    const allSameTestSuite = processedAnomalies.every(
+      (p) => p.testsuite === firstProcessed.testsuite
+    );
+
+    const anomalyForBugReportLink = this.getReportLinkForSummaryRowBugId(anomalyGroup);
+    const bugIdForLink = anomalyForBugReportLink ? anomalyForBugReportLink.bug_id : 0;
+
+    const summaryData: SummaryData = {
+      startRevision: minStartRevision,
+      endRevision: maxEndRevision,
+      bot: allSameBot ? firstProcessed.bot : '*',
+      testsuite: allSameTestSuite ? firstProcessed.testsuite : '*',
+      test: AnomalyTransformer.findLongestSubTestPath(anomalyGroup.anomalies),
+      delta: deltaValue,
+      isSummaryRegression: isSummaryRegression,
+      bug: bugIdForLink,
+      calculated: true,
+    };
+
+    anomalyGroup.summaryData = summaryData;
+  }
+
   private generateSummaryRow(anomalyGroup: AnomalyGroup, rowClass: string = ''): TemplateResult {
     if (!anomalyGroup.anomalies || anomalyGroup.anomalies.length === 0) {
       return html``; // Handle empty group
@@ -482,42 +627,16 @@ export class AnomaliesTableSk extends LitElement implements KeyboardShortcutHand
     // It is indeterminate if SOME (but not all) are selected
     const isIndeterminate = selectedCount > 0 && selectedCount < totalCount;
 
-    const [deltaValue, isSummaryRegression] =
-      AnomalyTransformer.determineSummaryDelta(anomalyGroup);
-    const summaryClass = isSummaryRegression ? 'regression' : 'improvement';
-
     const firstAnomaly = anomalyGroup.anomalies[0];
-    const processedAnomalies = anomalyGroup.anomalies.map((a) =>
-      AnomalyTransformer.getProcessedAnomaly(a)
-    );
-    const firstProcessed = processedAnomalies[0];
-
-    // Aggregate Revisions
-    const minStartRevision = Math.min(...anomalyGroup.anomalies.map((a) => a.start_revision));
-    const maxEndRevision = Math.max(...anomalyGroup.anomalies.map((a) => a.end_revision));
-
-    // Check for consistency
-    const allSameBot = processedAnomalies.every((p) => p.bot === firstProcessed.bot);
-    const allSameTestSuite = processedAnomalies.every(
-      (p) => p.testsuite === firstProcessed.testsuite
-    );
-
-    const summaryData = {
-      startRevision: minStartRevision,
-      endRevision: maxEndRevision,
-      bot: allSameBot ? firstProcessed.bot : '*',
-      testsuite: allSameTestSuite ? firstProcessed.testsuite : '*',
-      test: AnomalyTransformer.findLongestSubTestPath(anomalyGroup.anomalies),
-      delta: deltaValue,
-    };
-
-    const anomalyForBugReportLink = this.getReportLinkForSummaryRowBugId(anomalyGroup);
-    const bugIdForLink = anomalyForBugReportLink ? anomalyForBugReportLink.bug_id : 0;
     const summaryBugs = this.getSummaryBugs(anomalyGroup.anomalies);
+
+    const summaryData = anomalyGroup.summaryData;
+    const summaryClass = summaryData.isSummaryRegression ? 'regression' : 'improvement';
+    const anomalyForBugReportLink = this.getReportLinkForSummaryRowBugId(anomalyGroup);
 
     return html`
       <tr
-        data-bugid="${bugIdForLink}"
+        data-bugid="${summaryData.bug}"
         data-revisions="${summaryData.endRevision}"
         data-bot="${summaryData.bot}"
         data-testsuite="${summaryData.testsuite}"
@@ -547,7 +666,7 @@ export class AnomaliesTableSk extends LitElement implements KeyboardShortcutHand
         </td>
         <td class="center-content"></td>
         <td class="tooltip-cell">
-          ${this.getReportLinkForBugId(bugIdForLink)}
+          ${this.getReportLinkForBugId(summaryData.bug)}
           <close-icon-sk
             id="btnUnassociate"
             @click=${() => {

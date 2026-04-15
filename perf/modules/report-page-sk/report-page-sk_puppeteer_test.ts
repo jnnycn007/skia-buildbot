@@ -82,9 +82,9 @@ describe('report-page-sk', () => {
       const expectedRows: any[] = [
         {
           bugId: 'Bug ID',
-          revisions: 'Revisions ',
+          revisions: 'Revisions',
           bot: 'Bot',
-          testSuite: 'Test Suite ',
+          testSuite: 'Test Suite',
           test: 'Test',
           delta: 'Delta %',
         },
