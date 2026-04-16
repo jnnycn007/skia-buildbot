@@ -145,6 +145,10 @@ func runHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Log some information about the request for debugging.
+	sklog.Infof("Received request for fiddle with hash %s")
+	sklog.Info(request.Code)
+
 	// Apoptosis.
 	_, cancel := context.WithCancel(context.Background())
 	defer cancel()
