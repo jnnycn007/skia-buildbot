@@ -146,7 +146,7 @@ func runHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Log some information about the request for debugging.
-	sklog.Infof("Received request for fiddle with hash %s")
+	sklog.Infof("Received request for fiddle with hash %s", request.Hash)
 	sklog.Info(request.Code)
 
 	// Apoptosis.
