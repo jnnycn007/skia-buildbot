@@ -1,0 +1,15 @@
+load("@aspect_rules_js//js:defs.bzl", "js_binary")
+
+js_binary(
+    name = "run_monkey_test",
+    data = [
+        "multigraph_monkey_test.js",
+        "//:node_modules/puppeteer",
+    ],
+    entry_point = "run_monkey_test.js",
+    tags = [
+        "local",
+        "manual",
+        "no-sandbox",
+    ],
+)
