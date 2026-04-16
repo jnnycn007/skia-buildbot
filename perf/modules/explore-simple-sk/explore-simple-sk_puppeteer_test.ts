@@ -513,6 +513,66 @@ describe('explore-simple-sk', () => {
     });
   });
 
+  describe('Populate query button', () => {
+    it('should dispatch populate-query event with correct params', async () => {
+      // Add an event listener to capture the 'populate-query' event detail.
+      await testBed.page.evaluate((el: Element) => {
+        el.addEventListener('populate-query', (e) => {
+          (window as any).lastPopulateQueryEvent = (e as CustomEvent).detail;
+        });
+      }, exploreSimpleSk);
+
+      // Show a graph.
+      await testBed.page.click('#demo-show-graph');
+
+      // Poll for the traces to appear.
+      await poll(async () => {
+        const traceKeys = await simplePageSkPO.getTraceKeys();
+        return traceKeys.length > 0;
+      }, 'timed out waiting for traces to load');
+
+      // Click the "Load Test Picker with current Query" button.
+      await simplePageSkPO.populateQueryButton.click();
+
+      // Retrieve the event detail from the window object.
+      const eventDetail = await testBed.page.evaluate(() => (window as any).lastPopulateQueryEvent);
+
+      const expectedParamSet = {
+        os: ['Android'],
+        arch: ['arm'],
+      };
+      expect(eventDetail).to.deep.equal(expectedParamSet);
+    });
+  });
+
+  describe('Remove all button', () => {
+    it('should dispatch remove-explore event and clear traces', async () => {
+      // Add an event listener to capture the 'remove-explore' event.
+      await testBed.page.evaluate((el: Element) => {
+        (window as any).removeExploreEventFired = false;
+        el.addEventListener('remove-explore', () => {
+          (window as any).removeExploreEventFired = true;
+        });
+      }, exploreSimpleSk);
+
+      // Show a graph.
+      await testBed.page.click('#demo-show-graph');
+
+      // Poll for the traces to appear.
+      await poll(async () => {
+        const traceKeys = await simplePageSkPO.getTraceKeys();
+        return traceKeys.length > 0;
+      }, 'timed out waiting for traces to load');
+
+      // Click the "Remove all the traces" button.
+      await simplePageSkPO.clickRemoveAllButton();
+
+      // Verify that the event was fired.
+      const eventFired = await testBed.page.evaluate(() => (window as any).removeExploreEventFired);
+      expect(eventFired).to.be.true;
+    });
+  });
+
   describe('Scrolling', () => {
     it('should scroll up and down', async () => {
       // Ensure the page is long enough to scroll.
