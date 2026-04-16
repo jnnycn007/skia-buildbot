@@ -411,7 +411,7 @@ oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
 # and looking for sha256 on the jsfiddle-final image.
 oci.pull(
     name = "pinned_jsfiddle",
-    digest = "sha256:d6013d71a8bbb7333fd1c5568a879646eb0c750680e96369643d5bd3c30fcdb6",
+    digest = "sha256:b482db2ca7e8b68ecd78519e9c2904ae125f716cc538ad1a310bd2dd0aaa3c70",
     image = "gcr.io/skia-public/jsfiddle-final",
 )
 use_repo(oci, "pinned_jsfiddle")
@@ -419,7 +419,7 @@ use_repo(oci, "pinned_jsfiddle")
 # Debugger's version of CanvasKit is built with different flags
 oci.pull(
     name = "pinned_debugger",
-    digest = "sha256:49adebd992932a764377aff1ba9aed0071ac0ff4da2b6a3fab13a919f9ea29d8",
+    digest = "sha256:50be0c604fc84ab5be879b034327ee30b3da8942729033d490e4d0e7d71aca11",
     image = "gcr.io/skia-public/debugger-app-final",
 )
 use_repo(oci, "pinned_debugger")
@@ -508,14 +508,6 @@ oci.pull(
     image = "google-go.pkg.dev/golang",
 )
 use_repo(oci, "golang")
-
-# Pulls the gcr.io/skia-public/fiddler-build-skia image.
-oci.pull(
-    name = "fiddler-build-skia",
-    digest = "sha256:8eea043f967e6850c3ea97d1b1a6e9a5faa704fdc86138ac5444f56af0b258c5",
-    image = "gcr.io/skia-public/fiddler-build-skia",
-)
-use_repo(oci, "fiddler-build-skia")
 
 # docker.io/temporalio/server:1.23.1 as of 12/16/2025.
 oci.pull(

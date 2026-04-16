@@ -1775,7 +1775,7 @@
     "@@rules_oci+//oci:extensions.bzl%oci": {
       "general": {
         "bzlTransitiveDigest": "48mBsGmRAc9avLzUVYibjYzgMDj5MPLQjRGJUm1fvjA=",
-        "usagesDigest": "bGJhltYgOGFMKzKy1rLFjsekPh0LljHbEbYHxFOHMzc=",
+        "usagesDigest": "HcEBkhw44+hUO9cOFdYaM9rfYGBp2O31vuU5iWBj3Ws=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -1787,7 +1787,7 @@
               "scheme": "https",
               "registry": "gcr.io",
               "repository": "skia-public/jsfiddle-final",
-              "identifier": "sha256:d6013d71a8bbb7333fd1c5568a879646eb0c750680e96369643d5bd3c30fcdb6",
+              "identifier": "sha256:b482db2ca7e8b68ecd78519e9c2904ae125f716cc538ad1a310bd2dd0aaa3c70",
               "target_name": "pinned_jsfiddle_single",
               "bazel_tags": []
             }
@@ -1800,7 +1800,7 @@
               "scheme": "https",
               "registry": "gcr.io",
               "repository": "skia-public/jsfiddle-final",
-              "identifier": "sha256:d6013d71a8bbb7333fd1c5568a879646eb0c750680e96369643d5bd3c30fcdb6",
+              "identifier": "sha256:b482db2ca7e8b68ecd78519e9c2904ae125f716cc538ad1a310bd2dd0aaa3c70",
               "platforms": {},
               "platform": "@@rules_oci+//oci:pinned_jsfiddle_single",
               "bzlmod_repository": "pinned_jsfiddle",
@@ -1814,7 +1814,7 @@
               "scheme": "https",
               "registry": "gcr.io",
               "repository": "skia-public/debugger-app-final",
-              "identifier": "sha256:49adebd992932a764377aff1ba9aed0071ac0ff4da2b6a3fab13a919f9ea29d8",
+              "identifier": "sha256:50be0c604fc84ab5be879b034327ee30b3da8942729033d490e4d0e7d71aca11",
               "target_name": "pinned_debugger_single",
               "bazel_tags": []
             }
@@ -1827,7 +1827,7 @@
               "scheme": "https",
               "registry": "gcr.io",
               "repository": "skia-public/debugger-app-final",
-              "identifier": "sha256:49adebd992932a764377aff1ba9aed0071ac0ff4da2b6a3fab13a919f9ea29d8",
+              "identifier": "sha256:50be0c604fc84ab5be879b034327ee30b3da8942729033d490e4d0e7d71aca11",
               "platforms": {},
               "platform": "@@rules_oci+//oci:pinned_debugger_single",
               "bzlmod_repository": "pinned_debugger",
@@ -2106,33 +2106,6 @@
               "reproducible": true
             }
           },
-          "fiddler-build-skia_single": {
-            "repoRuleId": "@@rules_oci+//oci/private:pull.bzl%oci_pull",
-            "attributes": {
-              "www_authenticate_challenges": {},
-              "scheme": "https",
-              "registry": "gcr.io",
-              "repository": "skia-public/fiddler-build-skia",
-              "identifier": "sha256:8eea043f967e6850c3ea97d1b1a6e9a5faa704fdc86138ac5444f56af0b258c5",
-              "target_name": "fiddler-build-skia_single",
-              "bazel_tags": []
-            }
-          },
-          "fiddler-build-skia": {
-            "repoRuleId": "@@rules_oci+//oci/private:pull.bzl%oci_alias",
-            "attributes": {
-              "target_name": "fiddler-build-skia",
-              "www_authenticate_challenges": {},
-              "scheme": "https",
-              "registry": "gcr.io",
-              "repository": "skia-public/fiddler-build-skia",
-              "identifier": "sha256:8eea043f967e6850c3ea97d1b1a6e9a5faa704fdc86138ac5444f56af0b258c5",
-              "platforms": {},
-              "platform": "@@rules_oci+//oci:fiddler-build-skia_single",
-              "bzlmod_repository": "fiddler-build-skia",
-              "reproducible": true
-            }
-          },
           "temporal-server_linux_amd64": {
             "repoRuleId": "@@rules_oci+//oci/private:pull.bzl%oci_pull",
             "attributes": {
@@ -2320,7 +2293,6 @@
             "kubectl",
             "cloudsdk",
             "golang",
-            "fiddler-build-skia",
             "temporal-server",
             "temporal-server_linux_amd64",
             "temporal-admin-tools",
