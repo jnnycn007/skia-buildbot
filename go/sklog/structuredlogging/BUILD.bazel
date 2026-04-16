@@ -20,7 +20,10 @@ go_test(
     embed = [":structuredlogging"],
     deps = [
         "//go/sklog/sklogimpl",
+        "//go/sklog/structuredlogging/mocks",
         "//go/util",
         "@com_github_stretchr_testify//require",
+        "@com_google_cloud_go_logging//:logging",
+        "@com_google_cloud_go_logging//apiv2/loggingpb",
     ],
 )

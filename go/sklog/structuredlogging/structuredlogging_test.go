@@ -5,8 +5,11 @@ import (
 	"strings"
 	"testing"
 
+	"cloud.google.com/go/logging"
+	"cloud.google.com/go/logging/apiv2/loggingpb"
 	"github.com/stretchr/testify/require"
 	"go.skia.org/infra/go/sklog/sklogimpl"
+	"go.skia.org/infra/go/sklog/structuredlogging/mocks"
 	"go.skia.org/infra/go/util"
 )
 
@@ -87,4 +90,92 @@ func TestUseWithoutInit(t *testing.T) {
 	logger.Flush()
 	logger.Log(1, sklogimpl.Info, "test %d", 123)
 	logger.LogCtx(ctx, 1, sklogimpl.Info, "test %d", 123)
+}
+
+func TestLogCtx_WithTemplate(t *testing.T) {
+	ctx := WithContext(t.Context(), Context{
+		Labels: map[string]string{
+			"my-label": "my-value",
+		},
+	})
+	cloudLogger := &mocks.CloudLogger{}
+	logger := &StructuredLogger{
+		logger: cloudLogger,
+	}
+	expectedLogEntry := logging.Entry{
+		Payload:  "this is a template",
+		Severity: logging.Error,
+		// TODO(borenet): This will be very brittle.
+		SourceLocation: &loggingpb.LogEntrySourceLocation{
+			File:     "structuredlogging_test.go",
+			Line:     119,
+			Function: "",
+		},
+		Labels: map[string]string{
+			"my-label": "my-value",
+		},
+	}
+	cloudLogger.On("Log", expectedLogEntry).Return()
+	logger.LogCtx(ctx, 0, sklogimpl.Error, "this is a %s", "template")
+}
+
+func TestLogCtx_NoTemplate_SingleArg(t *testing.T) {
+	ctx := WithContext(t.Context(), Context{
+		Labels: map[string]string{
+			"my-label": "my-value",
+		},
+	})
+	cloudLogger := &mocks.CloudLogger{}
+	logger := &StructuredLogger{
+		logger: cloudLogger,
+	}
+	myObject := struct {
+		Prop1 string `json:"prop1"`
+		Prop2 string `json:"prop2"`
+	}{
+		Prop1: "val1",
+		Prop2: "val2",
+	}
+	expectedLogEntry := logging.Entry{
+		Payload:  myObject,
+		Severity: logging.Error,
+		// TODO(borenet): This will be very brittle.
+		SourceLocation: &loggingpb.LogEntrySourceLocation{
+			File:     "structuredlogging_test.go",
+			Line:     153,
+			Function: "",
+		},
+		Labels: map[string]string{
+			"my-label": "my-value",
+		},
+	}
+	cloudLogger.On("Log", expectedLogEntry).Return()
+	logger.LogCtx(ctx, 0, sklogimpl.Error, "", myObject)
+}
+
+func TestLogCtx_NoTemplate_MultiArg(t *testing.T) {
+	ctx := WithContext(t.Context(), Context{
+		Labels: map[string]string{
+			"my-label": "my-value",
+		},
+	})
+	cloudLogger := &mocks.CloudLogger{}
+	logger := &StructuredLogger{
+		logger: cloudLogger,
+	}
+	expectedLogEntry := logging.Entry{
+		Payload:  "thisistextwithnotemplate",
+		Severity: logging.Error,
+		// TODO(borenet): This will be very brittle.
+		SourceLocation: &loggingpb.LogEntrySourceLocation{
+			File:     "structuredlogging_test.go",
+			Line:     180,
+			Function: "",
+		},
+		Labels: map[string]string{
+			"my-label": "my-value",
+		},
+	}
+	cloudLogger.On("Log", expectedLogEntry).Return()
+	logger.LogCtx(ctx, 0, sklogimpl.Error, "", "this", "is", "text", "with", "no", "template")
 }

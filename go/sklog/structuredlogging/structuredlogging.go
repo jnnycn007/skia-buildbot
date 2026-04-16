@@ -5,7 +5,6 @@
 package structuredlogging
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"iter"
@@ -104,8 +103,13 @@ func Init() (*StructuredLogger, error) {
 	return l, nil
 }
 
+type CloudLogger interface {
+	Flush() error
+	Log(e logging.Entry)
+}
+
 type StructuredLogger struct {
-	logger *logging.Logger
+	logger CloudLogger
 }
 
 func New(ctx context.Context, file *os.File) (*StructuredLogger, error) {
@@ -149,20 +153,24 @@ func (s *StructuredLogger) Log(depth int, severity sklogimpl.Severity, tmpl stri
 }
 
 func (s *StructuredLogger) LogCtx(ctx context.Context, depth int, severity sklogimpl.Severity, tmpl string, args ...interface{}) {
-	var buf bytes.Buffer
+	var msg interface{}
 	if tmpl == "" {
-		fmt.Fprint(&buf, args...)
+		if len(args) == 1 {
+			msg = args[0]
+		} else {
+			msg = fmt.Sprint(args...)
+		}
 	} else {
-		fmt.Fprintf(&buf, tmpl, args...)
+		msg = fmt.Sprintf(tmpl, args...)
 	}
 
 	if s.checkNil() {
 		// Log to stderr as a fallback and then return.
-		fmt.Fprintln(os.Stderr, buf.String())
+		fmt.Fprintln(os.Stderr, msg)
 		return
 	}
 
-	s.emit(ctx, depth, severity, buf.String())
+	s.emit(ctx, depth, severity, msg)
 	if severity == sklogimpl.Fatal {
 		trace := stacks(true)
 		s.emit(ctx, depth, severity, string(trace))
@@ -191,24 +199,39 @@ func stacks(all bool) []byte {
 	return trace
 }
 
-func (s *StructuredLogger) emit(ctx context.Context, depth int, severity sklogimpl.Severity, msg string) {
+func (s *StructuredLogger) emit(ctx context.Context, depth int, severity sklogimpl.Severity, msg interface{}) {
 	loc := sourceLocation(depth)
 	c := getCtx(ctx)
-	for msg := range splitMessage(msg) {
+
+	if strMsg, ok := msg.(string); ok {
+		for msg := range splitMessage(strMsg) {
+			entry := logging.Entry{
+				Payload:        msg,
+				Severity:       convertSeverity(severity),
+				SourceLocation: loc,
+			}
+
+			// TODO(borenet): Enable this whenever the logging API supports Split.
+			// if len(splitMsg) > 1 {
+			// 	entry.Split = &loggingpb.LogSplit{
+			// 		Uid:         uuid.New().String(),
+			// 		Index:       index,
+			// 		TotalSplits: len(splitMsg),
+			// 	}
+			// }
+			if c != nil {
+				entry.Labels = c.Labels
+				entry.HTTPRequest = c.HTTPRequest
+				entry.Operation = c.Operation
+			}
+			s.logger.Log(entry)
+		}
+	} else {
 		entry := logging.Entry{
 			Payload:        msg,
 			Severity:       convertSeverity(severity),
 			SourceLocation: loc,
 		}
-
-		// TODO(borenet): Enable this whenever the logging API supports Split.
-		// if len(splitMsg) > 1 {
-		// 	entry.Split = &loggingpb.LogSplit{
-		// 		Uid:         uuid.New().String(),
-		// 		Index:       index,
-		// 		TotalSplits: len(splitMsg),
-		// 	}
-		// }
 		if c != nil {
 			entry.Labels = c.Labels
 			entry.HTTPRequest = c.HTTPRequest

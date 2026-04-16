@@ -14,6 +14,7 @@ import (
 
 	"github.com/dustin/go-humanize"
 	"go.skia.org/infra/go/skerr"
+	"go.skia.org/infra/go/sklog"
 )
 
 const (
@@ -179,7 +180,7 @@ func PrintReport(ctx context.Context, rootPath string, maxDepth int, human bool)
 	if err != nil {
 		return skerr.Wrap(err)
 	}
-	fmt.Println(report)
+	sklog.Debug(report)
 	return nil
 }
 
@@ -234,7 +235,7 @@ func PrintJSONReport(ctx context.Context, rootPath string, maxDepth int, human b
 	if err != nil {
 		return skerr.Wrap(err)
 	}
-	fmt.Println(report)
+	sklog.Debug(report)
 	return nil
 }
 

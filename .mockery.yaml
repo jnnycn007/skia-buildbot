@@ -130,6 +130,9 @@ packages:
   go.skia.org/infra/go/serial:
     interfaces:
       Port:
+  go.skia.org/infra/go/sklog/structuredlogging:
+    interfaces:
+      CloudLogger:
   go.skia.org/infra/go/sql/pool:
     interfaces:
       Pool:

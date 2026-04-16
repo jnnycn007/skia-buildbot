@@ -51,7 +51,7 @@ func (g *GitAuth) updateCookie(ctx context.Context) (time.Duration, error) {
 	if err != nil {
 		return RETRY_INTERVAL, skerr.Wrapf(err, "failed to write new cookie file")
 	}
-	sklog.Infof("Refreshing cookie in %v", refresh_in)
+	sklog.Debugf("Refreshing cookie in %v", refresh_in)
 
 	return refresh_in, nil
 }
