@@ -25,6 +25,10 @@ import re
 import subprocess
 import difflib
 
+# Fault to inject in event handlers to throw an error.
+THROW_ERROR_FAULT = "=${() => { throw new Error('Injected Fault!'); }}"
+BUSY_WAIT_FAULT = "=${() => { const start = Date.now(); while (Date.now() - start < 10000) {} }}"
+
 def mutate_generated_html(ts_module_content):
   """
   A generator that yields modified versions of the ts_module_content,
@@ -41,7 +45,7 @@ def mutate_generated_html(ts_module_content):
         # replaces the content with an expression that throws an error.
         faulty_line = re.sub(
             handler + r"""=(?:(['"]).*?\1|\$\{[^}]+\})""",
-            handler + r"""=${() => { throw new Error('Injected Fault!'); }}""",
+            handler + THROW_ERROR_FAULT,
             line
         )
         if faulty_line != line:
@@ -66,6 +70,19 @@ def mutate_generated_html(ts_module_content):
       line_num = ts_module_content.count('\n', 0, match.start()) + 1
       yield (f'remove-{tag}', line_num, modified_content)
 
+def log_survivor(log_file, module_ts_file, fault_type, line_num, original_content, modified_content):
+  """Logs a test that survived fault injection."""
+  print(f'  [SURVIVED] Tests passed with fault: {fault_type} at line {line_num}')
+  diff = difflib.unified_diff(
+      original_content.splitlines(keepends=True),
+      modified_content.splitlines(keepends=True),
+      fromfile=f'a/{module_ts_file}', tofile=f'b/{module_ts_file}')
+  with open(log_file, 'a') as log:
+    log.write(
+        f'--- SURVIVOR: {module_ts_file} | FAULT: {fault_type} at line {line_num} ---\n'
+    )
+    log.writelines(diff)
+
 
 def process_puppeteer_test_modules(log_file, filter_modules):
   """
@@ -85,14 +102,18 @@ def process_puppeteer_test_modules(log_file, filter_modules):
 
         module_ts_file = os.path.join(root, f'{module_base_name}.ts')
         if not os.path.exists(module_ts_file):
+          print(f'{module_ts_file} is missing!')
           continue
 
         print(f'--- Starting fault injection for {module_ts_file} ---')
+        total = 0
+        servived = 0
 
         with open(module_ts_file, 'r') as f:
           ts_module_content = f.read()
 
         for fault_type, line_num, modified_content in mutate_generated_html(ts_module_content):
+          total += 1
           print(f'  Injecting fault: {fault_type} at line {line_num}')
           with open(module_ts_file, 'w') as f:
             f.write(modified_content)
@@ -109,19 +130,36 @@ def process_puppeteer_test_modules(log_file, filter_modules):
             # We expect tests to fail. If they don't, it's a "survivor".
             result = subprocess.run(command, check=False, capture_output=True, text=True)
 
-            if result.returncode == 0:
-              print(f'  [SURVIVED] Tests passed with fault: {fault_type} at line {line_num}')
-              diff = difflib.unified_diff(
-                  ts_module_content.splitlines(keepends=True),
-                  modified_content.splitlines(keepends=True),
-                  fromfile=f'a/{module_ts_file}', tofile=f'b/{module_ts_file}')
-              with open(log_file, 'a') as log:
-                log.write(f'--- SURVIVOR: {module_ts_file} | FAULT: {fault_type} at line {line_num} ---\n')
-                log.writelines(diff)
+            if result.returncode == 0 and fault_type.endswith('-throws-error'):
+              print(f'  [INFO] Survived error throw, trying busy-wait for {fault_type} at line {line_num}')
+              # The test survived an error being thrown. Let's try a busy-wait
+              # loop to see if it's truly a survivor. This can catch cases
+              # where the test doesn't wait for async operations.
+              busy_wait_content = modified_content.replace(
+                  THROW_ERROR_FAULT,
+                  BUSY_WAIT_FAULT
+              )
+              with open(module_ts_file, 'w') as f:
+                f.write(busy_wait_content)
+
+              result_busy_wait = subprocess.run(command, check=False, capture_output=True, text=True)
+
+              if result_busy_wait.returncode == 0:
+                servived += 1
+                log_survivor(log_file, module_ts_file, fault_type, line_num,
+                             ts_module_content, modified_content)
+            elif result.returncode == 0:
+                servived += 1
+                log_survivor(log_file, module_ts_file, fault_type, line_num,
+                             ts_module_content, modified_content)
+
           finally:
             # Restore original file content
             with open(module_ts_file, 'w') as f:
               f.write(ts_module_content)
+
+        score = 100 * (total - servived) / total if total > 0 else 100
+        print(f'{module_ts_file}: {total}, {servived}, {score:.2f}%')
 
 def get_args():
   """Parses and returns command-line arguments."""
