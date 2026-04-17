@@ -179,3 +179,41 @@ func TestLogCtx_NoTemplate_MultiArg(t *testing.T) {
 	cloudLogger.On("Log", expectedLogEntry).Return()
 	logger.LogCtx(ctx, 0, sklogimpl.Error, "", "this", "is", "text", "with", "no", "template")
 }
+
+type MyString string
+
+func TestLogCtx_NoTemplate_NamedString(t *testing.T) {
+	ctx := context.Background()
+	cloudLogger := &mocks.CloudLogger{}
+	logger := &StructuredLogger{
+		logger: cloudLogger,
+	}
+	expectedLogEntry := logging.Entry{
+		Payload:  "hello",
+		Severity: logging.Info,
+		SourceLocation: &loggingpb.LogEntrySourceLocation{
+			File: "structuredlogging_test.go",
+			Line: 200,
+		},
+	}
+	cloudLogger.On("Log", expectedLogEntry).Return()
+	logger.LogCtx(ctx, 0, sklogimpl.Info, "", MyString("hello"))
+}
+
+func TestLogCtx_NoTemplate_Int(t *testing.T) {
+	ctx := context.Background()
+	cloudLogger := &mocks.CloudLogger{}
+	logger := &StructuredLogger{
+		logger: cloudLogger,
+	}
+	expectedLogEntry := logging.Entry{
+		Payload:  "123",
+		Severity: logging.Info,
+		SourceLocation: &loggingpb.LogEntrySourceLocation{
+			File: "structuredlogging_test.go",
+			Line: 218,
+		},
+	}
+	cloudLogger.On("Log", expectedLogEntry).Return()
+	logger.LogCtx(ctx, 0, sklogimpl.Info, "", 123)
+}

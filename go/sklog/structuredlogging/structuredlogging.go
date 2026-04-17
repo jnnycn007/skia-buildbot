@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"iter"
 	"os"
+	"reflect"
 	"runtime"
 	"strings"
 
@@ -203,7 +204,29 @@ func (s *StructuredLogger) emit(ctx context.Context, depth int, severity sklogim
 	loc := sourceLocation(depth)
 	c := getCtx(ctx)
 
-	if strMsg, ok := msg.(string); ok {
+	// If the message is a string or something that can be easily converted to a
+	// string, we'll split it into multiple logging.Entry if necessary.
+	var strMsg string
+	if m, ok := msg.(string); ok {
+		strMsg = m
+	} else {
+		v := reflect.ValueOf(msg)
+		if v.IsValid() {
+			kind := v.Kind()
+			for kind == reflect.Ptr || kind == reflect.Interface {
+				v = v.Elem()
+				if !v.IsValid() {
+					break
+				}
+				kind = v.Kind()
+			}
+			if v.IsValid() && kind != reflect.Struct && kind != reflect.Map && kind != reflect.Slice && kind != reflect.Array {
+				strMsg = fmt.Sprint(msg)
+			}
+		}
+	}
+
+	if strMsg != "" {
 		for msg := range splitMessage(strMsg) {
 			entry := logging.Entry{
 				Payload:        msg,

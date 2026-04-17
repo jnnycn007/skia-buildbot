@@ -19,7 +19,6 @@ import (
 	"sync"
 	"time"
 
-	"contrib.go.opencensus.io/exporter/stackdriver"
 	"github.com/go-chi/chi/v5"
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/trace"
@@ -390,19 +389,6 @@ func main() {
 	}
 	if *checkout == "" {
 		sklog.Fatalf("The --checkout flag is required.")
-	}
-
-	if !*local {
-		exporter, err := stackdriver.NewExporter(stackdriver.Options{
-			BundleDelayThreshold: time.Second / 10,
-			BundleCountThreshold: 10})
-		if err != nil {
-			sklog.Fatal(err)
-		}
-		trace.RegisterExporter(exporter)
-		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
-		_, span := trace.StartSpan(context.Background(), "main")
-		defer span.End()
 	}
 
 	b, err := os.ReadFile(filepath.Join(*checkout, "VERSION"))
