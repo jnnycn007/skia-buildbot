@@ -137,7 +137,7 @@ func TestUpdateBisectID(t *testing.T) {
 	assert.Equal(t, "REPORT", group.GroupAction.String())
 }
 
-func TestUpdateBisectID_InvalidID(t *testing.T) {
+func TestUpdateBisectID_LegacyPinpointID(t *testing.T) {
 	store, _ := setUp(t)
 	ctx := context.Background()
 
@@ -146,9 +146,21 @@ func TestUpdateBisectID_InvalidID(t *testing.T) {
 	assert.NotEmpty(t, new_group_id)
 
 	err = store.UpdateBisectID(ctx, new_group_id,
-		"3cb85993-d0a8-452e-86ec-cb5154aada=")
+		"13a057b6890000")
+	require.NoError(t, err)
+}
+
+func TestUpdateBisectID_InvalidID(t *testing.T) {
+	store, _ := setUp(t)
+	ctx := context.Background()
+
+	new_group_id, err := store.Create(ctx, "sub", "rev-abc", "domain-a", "benchmark-a", 100, 200, "REPORT")
+	require.NoError(t, err)
+	assert.NotEmpty(t, new_group_id)
+
+	err = store.UpdateBisectID(ctx, new_group_id, "3cb85993-d0a8-452e-86ec-cb5154aada=")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid UUID value")
+	assert.Contains(t, err.Error(), "invalid bisection ID value")
 }
 
 func TestUpdateReportedIssueID(t *testing.T) {

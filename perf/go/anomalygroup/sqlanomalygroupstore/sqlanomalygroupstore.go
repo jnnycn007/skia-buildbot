@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 
 	"github.com/google/uuid"
@@ -147,9 +148,9 @@ func (s *AnomalyGroupStore) LoadById(
 
 func (s *AnomalyGroupStore) UpdateBisectID(ctx context.Context, group_id string, bisection_id string) error {
 	if len(bisection_id) > 0 {
-		if _, err := uuid.Parse(bisection_id); err != nil {
-			err_msg := fmt.Sprintf("invalid UUID value for updating bisection_id column with value %s ", bisection_id)
-			return errors.New(err_msg)
+		matched, err := regexp.MatchString("^[a-f0-9-]+$", bisection_id)
+		if err != nil || !matched {
+			return skerr.Fmt("invalid bisection ID value: %s", bisection_id)
 		}
 	}
 	statement := `
