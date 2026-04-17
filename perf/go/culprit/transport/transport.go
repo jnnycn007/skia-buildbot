@@ -68,7 +68,7 @@ func (t *IssueTrackerTransport) SendNewNotification(ctx context.Context,
 	}
 	componentId, err := strconv.Atoi(subscription.BugComponent)
 	if err != nil {
-		return "", nil
+		return "", skerr.Wrapf(err, "failed to convert bug component %s to int", subscription.BugComponent)
 	}
 	hotlists := []int64{}
 	for _, i := range subscription.Hotlists {
@@ -85,6 +85,15 @@ func (t *IssueTrackerTransport) SendNewNotification(ctx context.Context,
 		}
 		ccs = append(ccs, j)
 	}
+	reporter := &issuetracker.User{
+		EmailAddress: subscription.ContactEmail,
+	}
+	if subscription.ContactEmail == "" {
+		reporter.EmailAddress = "browser-perf-engprod@google.com"
+
+		body += "\n\nWarning: subscription this issue belongs to has no proper contact email!"
+	}
+
 	newIssue := &issuetracker.Issue{
 		IssueComment: &issuetracker.IssueComment{
 			Comment:        string(body),
@@ -94,9 +103,7 @@ func (t *IssueTrackerTransport) SendNewNotification(ctx context.Context,
 			ComponentId: int64(componentId),
 			Priority:    fmt.Sprintf("P%d", subscription.BugPriority),
 			Severity:    fmt.Sprintf("S%d", subscription.BugSeverity),
-			Reporter: &issuetracker.User{
-				EmailAddress: subscription.ContactEmail,
-			},
+			Reporter:    reporter,
 			Ccs:         ccs,
 			HotlistIds:  hotlists,
 			AccessLimit: &issuetracker.IssueAccessLimit{AccessLevel: "LIMIT_VIEW_TRUSTED"},
