@@ -376,6 +376,8 @@ const (
 	DefaultTraceFormat TraceFormat = ""
 )
 
+const DefaultWasmCacheDir = "/tmp/wasm_cache"
+
 var AllTraceFormats []TraceFormat = []TraceFormat{
 	ChromeTraceFormat,
 	DefaultTraceFormat,
