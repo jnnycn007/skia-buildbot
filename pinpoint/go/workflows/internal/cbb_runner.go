@@ -102,14 +102,6 @@ func setupBenchmarks(cbb *CbbRunnerParams) []BenchmarkRunConfig {
 		benchmarks = append(benchmarks, BenchmarkRunConfig{"loadline2_tablet", 8})
 	}
 
-	// TODO(b/433537961) Double number of iterations on Android until we
-	// figure out why benchmarks fail frequently on it.
-	if strings.HasPrefix(botConfig, "android-") {
-		for i := range benchmarks {
-			benchmarks[i].Iterations *= 2
-		}
-	}
-
 	return benchmarks
 }
 
@@ -279,6 +271,12 @@ func CbbRunnerWorkflow(ctx workflow.Context, cbb *CbbRunnerParams) (*map[string]
 		}
 	}
 
+	// Due to b/433537961, we need to reinstall browser APK before each
+	// benchmark run on Pixel Tablet.
+	if cbb.BotConfig == "android-pixel-tangor-perf-cbb" {
+		extra_args = append(extra_args, "--reinstall")
+	}
+
 	results := map[string]*format.Format{}
 
 	for _, b := range benchmarks {
@@ -311,11 +309,6 @@ func CbbRunnerWorkflow(ctx workflow.Context, cbb *CbbRunnerParams) (*map[string]
 		}
 		successRate := float64(numSuccess) / float64(b.Iterations)
 		requiredSuccessRate := 0.8
-		// TODO(b/433537961): Require lower success rate on Android until this bug
-		// is fixed.
-		if strings.HasPrefix(cbb.BotConfig, "android") {
-			requiredSuccessRate /= 2.0
-		}
 		if successRate < requiredSuccessRate {
 			return nil, skerr.Fmt(
 				"Benchmark %s on %s only had success rate of %.0f%%, rejecting the results",
