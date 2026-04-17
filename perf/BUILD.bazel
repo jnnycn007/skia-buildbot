@@ -133,6 +133,16 @@ skia_app_container(
                 "js.map",
             ]
         ],
+        "/usr/local/share/skiaperf/dist/explore-multi-v2-sk": [
+            [
+                "//perf/pages:production/explore-multi-v2-sk/filter.worker.js",
+                "0644",
+            ],
+            [
+                "//perf/pages:production/explore-multi-v2-sk/filter.wasm",
+                "0644",
+            ],
+        ],
         "/usr/local/share/skiaperf": [
             [
                 ":gen_version",
