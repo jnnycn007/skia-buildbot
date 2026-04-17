@@ -122,7 +122,6 @@ func processAnomaliesAsBisection(
 
 	jobId, err := createBisectJob(
 		ctx,
-		input,
 		topAnomaly,
 		startHash,
 		endHash,
@@ -132,21 +131,6 @@ func processAnomaliesAsBisection(
 	}
 	workflow.GetLogger(ctx).Info("Pinpoint Job created", "jobId", jobId)
 
-	jobState, err := waitPinpointJobCompletion(ctx, jobId)
-	if err != nil {
-		return nil, skerr.Wrap(err)
-	}
-
-	workflow.GetLogger(ctx).Info(
-		"Job completed",
-		"JobID",
-		jobId,
-		"Job status",
-		jobState.Status,
-		"Culprits found",
-		jobState.DifferenceCount,
-	)
-
 	// Update the anomaly group with the bisection id.
 	updateRequest := ag_pb.UpdateAnomalyGroupRequest{
 		AnomalyGroupId: input.AnomalyGroupId,
@@ -155,6 +139,16 @@ func processAnomaliesAsBisection(
 	if err = updateAnomalyGroup(ctx, input.AnomalyGroupServiceUrl, &updateRequest); err != nil {
 		return nil, skerr.Wrap(err)
 	}
+
+	jobState, err := waitPinpointJobCompletion(ctx, jobId)
+	if err != nil {
+		return nil, skerr.Wrap(err)
+	}
+
+	if err := processBisectJobResultsPlaceholder(ctx, jobState); err != nil {
+		return nil, skerr.Wrap(err)
+	}
+
 	metrics2.GetCounter("anomalygroup_bisected").Inc(1)
 	return &workflows.MaybeTriggerBisectionResult{
 		JobId: jobId,
@@ -341,7 +335,6 @@ func getCommitHashes(
 
 func createBisectJob(
 	ctx workflow.Context,
-	input *workflows.MaybeTriggerBisectionParam,
 	anomaly *ag_pb.Anomaly,
 	startHash, endHash string,
 ) (string, error) {
@@ -476,4 +469,57 @@ func executeFetchJobStateActivity(
 		return nil, skerr.Wrap(err)
 	}
 	return resp, nil
+}
+
+func processBisectJobResultsPlaceholder(
+	ctx workflow.Context,
+	jobState *pinpoint.FetchJobStateResponse,
+) error {
+	culprits, err := extractCulprits(jobState)
+	if err != nil {
+		return skerr.Wrap(err)
+	}
+	workflow.GetLogger(ctx).Info(
+		"processBisectJobResults",
+		"WorkflowID",
+		workflow.GetInfo(ctx).WorkflowExecution.ID,
+		"Bisect job",
+		jobState.JobID,
+		"Job status",
+		jobState.Status,
+		"Culprits",
+		culprits,
+		"Real regression",
+		isRealRegression(jobState),
+	)
+
+	return nil
+}
+
+func extractCulprits(jobState *pinpoint.FetchJobStateResponse) (culprits []string, err error) {
+	for _, stateItem := range jobState.State {
+		if value, ok := stateItem.Comparisons["prev"]; !ok || value != "different" {
+			continue
+		}
+
+		for _, commit := range stateItem.Change.Commits {
+			if commit.Repository == "chromium" {
+				culprits = append(culprits, commit.GitHash)
+			}
+		}
+	}
+
+	return culprits, nil
+}
+
+func isRealRegression(jobState *pinpoint.FetchJobStateResponse) bool {
+	// If the initial sandwich verification run shows no statistical significant
+	// difference, no further bisection is done. In this case, the job has only 2
+	// start commit and end commit states. If the initial sandwich verification
+	// run shows that there is a real regression, bisection starts. In that case,
+	// there are more states than 2 states.
+	// If there are more than 2 states but no culprit found, that means the
+	// regression is real but pinpoint failed to find the culprit commit.
+	hasCulprit := jobState.DifferenceCount != nil && *jobState.DifferenceCount > 0
+	return hasCulprit || len(jobState.State) > 2
 }

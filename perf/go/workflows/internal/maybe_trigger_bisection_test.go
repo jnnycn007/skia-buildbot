@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"encoding/json"
 	"net"
 	"testing"
 
@@ -530,7 +531,6 @@ func TestCreateLegacyBisectJob(t *testing.T) {
 		ctx = workflow.WithActivityOptions(ctx, regularActivityOptions)
 		jobId, err := createBisectJob(
 			ctx,
-			&workflows.MaybeTriggerBisectionParam{},
 			mockAnomaly,
 			mockStartRevision,
 			mockEndRevision,
@@ -587,7 +587,6 @@ func TestCreateLegacyBisectJob_EmptyJobID(t *testing.T) {
 		ctx = workflow.WithActivityOptions(ctx, regularActivityOptions)
 		_, err := createBisectJob(
 			ctx,
-			&workflows.MaybeTriggerBisectionParam{},
 			mockAnomaly,
 			mockStartRevision,
 			mockEndRevision,
@@ -716,4 +715,104 @@ func TestWaitPinpointJobCompletion_Timeout(t *testing.T) {
 	require.Error(t, env.GetWorkflowError())
 	require.Contains(t, env.GetWorkflowError().Error(), "Pinpoint job timeout")
 	env.AssertExpectations(t)
+}
+
+func TestExtractCulprits(t *testing.T) {
+	testCases := []struct {
+		name     string
+		jobState string
+		expected []string
+	}{
+		{
+			name:     "EmptyResponse",
+			jobState: `{}`,
+			expected: nil,
+		},
+		{
+			name: "NoDifferentComparison",
+			jobState: `{
+				"state": [
+					{
+						"comparisons": {"prev": "same"},
+						"change": {
+							"commits": [
+								{"repository": "chromium", "git_hash": "commit1"}
+							]
+						}
+					}
+				]
+			}`,
+			expected: nil,
+		},
+		{
+			name: "WithDifferentComparison_SingleCommit",
+			jobState: `{
+				"state": [
+					{
+						"comparisons": {"next": "different"},
+						"change": {
+							"commits": [
+								{"repository": "chromium", "git_hash": "commit1"}
+							]
+						}
+					},
+					{
+						"comparisons": {"prev": "different"},
+						"change": {
+							"commits": [
+								{"repository": "chromium", "git_hash": "commit2"}
+							]
+						}
+					}
+				]
+			}`,
+			expected: []string{"commit2"},
+		},
+		{
+			name: "WithDifferentComparison_MultipleCommits_MultipleRepos",
+			jobState: `{
+				"state": [
+					{
+						"comparisons": {"next": "different"},
+						"change": {
+							"commits": [
+								{"repository": "chromium", "git_hash": "commit0"},
+								{"repository": "v8", "git_hash": "commit00"}
+							]
+						}
+					},
+					{
+						"comparisons": {"prev": "different", "next": "different"},
+						"change": {
+							"commits": [
+								{"repository": "chromium", "git_hash": "commit1"},
+								{"repository": "v8", "git_hash": "commit11"}
+							]
+						}
+					},
+					{
+						"comparisons": {"prev": "different"},
+						"change": {
+							"commits": [
+								{"repository": "chromium", "git_hash": "commit2"},
+								{"repository": "v8", "git_hash": "commit22"}
+							]
+						}
+					}
+				]
+			}`,
+			expected: []string{"commit1", "commit2"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			var response pinpoint.FetchJobStateResponse
+			err := json.Unmarshal([]byte(tc.jobState), &response)
+			require.NoError(t, err)
+			culprits, err := extractCulprits(&response)
+			require.NoError(t, err)
+			require.Equal(t, tc.expected, culprits)
+		})
+	}
 }
