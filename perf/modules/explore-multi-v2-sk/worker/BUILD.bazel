@@ -1,0 +1,63 @@
+load("//infra-sk:index.bzl", "karma_test", "ts_library")
+load("//infra-sk/esbuild:esbuild.bzl", "esbuild_dev_bundle")
+
+ts_library(
+    name = "filter.worker_ts_lib",
+    srcs = ["filter.worker.ts"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":suggestion_engine_ts_lib",
+        ":wasm_utils_ts_lib",
+        ":worker-types_ts_lib",
+        ":worker_logic_ts_lib",
+    ],
+)
+
+ts_library(
+    name = "suggestion_engine_ts_lib",
+    srcs = ["suggestion_engine.ts"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":worker-types_ts_lib",
+        "//perf/modules/explore-multi-v2-sk:fuzzy_ts_lib",
+    ],
+)
+
+ts_library(
+    name = "wasm_utils_ts_lib",
+    srcs = ["wasm_utils.ts"],
+    visibility = ["//visibility:public"],
+    deps = [":worker-types_ts_lib"],
+)
+
+ts_library(
+    name = "worker-types_ts_lib",
+    srcs = ["worker-types.ts"],
+    visibility = ["//visibility:public"],
+)
+
+ts_library(
+    name = "worker_logic_ts_lib",
+    srcs = ["worker_logic.ts"],
+    visibility = ["//visibility:public"],
+    deps = [":worker-types_ts_lib"],
+)
+
+karma_test(
+    name = "worker_logic_test",
+    src = "worker_logic_test.ts",
+    deps = [
+        ":worker-types_ts_lib",
+        ":worker_logic_ts_lib",
+        "//:node_modules/@types/chai",
+        "//:node_modules/chai",
+    ],
+)
+
+esbuild_dev_bundle(
+    name = "filter.worker_js_dev",
+    entry_point = "filter.worker.ts",
+    output = "filter.worker.bundle.js",
+    visibility = ["//visibility:public"],
+    deps = [":filter.worker_ts_lib"],
+)

@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -218,4 +219,53 @@ func TestGetGraphsShortcutDataHandler_NoMetadata(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 	metadataStore.AssertNotCalled(t, "GetMetadataForSourceFileIDs", mock.Anything, mock.Anything)
+}
+
+func TestLinksBatchHandler(t *testing.T) {
+	metadataStore := ts_mock.NewMetadataStore(t)
+	traceStore := ts_mock.NewTraceStore(t)
+	api := NewGraphApi(2, 100, 10, nil, nil, nil, traceStore, metadataStore, nil, nil, nil, nil, nil, nil, nil)
+
+	reqObj := struct {
+		CommitNumbers []types.CommitNumber `json:"commit_numbers"`
+		TraceIDs      []string             `json:"trace_ids"`
+	}{
+		CommitNumbers: []types.CommitNumber{1, 2},
+		TraceIDs:      []string{"trace1"},
+	}
+	var b bytes.Buffer
+	err := json.NewEncoder(&b).Encode(reqObj)
+	require.NoError(t, err)
+
+	traceStore.On("GetSourceIds", mock.MatchedBy(func(ctx context.Context) bool {
+		_, ok := ctx.Deadline()
+		return ok
+	}), []types.CommitNumber{1, 2}, []string{"trace1"}).Return(map[string]map[types.CommitNumber]string{
+		"trace1": {
+			1: "file1",
+			2: "file2",
+		},
+	}, nil)
+	metadataStore.On("GetMetadataMultiple", mock.MatchedBy(func(ctx context.Context) bool {
+		_, ok := ctx.Deadline()
+		return ok
+	}), mock.MatchedBy(func(filenames []string) bool {
+		return (len(filenames) == 2) && ((filenames[0] == "file1" && filenames[1] == "file2") || (filenames[0] == "file2" && filenames[1] == "file1"))
+	})).Return(map[string]map[string]string{
+		"file1": {"V8": "1.0"},
+		"file2": {"V8": "2.0"},
+	}, nil)
+
+	req := httptest.NewRequest("POST", "/_/links_batch", &b)
+	w := httptest.NewRecorder()
+
+	api.linksBatchHandler(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+
+	var resp map[string]map[string]map[string]string
+	err = json.NewDecoder(w.Body).Decode(&resp)
+	require.NoError(t, err)
+	require.Equal(t, "1.0", resp["1"]["trace1"]["V8"])
+	require.Equal(t, "2.0", resp["2"]["trace1"]["V8"])
 }

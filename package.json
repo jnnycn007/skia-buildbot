@@ -46,6 +46,7 @@
     "@webgpu/types": "0.1.21",
     "acorn": "^8.7.0",
     "ajv": "^8.12.0",
+    "assemblyscript": "^0.28.13",
     "bufferutil": "^4.0.9",
     "canvaskit-wasm": "^0.39.1",
     "chai": "^4.3.4",

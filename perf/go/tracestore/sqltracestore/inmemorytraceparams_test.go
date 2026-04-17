@@ -271,3 +271,314 @@ func TestQueryTraceIDs_NonExistentKey_Success(t *testing.T) {
 	// Expect 0 results
 	assert.Equal(t, 0, len(queryResult))
 }
+
+func TestQueryTraceIDs_KeyOnlyInOlderTile_Success(t *testing.T) {
+	db := sqltest.NewSpannerDBForTests(t, "tracestore")
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, UseInvertedIndex, true)
+
+	// Insert paramsets: 'arch' only in tile 174, 'config' in tile 176.
+	insertIntoParamSets := `
+    INSERT INTO
+        ParamSets (tile_number, param_key, param_value)
+    VALUES
+            ( 174, 'arch', 'linux32' ),
+            ( 176, 'config', '8888' )
+    ON CONFLICT (tile_number, param_key, param_value)
+    DO NOTHING`
+	_, err := db.Exec(ctx, insertIntoParamSets)
+	assert.NoError(t, err)
+
+	traceStore := NewTraceParamStore(db)
+	traceParamMap := map[string]paramtools.Params{
+		string(types.TraceIDForSQLFromTraceName(",arch=linux32,")): {
+			"arch": "linux32",
+		},
+		string(types.TraceIDForSQLFromTraceName(",config=8888,")): {
+			"config": "8888",
+		},
+	}
+	err = traceStore.WriteTraceParams(ctx, traceParamMap)
+	assert.NoError(t, err)
+
+	inMemoryTraceParams, err := NewInMemoryTraceParams(ctx, db, 12*60*60)
+	assert.NoError(t, err)
+
+	outParams := make(chan paramtools.Params, 10000)
+	q, err := query.NewFromString("arch=linux32")
+	assert.NoError(t, err)
+	inMemoryTraceParams.QueryTraceIDs(ctx, 176, q, outParams)
+
+	queryResult := outParamsToSlice(outParams)
+	// Expect 0 results because keys only in older tiles are not indexed by design.
+	assert.Equal(t, 0, len(queryResult))
+}
+
+func TestQueryTraceIDs_PositiveRegexMatch_Success(t *testing.T) {
+	db := sqltest.NewSpannerDBForTests(t, "tracestore")
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, UseInvertedIndex, true)
+
+	// Insert paramsets
+	insertIntoParamSets := `
+    INSERT INTO
+        ParamSets (tile_number, param_key, param_value)
+    VALUES
+            ( 176, 'a', 'apple' ),
+            ( 176, 'a', 'banana' ),
+            ( 176, 'a', 'apricot' )
+    ON CONFLICT (tile_number, param_key, param_value)
+    DO NOTHING`
+	_, err := db.Exec(ctx, insertIntoParamSets)
+	assert.NoError(t, err)
+
+	traceStore := NewTraceParamStore(db)
+	traceParamMap := map[string]paramtools.Params{
+		string(types.TraceIDForSQLFromTraceName(",a=apple,")): {
+			"a": "apple",
+		},
+		string(types.TraceIDForSQLFromTraceName(",a=banana,")): {
+			"a": "banana",
+		},
+		string(types.TraceIDForSQLFromTraceName(",a=apricot,")): {
+			"a": "apricot",
+		},
+	}
+	err = traceStore.WriteTraceParams(ctx, traceParamMap)
+	assert.NoError(t, err)
+
+	inMemoryTraceParams, err := NewInMemoryTraceParams(ctx, db, 12*60*60)
+	assert.NoError(t, err)
+
+	outParams := make(chan paramtools.Params, 10000)
+	// a matches anything starting with ap
+	q, err := query.NewFromString("a=~^ap.*")
+	assert.NoError(t, err)
+	inMemoryTraceParams.QueryTraceIDs(ctx, 176, q, outParams)
+
+	queryResult := outParamsToSlice(outParams)
+	// Expect two results: apple and apricot
+	assert.Equal(t, 2, len(queryResult))
+}
+
+func TestQueryTraceIDs_EmptyQuery_Success(t *testing.T) {
+	db := sqltest.NewSpannerDBForTests(t, "tracestore")
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, UseInvertedIndex, true)
+
+	// Insert paramsets
+	insertIntoParamSets := `
+    INSERT INTO
+        ParamSets (tile_number, param_key, param_value)
+    VALUES
+            ( 176, 'a', 'b' ),
+            ( 176, 'c', 'd' )
+    ON CONFLICT (tile_number, param_key, param_value)
+    DO NOTHING`
+	_, err := db.Exec(ctx, insertIntoParamSets)
+	assert.NoError(t, err)
+
+	traceStore := NewTraceParamStore(db)
+	traceParamMap := map[string]paramtools.Params{
+		string(types.TraceIDForSQLFromTraceName(",a=b,")): {
+			"a": "b",
+		},
+		string(types.TraceIDForSQLFromTraceName(",c=d,")): {
+			"c": "d",
+		},
+	}
+	err = traceStore.WriteTraceParams(ctx, traceParamMap)
+	assert.NoError(t, err)
+
+	inMemoryTraceParams, err := NewInMemoryTraceParams(ctx, db, 12*60*60)
+	assert.NoError(t, err)
+
+	outParams := make(chan paramtools.Params, 10000)
+	q := &query.Query{} // Empty query
+	inMemoryTraceParams.QueryTraceIDs(ctx, 176, q, outParams)
+
+	queryResult := outParamsToSlice(outParams)
+	// Expect all results (2)
+	assert.Equal(t, 2, len(queryResult))
+}
+
+func TestQueryTraceIDs_IntersectionEmpty_Success(t *testing.T) {
+	db := sqltest.NewSpannerDBForTests(t, "tracestore")
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, UseInvertedIndex, true)
+
+	// Insert paramsets
+	insertIntoParamSets := `
+    INSERT INTO
+        ParamSets (tile_number, param_key, param_value)
+    VALUES
+            ( 176, 'a', 'b' ),
+            ( 176, 'c', 'd' )
+    ON CONFLICT (tile_number, param_key, param_value)
+    DO NOTHING`
+	_, err := db.Exec(ctx, insertIntoParamSets)
+	assert.NoError(t, err)
+
+	traceStore := NewTraceParamStore(db)
+	traceParamMap := map[string]paramtools.Params{
+		string(types.TraceIDForSQLFromTraceName(",a=b,")): {
+			"a": "b",
+		},
+		string(types.TraceIDForSQLFromTraceName(",c=d,")): {
+			"c": "d",
+		},
+	}
+	err = traceStore.WriteTraceParams(ctx, traceParamMap)
+	assert.NoError(t, err)
+
+	inMemoryTraceParams, err := NewInMemoryTraceParams(ctx, db, 12*60*60)
+	assert.NoError(t, err)
+
+	outParams := make(chan paramtools.Params, 10000)
+	q, err := query.NewFromString("a=b&c=d")
+	assert.NoError(t, err)
+	inMemoryTraceParams.QueryTraceIDs(ctx, 176, q, outParams)
+
+	queryResult := outParamsToSlice(outParams)
+	// Expect 0 results because no trace has BOTH a=b and c=d
+	assert.Equal(t, 0, len(queryResult))
+}
+
+func TestQueryTraceIDs_OnlyNegativeMatch_Success(t *testing.T) {
+	db := sqltest.NewSpannerDBForTests(t, "tracestore")
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, UseInvertedIndex, true)
+
+	// Insert paramsets
+	insertIntoParamSets := `
+    INSERT INTO
+        ParamSets (tile_number, param_key, param_value)
+    VALUES
+            ( 176, 'a', 'b' ),
+            ( 176, 'a', 'c' )
+    ON CONFLICT (tile_number, param_key, param_value)
+    DO NOTHING`
+	_, err := db.Exec(ctx, insertIntoParamSets)
+	assert.NoError(t, err)
+
+	traceStore := NewTraceParamStore(db)
+	traceParamMap := map[string]paramtools.Params{
+		string(types.TraceIDForSQLFromTraceName(",a=b,")): {
+			"a": "b",
+		},
+		string(types.TraceIDForSQLFromTraceName(",a=c,")): {
+			"a": "c",
+		},
+	}
+	err = traceStore.WriteTraceParams(ctx, traceParamMap)
+	assert.NoError(t, err)
+
+	inMemoryTraceParams, err := NewInMemoryTraceParams(ctx, db, 12*60*60)
+	assert.NoError(t, err)
+
+	outParams := make(chan paramtools.Params, 10000)
+	// a!=b
+	q, err := query.NewFromString("a=!b")
+	assert.NoError(t, err)
+	inMemoryTraceParams.QueryTraceIDs(ctx, 176, q, outParams)
+
+	queryResult := outParamsToSlice(outParams)
+	// Expect one result: a=c
+	assert.Equal(t, 1, len(queryResult))
+	assert.Equal(t, "c", queryResult[0]["a"])
+}
+
+func TestQueryTraceIDs_OrLogic_Success(t *testing.T) {
+	db := sqltest.NewSpannerDBForTests(t, "tracestore")
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, UseInvertedIndex, true)
+
+	// Insert paramsets
+	insertIntoParamSets := `
+    INSERT INTO
+        ParamSets (tile_number, param_key, param_value)
+    VALUES
+            ( 176, 'a', 'b' ),
+            ( 176, 'a', 'c' ),
+            ( 176, 'a', 'd' )
+    ON CONFLICT (tile_number, param_key, param_value)
+    DO NOTHING`
+	_, err := db.Exec(ctx, insertIntoParamSets)
+	assert.NoError(t, err)
+
+	traceStore := NewTraceParamStore(db)
+	traceParamMap := map[string]paramtools.Params{
+		string(types.TraceIDForSQLFromTraceName(",a=b,")): {
+			"a": "b",
+		},
+		string(types.TraceIDForSQLFromTraceName(",a=c,")): {
+			"a": "c",
+		},
+		string(types.TraceIDForSQLFromTraceName(",a=d,")): {
+			"a": "d",
+		},
+	}
+	err = traceStore.WriteTraceParams(ctx, traceParamMap)
+	assert.NoError(t, err)
+
+	inMemoryTraceParams, err := NewInMemoryTraceParams(ctx, db, 12*60*60)
+	assert.NoError(t, err)
+
+	outParams := make(chan paramtools.Params, 10000)
+	// a=b or a=c
+	q, err := query.NewFromString("a=b&a=c")
+	assert.NoError(t, err)
+	inMemoryTraceParams.QueryTraceIDs(ctx, 176, q, outParams)
+
+	queryResult := outParamsToSlice(outParams)
+	// Expect two results: a=b and a=c
+	assert.Equal(t, 2, len(queryResult))
+}
+
+func TestQueryTraceIDs_MultipleNegativeMatch_Success(t *testing.T) {
+	db := sqltest.NewSpannerDBForTests(t, "tracestore")
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, UseInvertedIndex, true)
+
+	// Insert paramsets
+	insertIntoParamSets := `
+    INSERT INTO
+        ParamSets (tile_number, param_key, param_value)
+    VALUES
+            ( 176, 'a', 'b' ),
+            ( 176, 'a', 'c' ),
+            ( 176, 'a', 'd' )
+    ON CONFLICT (tile_number, param_key, param_value)
+    DO NOTHING`
+	_, err := db.Exec(ctx, insertIntoParamSets)
+	assert.NoError(t, err)
+
+	traceStore := NewTraceParamStore(db)
+	traceParamMap := map[string]paramtools.Params{
+		string(types.TraceIDForSQLFromTraceName(",a=b,")): {
+			"a": "b",
+		},
+		string(types.TraceIDForSQLFromTraceName(",a=c,")): {
+			"a": "c",
+		},
+		string(types.TraceIDForSQLFromTraceName(",a=d,")): {
+			"a": "d",
+		},
+	}
+	err = traceStore.WriteTraceParams(ctx, traceParamMap)
+	assert.NoError(t, err)
+
+	inMemoryTraceParams, err := NewInMemoryTraceParams(ctx, db, 12*60*60)
+	assert.NoError(t, err)
+
+	outParams := make(chan paramtools.Params, 10000)
+	// a!=b and a!=c
+	q, err := query.NewFromString("a=!b&a=!c")
+	assert.NoError(t, err)
+	inMemoryTraceParams.QueryTraceIDs(ctx, 176, q, outParams)
+
+	queryResult := outParamsToSlice(outParams)
+	// Expect one result: a=d
+	assert.Equal(t, 1, len(queryResult))
+	assert.Equal(t, "d", queryResult[0]["a"])
+}

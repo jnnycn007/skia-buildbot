@@ -234,6 +234,7 @@ func fileContentsFromFileSystem(fileSystem http.FileSystem, filename string) (st
 var templateFilenames = []string{
 	"newindex.html",
 	"multiexplore.html",
+	"multiexplore-v2.html",
 	"clusters2.html",
 	"playground.html",
 	"triage.html",
@@ -1167,6 +1168,7 @@ func (f *Frontend) GetHandler(allowedHosts []string) http.Handler {
 	// New endpoints that use ptracestore will go here.
 	router.HandleFunc("/e", f.templateHandler("newindex.html"))
 	router.HandleFunc("/m", f.templateHandler("multiexplore.html"))
+	router.HandleFunc("/e2", f.templateHandler("multiexplore-v2.html"))
 	router.HandleFunc("/c", f.templateHandler("clusters2.html"))
 	router.HandleFunc("/pg", f.templateHandler("playground.html"))
 	router.HandleFunc("/t", f.templateHandler("triage.html"))
@@ -1241,12 +1243,17 @@ func (f *Frontend) getFrontendApis() []api.FrontendApi {
 		triageBackendLegacy = api.NewChromeperfTriageBackend(f.chromeperfClient)
 	}
 
+	wasmApi := api.NewWasmApi(f.traceStore, f.paramsetRefresher, "./wasm_cache", config.Config)
+	wasmApi.Start(context.Background())
+
 	return []api.FrontendApi{
+		wasmApi,
 		api.NewFavoritesApi(f.loginProvider, f.favStore),
 		api.NewAlertsApi(f.loginProvider, f.configProvider, f.alertStore, f.notifier, f.subStore, f.dryrunRequests),
 		api.NewAnomaliesApi(f.loginProvider, f.chromeperfClient, f.perfGit, f.subStore, f.alertStore, f.culpritStore, f.regStore, f.regrShortcutStore, f.anomalygroupStore),
 		api.NewRegressionsApi(f.loginProvider, f.configProvider, f.alertStore, f.regStore, f.perfGit, f.anomalyApiClient, f.urlProvider, f.graphsShortcutStore, f.alertGroupClient, f.progressTracker, f.shortcutStore, f.dfBuilder, f.paramsetRefresher),
 		api.NewQueryApi(f.paramsetRefresher),
+		api.NewTraceValuesApi(f.dfBuilder, f.perfGit, f.anomalyStore),
 		api.NewShortCutsApi(f.shortcutStore, f.graphsShortcutStore),
 		api.NewGraphApi(f.flags.NumParamSetsForQueries, config.Config.QueryConfig.CommitChunkSize, config.Config.QueryConfig.MaxEmptyTilesForQuery, f.loginProvider, f.dfBuilder, f.perfGit, f.traceStore, f.metadataStore, f.traceCache, f.shortcutStore, f.graphsShortcutStore, f.anomalyStore, f.chromeperfAnomalyStore, f.progressTracker, f.ingestedFS),
 		api.NewPinpointApi(f.loginProvider, f.pinpoint),

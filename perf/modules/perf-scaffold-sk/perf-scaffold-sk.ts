@@ -165,6 +165,9 @@ export class PerfScaffoldSk extends ElementSk {
         <a href="${ele.multigraphUrl}" tab-index=0 >
           <multiline-chart-icon-sk></multiline-chart-icon-sk><span>MultiGraph</span>
         </a>
+        <a href="/e2" tab-index=0 >
+          <multiline-chart-icon-sk></multiline-chart-icon-sk><span>Graphs (Prototype)</span>
+        </a>
         <div ?hidden=${!window.perf.extra_links}>
           <a href="/l" tab-index=0 >
             <compare-arrows-icon-sk></compare-arrows-icon-sk>
@@ -220,6 +223,9 @@ export class PerfScaffoldSk extends ElementSk {
         <a href="${ele.multigraphUrl}" tab-index=0 class="${
           ele.isPageActive('/m') ? 'active' : ''
         }">MultiGraph</a>
+        <a href="/e2" tab-index=0 class="${
+          ele.isPageActive('/e2') ? 'active' : ''
+        }">Graphs (Prototype)</a>
         <div class="triage-link" ?hidden=${!ele.isHiddenTriage}>
           <a href="/t" tab-index=0 class="${ele.isPageActive('/t') ? 'active' : ''}">Triage</a>
         </div>

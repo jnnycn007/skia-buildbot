@@ -1,0 +1,1589 @@
+import { LitElement, css, html, PropertyValues } from 'lit';
+import { customElement, state } from 'lit/decorators.js';
+import { DataService, TraceValuesRequest, TraceValuesResponse } from '../data-service';
+import { FrameRequest, Regression } from '../json';
+import { TraceSeries } from './trace-chart-sk';
+import { computeTraceDiffs, computeSplitGroups, calculateLoadedBounds } from './chart-logic';
+import { calculateFetchRequests } from './fetch-logic';
+import { toParamSet } from '../../../infra-sk/modules/query';
+import { stateReflector } from '../../../infra-sk/modules/stateReflector';
+import { makeKey } from '../paramtools';
+import './query-bar-sk';
+import { Suggestion } from './query-bar-sk';
+import './trace-chart-sk';
+import { telemetry } from '../telemetry/telemetry';
+import { CountMetric } from '../telemetry/types';
+
+import { TraceDatabase, hashRequest } from './db';
+import './explore-toolbar-sk';
+import { ExploreWorkerController } from './explore-worker-controller';
+
+export const SUBREPO_CONFIG: Record<string, { logUrl: string; repoUrl: string }> = {
+  V8: {
+    logUrl: 'https://chromium.googlesource.com/v8/v8.git/+log/',
+    repoUrl: 'https://chromium.googlesource.com/v8/v8.git/+/',
+  },
+  WebRTC: {
+    logUrl: 'https://webrtc.googlesource.com/src.git/+log/',
+    repoUrl: 'https://webrtc.googlesource.com/src.git/+/',
+  },
+  Skia: {
+    logUrl: 'https://skia.googlesource.com/skia.git/+log/',
+    repoUrl: 'https://skia.googlesource.com/skia.git/+/',
+  },
+  Dawn: {
+    logUrl: 'https://dawn.googlesource.com/dawn.git/+log/',
+    repoUrl: 'https://dawn.googlesource.com/dawn.git/+/',
+  },
+  Angle: {
+    logUrl: 'https://chromium.googlesource.com/angle/angle.git/+log/',
+    repoUrl: 'https://chromium.googlesource.com/angle/angle.git/+/',
+  },
+};
+
+@customElement('explore-multi-v2-sk')
+export class ExploreMultiV2Sk extends LitElement {
+  @state() private _queries: Record<string, string[]>[] = [{}];
+
+  @state() private _defaultParamSelections: Record<string, string[]> = {};
+
+  @state() private _conditionalDefaults: any[] = [];
+
+  @state() private _defaults: any = null;
+
+  @state() private _loading = false;
+
+  @state() private _availableParams: { key: string; value: string; count: number }[] = [];
+
+  @state() private _optionsByKey: Record<string, { value: string; count: number }[]> = {};
+
+  @state() private _suggestionsForQueryBar: Suggestion[][] = [];
+
+  @state() private _splitKeys: Set<string> = new Set();
+
+  @state() private _includeParams: string[] = [];
+
+  @state() private _normalizeCentre: 'none' | 'first' | 'average' | 'median' = 'none';
+
+  @state() private _normalizeScale: 'none' | 'minmax' | 'stddev' = 'none';
+
+  @state() private _hoverMode: 'original' | 'smoothed' | 'both' = 'original';
+
+  @state() private _smoothingRadius = 20;
+
+  @state() private _dateMode = false;
+
+  @state() private _edgeDetectionFactor = 1.0;
+
+  @state() private _edgeLookahead = 3;
+
+  @state() private _showDots = true;
+
+  @state() private _seriesData: TraceSeries[] = [];
+
+  @state() private _viewportMinX: number | null = null;
+
+  @state() private _viewportMaxX: number | null = null;
+
+  @state() private _globalHoverX: number | null = null;
+
+  @state() private _globalPinnedX: number | null = null;
+
+  @state() private _loadedBounds: Record<string, { min: number; max: number }> = {};
+
+  @state() private _globalBounds: Record<string, { min: number; max: number }> = {};
+
+  @state() private _selectedSubrepo: string = 'none';
+
+  @state() private _availableSubrepos: string[] = [];
+
+  @state() private _diffBase: { key: string; value: string } | null = null;
+
+  @state() private _pageSize = 10;
+
+  @state() private _showRegressions = true;
+
+  @state() private _showSparklines = false;
+
+  @state() private _showMinMax = true;
+
+  @state() private _showStd = false;
+
+  @state() private _showCount = false;
+
+  @state() private _tooltipDiffs = false;
+
+  @state() private _showLoadedBounds = false;
+
+  @state() private _smooth = false;
+
+  @state() private _regressions: { [trace_id: string]: { [commit: number]: Regression } } = {};
+
+  @state() private _tracePage = 0;
+
+  @state() private _rangeSelection: {
+    minCommit: number;
+    maxCommit: number;
+    clientX: number;
+    clientY: number;
+  } | null = null;
+
+  @state() private _showAllTraces = false;
+
+  private _workerController: ExploreWorkerController | null = null;
+
+  private _latestActiveFacets: string[] = [];
+
+  private _viewportChangeTimeout: any = null;
+
+  @state() private _matchingTraceIds: string[] = [];
+
+  private _stateHasChanged: () => void = () => {};
+
+  private _inFlightMetadataCommits = new Set<number>();
+
+  connectedCallback() {
+    super.connectedCallback();
+
+    telemetry.increaseCounter(CountMetric.ExploreMultiV2Visit);
+
+    const db = new TraceDatabase();
+    db.evictOlderThan(30).catch((e: any) => console.error('Eviction failed:', e));
+
+    this._stateHasChanged = stateReflector(
+      () => {
+        return {
+          qs: JSON.stringify(this._queries),
+          centre: this._normalizeCentre,
+          scale: this._normalizeScale,
+          hoverMode: this._hoverMode,
+          radius: this._smoothingRadius,
+          dots: this._showDots,
+          split: Array.from(this._splitKeys).join(','),
+          diff_base: this._diffBase ? `${this._diffBase.key}=${this._diffBase.value}` : '',
+          sparklines: this._showSparklines,
+          minmax: this._showMinMax,
+          std: this._showStd,
+          count: this._showCount,
+          regressions: this._showRegressions,
+          tooltipDiffs: this._tooltipDiffs,
+          loadedBounds: this._showLoadedBounds,
+        };
+      },
+      (o: any) => {
+        const stateObj = o as any;
+        if (stateObj.qs !== undefined) {
+          console.log('explore-multi-v2-sk: Raw qs from URL:', stateObj.qs);
+          try {
+            const parsed = JSON.parse(stateObj.qs);
+            if (Array.isArray(parsed)) {
+              this._queries = parsed;
+            } else if (typeof parsed === 'object' && parsed !== null) {
+              console.log('explore-multi-v2-sk: Wrapping object query in array');
+              this._queries = [parsed];
+            } else {
+              console.error('explore-multi-v2-sk: Invalid qs type:', typeof parsed);
+              this._queries = [{}];
+            }
+          } catch (e) {
+            console.error('explore-multi-v2-sk: Failed to parse qs from URL:', e);
+            this._queries = [{}];
+          }
+        } else if (stateObj.q !== undefined) {
+          this._queries = [toParamSet(stateObj.q)];
+        }
+        if (stateObj.centre !== undefined) this._normalizeCentre = stateObj.centre;
+        if (stateObj.scale !== undefined) this._normalizeScale = stateObj.scale;
+        if (stateObj.hoverMode !== undefined) {
+          this._hoverMode = stateObj.hoverMode;
+          this._smooth = this._hoverMode === 'both' || this._hoverMode === 'smoothed';
+        }
+        if (stateObj.radius !== undefined) this._smoothingRadius = stateObj.radius;
+        if (stateObj.dots !== undefined) this._showDots = stateObj.dots;
+        if (stateObj.split !== undefined) {
+          this._splitKeys = new Set(stateObj.split ? stateObj.split.split(',') : []);
+        }
+        if (stateObj.diff_base) {
+          const parts = stateObj.diff_base.split('=');
+          if (parts.length === 2) {
+            this._diffBase = { key: parts[0], value: parts[1] };
+          }
+        } else {
+          this._diffBase = null;
+        }
+        if (stateObj.sparklines !== undefined) this._showSparklines = stateObj.sparklines;
+        if (stateObj.minmax !== undefined) this._showMinMax = stateObj.minmax;
+        if (stateObj.std !== undefined) this._showStd = stateObj.std;
+        if (stateObj.count !== undefined) this._showCount = stateObj.count;
+        if (stateObj.regressions !== undefined) this._showRegressions = stateObj.regressions;
+        if (stateObj.tooltipDiffs !== undefined) this._tooltipDiffs = stateObj.tooltipDiffs;
+        if (stateObj.loadedBounds !== undefined) this._showLoadedBounds = stateObj.loadedBounds;
+      }
+    );
+
+    this._initWorker();
+  }
+
+  disconnectedCallback() {
+    if (this._workerController) {
+      this._workerController.terminate();
+    }
+    super.disconnectedCallback();
+  }
+
+  private _initWorker() {
+    this._workerController = new ExploreWorkerController(
+      () => {
+        console.log('Orchestrator: Worker loaded');
+      },
+      () => {
+        console.log('Orchestrator: Worker ready');
+        this._triggerWorkerFilter();
+      },
+      (payload) => {
+        console.log(`Worker Progress [${payload.name}]: ${payload.loaded}/${payload.total}`);
+      },
+      (message) => {
+        console.error('Worker Error:', message);
+      },
+      (payload) => {
+        console.log('Worker Params Ready');
+        if (payload.availableParams) {
+          this._availableParams = payload.availableParams;
+        }
+        if (payload.paramsByKey) {
+          this._optionsByKey = payload.paramsByKey;
+        }
+      },
+      (payload) => {
+        this._handleFilterResult(payload);
+      },
+      (payload, idx) => {
+        const newSuggestions = [...this._suggestionsForQueryBar];
+        newSuggestions[idx] = payload;
+        this._suggestionsForQueryBar = newSuggestions;
+      }
+    );
+    this._workerController.init();
+  }
+
+  private _handleFilterResult(payload: any) {
+    console.log('Worker Filter Result:', payload.filteredCount);
+
+    const reconstructedIds: string[] = [];
+    if (payload.results) {
+      payload.results.forEach((r: any) => {
+        const paramsObj: Record<string, string> = {};
+        r.params.forEach((p: any) => {
+          paramsObj[p.key] = p.value;
+        });
+        try {
+          const key = makeKey(paramsObj);
+          reconstructedIds.push(key);
+        } catch (err) {
+          console.error('Failed to construct key for trace:', r.index, err);
+        }
+      });
+    }
+    const queryObj = this._queries[0];
+    const hasFilters = queryObj
+      ? Object.values(queryObj).some((arr) => arr && arr.length > 0)
+      : false;
+
+    if (!hasFilters) {
+      this._matchingTraceIds = [];
+      this._seriesData = [];
+      this._loadedBounds = {};
+      this._globalBounds = {};
+      this._regressions = {};
+    } else {
+      this._matchingTraceIds = reconstructedIds;
+      console.log(`Reconstructed ${reconstructedIds.length} matching Trace IDs`);
+      void this._fetchData();
+    }
+
+    if (payload.queryResults && payload.queryResults[0]) {
+      const firstResult = payload.queryResults[0];
+      if (firstResult.availableParams) {
+        this._availableParams = firstResult.availableParams;
+      }
+
+      const mergedOptionsByKey = firstResult.paramsByKey ? { ...firstResult.paramsByKey } : {};
+
+      // Override counts for active facets with data from corresponding results
+      if (payload.queryResults.length > 1 && this._latestActiveFacets.length > 0) {
+        this._latestActiveFacets.forEach((key, index) => {
+          const resultIdx = index + this._queries.length;
+          if (payload.queryResults[resultIdx]) {
+            const facetResult = payload.queryResults[resultIdx];
+            if (facetResult.paramsByKey && facetResult.paramsByKey[key]) {
+              mergedOptionsByKey[key] = facetResult.paramsByKey[key];
+            }
+          }
+        });
+      }
+
+      this._optionsByKey = mergedOptionsByKey;
+    }
+  }
+
+  private _triggerWorkerFilter() {
+    if (!this._workerController?.isReady()) return;
+
+    const queries: Record<string, string[]>[] = [...this._queries];
+    const activeFacets: string[] = [];
+
+    // Add one query per selected facet, with that facet removed
+    for (const key of Object.keys(this._queries[0])) {
+      if (this._queries[0][key] && this._queries[0][key].length > 0) {
+        activeFacets.push(key);
+        const queryCopy = { ...this._queries[0] };
+        delete queryCopy[key];
+        queries.push(queryCopy);
+      }
+    }
+
+    this._latestActiveFacets = activeFacets;
+
+    this._workerController.filter(queries, this._queries.length);
+  }
+
+  static styles = css`
+    :host {
+      display: block;
+      padding: 16px;
+      font-family: var(--font, 'Inter', system-ui, -apple-system, sans-serif);
+      background-color: var(--background, #0b0f19);
+      color: var(--on-background, #f8fafc);
+      min-height: 100vh;
+    }
+
+    .range-menu {
+      background-color: var(--surface, #1e293b);
+      border: 1px solid var(--border, #334155);
+      border-radius: 4px;
+      box-shadow:
+        0 4px 6px -1px rgba(0, 0, 0, 0.1),
+        0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      z-index: 1000;
+    }
+
+    .range-menu button {
+      background: none;
+      border: none;
+      color: var(--on-surface, #f8fafc);
+      text-align: left;
+      padding: 4px 8px;
+      cursor: pointer;
+      border-radius: 2px;
+    }
+
+    .page-loading {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      color: var(--on-surface, #94a3b8);
+      font-size: 16px;
+      padding: 40px;
+    }
+
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      border-radius: 50%;
+      border-top-color: var(--primary, #818cf8);
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .range-menu button:hover {
+      background-color: var(--surface-hover, #334155);
+    }
+
+    .header {
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      color: var(--on-background, #fff);
+      font-size: 24px;
+      font-weight: 800;
+      margin: 0;
+      letter-spacing: -0.025em;
+      background: linear-gradient(to right, var(--primary, #6366f1), #a855f7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle {
+      color: var(--on-surface, #94a3b8);
+      font-size: 12px;
+      margin: 4px 0 0 0;
+    }
+
+    .workspace {
+      background: var(--surface, rgba(30, 41, 59, 0.5));
+      backdrop-filter: blur(12px);
+      border: none;
+      color: var(--on-surface, #f8fafc);
+      border-radius: 12px;
+      padding: 12px;
+      box-shadow:
+        0 10px 25px -5px rgba(0, 0, 0, 0.1),
+        0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    }
+
+    .section-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--on-surface, #64748b);
+      margin-bottom: 8px;
+    }
+
+    .charts-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .sparklines-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .query-row {
+      margin-bottom: 6px;
+    }
+
+    .add-query-circle-btn {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: white;
+      border: 1px solid #dadce0;
+      color: #1a73e8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      transition: all 0.2s;
+    }
+    .add-query-circle-btn:hover {
+      background: #f1f3f4;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+    }
+  `;
+
+  protected firstUpdated() {
+    void this._fetchMetadata();
+  }
+
+  private async _fetchMetadata() {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    try {
+      const json = await DataService.getInstance().getInitPage(tz);
+      try {
+        const defaults = await DataService.getInstance().getDefaults();
+        this._defaults = defaults;
+        this._includeParams = defaults.include_params || [];
+        this._defaultParamSelections =
+          (defaults.default_param_selections as Record<string, string[]>) || {};
+        this._conditionalDefaults = defaults.conditional_defaults || [];
+
+        // Apply defaults to initial query if empty
+        if (this._queries.length === 1 && Object.keys(this._queries[0]).length === 0) {
+          this._queries = [{ ...this._defaultParamSelections }];
+        }
+
+        // Apply URL defaults
+        if (defaults.default_url_values) {
+          const url = new URL(window.location.href);
+          let urlChanged = false;
+          for (const key of Object.keys(defaults.default_url_values)) {
+            if (!url.searchParams.has(key)) {
+              url.searchParams.set(key, defaults.default_url_values[key]);
+              urlChanged = true;
+            }
+          }
+          if (urlChanged) {
+            window.history.replaceState(null, '', url.toString());
+          }
+        }
+      } catch (e) {
+        console.error('Failed to fetch defaults:', e);
+      }
+
+      if (json && json.dataframe && json.dataframe.paramset) {
+        const paramset = json.dataframe.paramset as Record<string, string[]>;
+        const optionsByKey: Record<string, { value: string; count: number }[]> = {};
+        const availableParams: { key: string; value: string; count: number }[] = [];
+
+        Object.keys(paramset).forEach((key) => {
+          optionsByKey[key] = paramset[key].map((v) => ({ value: v, count: 0 }));
+          paramset[key].forEach((v) => {
+            availableParams.push({ key: key, value: v, count: 0 });
+          });
+        });
+
+        this._optionsByKey = optionsByKey;
+        this._availableParams = availableParams;
+      }
+    } catch (e) {
+      console.error('Metadata fetch error:', e);
+    }
+  }
+
+  protected updated(changedProperties: PropertyValues) {
+    if (changedProperties.has('_queries')) {
+      this._tracePage = 0;
+      if (this._workerController?.isReady()) {
+        this._triggerWorkerFilter();
+      }
+    }
+
+    if (changedProperties.has('_tracePage') || changedProperties.has('_showAllTraces')) {
+      void this._fetchData();
+    }
+
+    if (
+      changedProperties.has('_showMinMax') ||
+      changedProperties.has('_showStd') ||
+      changedProperties.has('_showCount')
+    ) {
+      void this._fetchData();
+    }
+
+    if (changedProperties.has('_seriesData') || changedProperties.has('_tracePage')) {
+      void this._fetchMetadataForVisibleTraces();
+    }
+
+    if (
+      changedProperties.has('_queries') ||
+      changedProperties.has('_normalizeCentre') ||
+      changedProperties.has('_normalizeScale') ||
+      changedProperties.has('_hoverMode') ||
+      changedProperties.has('_smoothingRadius') ||
+      changedProperties.has('_showDots') ||
+      changedProperties.has('_splitKeys') ||
+      changedProperties.has('_showSparklines') ||
+      changedProperties.has('_showMinMax') ||
+      changedProperties.has('_showStd') ||
+      changedProperties.has('_showCount') ||
+      changedProperties.has('_showRegressions') ||
+      changedProperties.has('_tooltipDiffs') ||
+      changedProperties.has('_showLoadedBounds')
+    ) {
+      this._stateHasChanged();
+    }
+  }
+
+  private async _fetchData(retryCount = 0): Promise<void> {
+    console.log('[_fetchData] called, retryCount:', retryCount);
+    const startIdx = this._tracePage * this._pageSize;
+    const endIdx = startIdx + this._pageSize;
+    const visibleIds = this._showAllTraces
+      ? this._matchingTraceIds.slice(0, 500)
+      : this._matchingTraceIds.slice(startIdx, endIdx);
+    console.log('[_fetchData] visibleIds:', visibleIds);
+    if (visibleIds.length === 0) {
+      console.log('Skipping fetch: no visible trace IDs matched yet');
+      return;
+    }
+
+    const loadedIds = new Set(this._seriesData.map((s) => s.id));
+    console.log('[_fetchData] loadedIds:', Array.from(loadedIds));
+
+    this._loading = true;
+    try {
+      const now = Math.floor(Date.now() / 1000);
+      const quantizedNow = Math.floor(now / 3600) * 3600;
+      const duration = 150 * 24 * 3600 * Math.pow(2, retryCount);
+      const quantizedBegin = quantizedNow - duration;
+
+      let reqTraceIds = [...visibleIds];
+      const addStatKeys = (statName: string) => {
+        visibleIds.forEach((id) => {
+          const params = this._parseTraceKey(id);
+          try {
+            reqTraceIds.push(makeKey({ ...params, stat: statName }));
+          } catch (e) {
+            console.error(`Failed to make key for stat ${statName}`, e);
+          }
+        });
+      };
+
+      if (this._showMinMax) {
+        addStatKeys('min');
+        addStatKeys('max');
+      }
+      if (this._showStd) {
+        addStatKeys('error');
+      }
+      if (this._showCount) {
+        addStatKeys('count');
+      }
+
+      reqTraceIds = Array.from(new Set(reqTraceIds));
+      console.log('[_fetchData] reqTraceIds:', reqTraceIds);
+      if (reqTraceIds.every((id) => loadedIds.has(id))) {
+        console.log('Skipping fetch: all requested traces already loaded in memory');
+        return;
+      }
+
+      const req: FrameRequest = {
+        begin: quantizedBegin,
+        end: quantizedNow,
+        trace_ids: reqTraceIds,
+        tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      };
+
+      const cacheKey = await hashRequest(req);
+      const db = new TraceDatabase();
+      const cached = await db.get(cacheKey);
+      if (cached) {
+        console.log('Serving from cache:', cacheKey);
+
+        if (cached.anomalymap) {
+          const nextRegressions = { ...this._regressions };
+          for (const [traceId, commitMap] of Object.entries(cached.anomalymap)) {
+            if (!commitMap) continue;
+
+            const params = this._parseTraceKey(traceId);
+            delete params['stat'];
+            let primaryKey = traceId;
+            try {
+              primaryKey = makeKey(params);
+            } catch (e) {
+              console.error('makeKey failed in cached anomalymap merge', e);
+            }
+
+            if (!nextRegressions[primaryKey]) {
+              nextRegressions[primaryKey] = {};
+            }
+            for (const [commit, anomaly] of Object.entries(commitMap)) {
+              nextRegressions[primaryKey][Number(commit)] = {
+                is_improvement: anomaly.is_improvement,
+                bug_id: anomaly.bug_id,
+                recovered: anomaly.recovered,
+                status: anomaly.state,
+              } as any;
+            }
+          }
+          this._regressions = nextRegressions;
+        }
+
+        if (cached.dataframe) {
+          const newSeries = this._translateDataFrame(cached.dataframe);
+          this._seriesData = this._mergeSeriesWithStats(this._seriesData, newSeries);
+          this._loadedBounds = calculateLoadedBounds(this._seriesData as any, this._dateMode);
+        }
+        return;
+      }
+
+      const response = await DataService.getInstance().sendFrameRequest(req, {
+        onProgress: (prog: string) => console.log('Progress:', prog),
+        onMessage: (msg: string) => console.error('Message:', msg),
+      });
+
+      if (response && response.anomalymap) {
+        const nextRegressions = { ...this._regressions };
+        for (const [traceId, commitMap] of Object.entries(response.anomalymap)) {
+          if (!commitMap) continue;
+
+          const params = this._parseTraceKey(traceId);
+          delete params['stat'];
+          let primaryKey = traceId;
+          try {
+            primaryKey = makeKey(params);
+          } catch (e) {
+            console.error('makeKey failed in anomalymap merge', e);
+          }
+
+          if (!nextRegressions[primaryKey]) {
+            nextRegressions[primaryKey] = {};
+          }
+          for (const [commit, anomaly] of Object.entries(commitMap)) {
+            nextRegressions[primaryKey][Number(commit)] = {
+              is_improvement: anomaly.is_improvement,
+              bug_id: anomaly.bug_id,
+              recovered: anomaly.recovered,
+              status: anomaly.state,
+            } as any;
+          }
+        }
+        this._regressions = nextRegressions;
+      }
+
+      if (response && response.dataframe) {
+        const newSeries = this._translateDataFrame(response.dataframe);
+
+        if (newSeries.length === 0 && retryCount < 3) {
+          console.log(
+            'Out of bounds empty traceset detected. Widening duration bounds retry:',
+            retryCount + 1
+          );
+          return await this._fetchData(retryCount + 1);
+        }
+
+        this._seriesData = this._mergeSeriesWithStats(this._seriesData, newSeries);
+        this._loadedBounds = calculateLoadedBounds(this._seriesData as any, this._dateMode);
+        await db.set(cacheKey, response);
+      }
+    } catch (e) {
+      console.error('Fetch error:', e);
+    } finally {
+      this._loading = false;
+    }
+  }
+
+  private _handleToggleRegressions(e: any) {
+    this._showRegressions = e.target.checked;
+  }
+
+  private _onResetZoom() {
+    this._viewportMinX = null;
+    this._viewportMaxX = null;
+    this.requestUpdate();
+  }
+
+  private _determineYAxisTitle(traceNames: string[]): string {
+    if (traceNames.length < 1) {
+      return '';
+    }
+
+    function parseVal(key: string, traceParams: string[]): string {
+      for (const kv of traceParams) {
+        if (kv.startsWith(key)) {
+          const pieces = kv.split('=', 2);
+          return pieces[1];
+        }
+      }
+      return '';
+    }
+
+    let idx = 0;
+    let params = traceNames[idx].split(',');
+    let unit = parseVal('unit', params);
+    let improvement_dir = parseVal('improvement_dir', params);
+
+    for (idx = 1; idx < traceNames.length; idx++) {
+      params = traceNames[idx].split(',');
+      if (unit !== parseVal('unit', params)) {
+        unit = '';
+      }
+      if (improvement_dir !== parseVal('improvement_dir', params)) {
+        improvement_dir = '';
+      }
+      if (unit === '' && improvement_dir === '') {
+        return '';
+      }
+    }
+
+    let title = '';
+    if (unit !== '') {
+      title += `${unit}`;
+    }
+    if (improvement_dir !== '') {
+      if (unit !== '') {
+        title += ' - ';
+      }
+      title += `${improvement_dir}`;
+    }
+    return title;
+  }
+
+  private _handleViewportChanged(e: any) {
+    const detail = e.detail as { minCommit: number; maxCommit: number };
+    const { minCommit, maxCommit } = detail;
+
+    // Update viewport instantly for visual sync
+    this._viewportMinX = minCommit;
+    this._viewportMaxX = maxCommit;
+
+    if (this._viewportChangeTimeout) {
+      clearTimeout(this._viewportChangeTimeout);
+    }
+    this._viewportChangeTimeout = setTimeout(() => {
+      this._doHandleViewportChanged(e).catch((err) => {
+        console.error('Failed to handle viewport change:', err);
+      });
+    }, 300);
+  }
+
+  private async _doHandleViewportChanged(e: any) {
+    const detail = e.detail as { minCommit: number; maxCommit: number };
+    const { minCommit, maxCommit } = detail;
+
+    const startIdx = this._tracePage * this._pageSize;
+    const endIdx = startIdx + this._pageSize;
+    const visibleIds = this._matchingTraceIds.slice(startIdx, endIdx);
+    const loadedIds = new Set(this._seriesData.map((s) => s.id));
+
+    const allVisibleIds = [...visibleIds];
+    const addStatKeysToVisible = (statName: string) => {
+      visibleIds.forEach((id) => {
+        const params = this._parseTraceKey(id);
+        try {
+          allVisibleIds.push(makeKey({ ...params, stat: statName }));
+        } catch (err) {
+          console.error(`Failed to make key for stat ${statName}`, err);
+        }
+      });
+    };
+
+    if (this._showMinMax) {
+      addStatKeysToVisible('min');
+      addStatKeysToVisible('max');
+    }
+    if (this._showStd) {
+      addStatKeysToVisible('error');
+    }
+    if (this._showCount) {
+      addStatKeysToVisible('count');
+    }
+
+    const requests = calculateFetchRequests(
+      Array.from(new Set(allVisibleIds)),
+      loadedIds,
+      { min: minCommit, max: maxCommit },
+      this._loadedBounds,
+      this._globalBounds,
+      this._getPrimaryKey.bind(this),
+      this._dateMode
+    );
+    console.log('[_doHandleViewportChanged] requests:', requests);
+
+    for (const req of requests) {
+      try {
+        const fetchReq: TraceValuesRequest = {
+          ids: req.ids,
+          min_commit: 0,
+          max_commit: 0,
+        };
+        if (this._dateMode) {
+          fetchReq.begin = Math.floor(req.min || 0);
+          fetchReq.end = Math.ceil(req.max || 0);
+        } else {
+          fetchReq.min_commit = Math.floor(req.min || 0);
+          fetchReq.max_commit = Math.ceil(req.max || 0);
+        }
+
+        fetchReq.ids.sort();
+        const cacheKey = await hashRequest(fetchReq);
+        const db = new TraceDatabase();
+        const cached = await db.get(cacheKey);
+
+        let resp: TraceValuesResponse;
+        if (cached) {
+          console.log('Serving trace values from cache:', cacheKey);
+          resp = cached;
+        } else {
+          resp = await DataService.getInstance().fetchTraceValues(fetchReq);
+          console.log('[_doHandleViewportChanged] fetchTraceValues response:', resp);
+          await db.set(cacheKey, resp);
+        }
+
+        if (resp && resp.anomalymap) {
+          const nextRegressions = { ...this._regressions };
+          for (const [traceId, commitMap] of Object.entries(resp.anomalymap)) {
+            if (!commitMap) continue;
+
+            const params = this._parseTraceKey(traceId);
+            delete params['stat'];
+            let primaryKey = traceId;
+            try {
+              primaryKey = makeKey(params);
+            } catch (err) {
+              console.error('makeKey failed in fetchTraceValues merge', err);
+            }
+
+            if (!nextRegressions[primaryKey]) {
+              nextRegressions[primaryKey] = {};
+            }
+            for (const [commit, anomaly] of Object.entries(commitMap)) {
+              nextRegressions[primaryKey][Number(commit)] = {
+                is_improvement: anomaly.is_improvement,
+                bug_id: anomaly.bug_id,
+                recovered: anomaly.recovered,
+                status: anomaly.state,
+              } as any;
+            }
+          }
+          this._regressions = nextRegressions;
+        }
+
+        if (resp && resp.results) {
+          const convertedSeries: TraceSeries[] = [];
+          for (const [id, rows] of Object.entries(resp.results) as [string, any[]][]) {
+            const params = this._parseTraceKey(id);
+            const stat = params['stat'];
+
+            const primaryParams = { ...params };
+            delete primaryParams['stat'];
+            let primaryKey = id;
+            try {
+              primaryKey = makeKey(primaryParams);
+            } catch (err) {
+              console.error('makeKey failed in fetchTraceValues merge', err);
+            }
+
+            let s = convertedSeries.find((cs) => cs.id === primaryKey);
+            if (!s) {
+              s = { id: primaryKey, rows: [], color: '', allStats: {} };
+              convertedSeries.push(s);
+            }
+
+            const mappedRows = rows.map((r) => ({
+              commit_number: r.commit_number,
+              createdat: r.createdat,
+              val: r.val,
+              smoothedVal: r.val,
+            }));
+
+            if (!stat || stat === 'value' || stat === 'median') {
+              s.rows = mappedRows;
+            }
+
+            if (stat) {
+              if (!s.allStats) s.allStats = {};
+              s.allStats[stat] = mappedRows;
+            }
+          }
+          this._mergeSeriesData(convertedSeries);
+
+          // If a left fetch returned no data for an ID, mark that we reached the global min.
+          if (req.order === 'DESC') {
+            req.ids.forEach((id) => {
+              const rows = resp.results[id];
+              if (!rows || rows.length === 0) {
+                if (!this._globalBounds[id]) {
+                  this._globalBounds[id] = { min: Infinity, max: -Infinity };
+                }
+                const lBounds = this._loadedBounds[id];
+                if (lBounds) {
+                  this._globalBounds[id].min = lBounds.min;
+                }
+              }
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch trace values:', error);
+      }
+    }
+  }
+
+  private _handleRangeSelected(e: any) {
+    const detail = e.detail as {
+      minCommit: number;
+      maxCommit: number;
+      clientX: number;
+      clientY: number;
+    };
+    this._rangeSelection = {
+      minCommit: detail.minCommit,
+      maxCommit: detail.maxCommit,
+      clientX: detail.clientX,
+      clientY: detail.clientY,
+    };
+  }
+
+  private _zoomToRange() {
+    if (!this._rangeSelection) return;
+    this._viewportMinX = this._rangeSelection.minCommit;
+    this._viewportMaxX = this._rangeSelection.maxCommit;
+    this._rangeSelection = null;
+    this.requestUpdate();
+  }
+
+  private _queryRange() {
+    if (!this._rangeSelection) return;
+    console.log('Query range:', this._rangeSelection.minCommit, this._rangeSelection.maxCommit);
+    this._rangeSelection = null;
+  }
+
+  private _showCommits() {
+    if (!this._rangeSelection) return;
+    console.log('Show commits:', this._rangeSelection.minCommit, this._rangeSelection.maxCommit);
+    this._rangeSelection = null;
+  }
+
+  private _bisect() {
+    if (!this._rangeSelection) return;
+    console.log('Bisect:', this._rangeSelection.minCommit, this._rangeSelection.maxCommit);
+    this._rangeSelection = null;
+  }
+
+  private _handleRemoveTrace(id: string) {
+    this._seriesData = this._seriesData.filter((s) => s.id !== id);
+    this._loadedBounds = calculateLoadedBounds(this._seriesData as any, this._dateMode);
+    delete this._globalBounds[id];
+    this.requestUpdate();
+  }
+
+  private _handleCloseChart(ids: string[]) {
+    const idSet = new Set(ids);
+    this._seriesData = this._seriesData.filter((s) => !idSet.has(s.id));
+    this._loadedBounds = calculateLoadedBounds(this._seriesData as any, this._dateMode);
+    ids.forEach((id) => delete this._globalBounds[id]);
+    this.requestUpdate();
+  }
+
+  private _mergeSeriesData(olderSeries: TraceSeries[]) {
+    const newSeries = [...this._seriesData];
+    const map = new Map<string, TraceSeries>();
+    newSeries.forEach((s) => map.set(s.id, s));
+
+    olderSeries.forEach((os) => {
+      const existing = map.get(os.id);
+      if (existing) {
+        // Merge rows
+        const allRows = [...existing.rows, ...os.rows];
+        const unique = new Map<number, any>();
+        allRows.forEach((r) => unique.set(r.commit_number, r));
+        existing.rows = Array.from(unique.values()).sort(
+          (a, b) => a.commit_number - b.commit_number
+        );
+
+        // Merge stats
+        if (os.allStats) {
+          if (!existing.allStats) existing.allStats = {};
+          for (const [stat, rows] of Object.entries(os.allStats)) {
+            const existingRows = existing.allStats[stat] || [];
+            const allStatRows = [...existingRows, ...rows];
+            const uniqueStats = new Map<number, any>();
+            allStatRows.forEach((r) => uniqueStats.set(r.commit_number, r));
+            existing.allStats[stat] = Array.from(uniqueStats.values()).sort(
+              (a, b) => a.commit_number - b.commit_number
+            );
+          }
+        }
+      } else {
+        newSeries.push(os);
+      }
+    });
+
+    this._seriesData = newSeries;
+    this._loadedBounds = calculateLoadedBounds(this._seriesData as any, this._dateMode);
+  }
+
+  private _translateDataFrame(df: any): TraceSeries[] {
+    if (!df || !df.traceset || !df.header) return [];
+
+    const seriesMap = new Map<string, TraceSeries>();
+    const keys = Object.keys(df.traceset);
+    console.log('[_translateDataFrame] keys count:', keys.length);
+
+    // Cap at 500 traces as requested
+    const limitedKeys = keys.slice(0, 500);
+
+    limitedKeys.forEach((key) => {
+      const traceValues = df.traceset[key];
+      const rows: any[] = [];
+
+      df.header.forEach((header: any, hIdx: number) => {
+        const val = traceValues[hIdx];
+        const isSentinel = Math.abs(val) > 1e20;
+        if (header && val !== null && val !== undefined && !isNaN(val) && !isSentinel) {
+          rows.push({
+            commit_number: header.offset,
+            val: val,
+            createdat: header.timestamp,
+            hash: header.hash,
+            url: header.url,
+          });
+        }
+      });
+
+      const params = this._parseTraceKey(key);
+      const stat = params['stat'];
+      console.log('[_translateDataFrame] key:', key, 'stat:', stat);
+
+      const primaryParams = { ...params };
+      delete primaryParams['stat'];
+      let primaryKey = key;
+      try {
+        primaryKey = makeKey(primaryParams);
+      } catch (e) {
+        console.error('[_translateDataFrame] makeKey failed for', primaryParams, e);
+      }
+
+      let s = seriesMap.get(primaryKey);
+      if (!s) {
+        s = {
+          id: primaryKey,
+          color: '', // Will assign color later
+          rows: [],
+          allStats: {},
+        };
+        seriesMap.set(primaryKey, s);
+      }
+
+      if (!stat || stat === 'value' || stat === 'median') {
+        s.rows = rows;
+      }
+
+      if (stat) {
+        if (!s.allStats) s.allStats = {};
+        s.allStats[stat] = rows;
+      }
+    });
+
+    console.log('[_translateDataFrame] seriesMap size:', seriesMap.size);
+
+    const result: TraceSeries[] = [];
+    let idx = 0;
+    seriesMap.forEach((s) => {
+      s.color = `hsl(${(idx * 137.5) % 360}, 70%, 50%)`;
+      idx++;
+      result.push(s);
+    });
+
+    return result;
+  }
+
+  private _parseTraceKey(key: string): Record<string, string> {
+    const params: Record<string, string> = {};
+    const parts = key.split(',');
+    parts.forEach((part) => {
+      if (!part) return;
+      const idx = part.indexOf('=');
+      if (idx !== -1) {
+        const k = part.substring(0, idx);
+        const v = part.substring(idx + 1);
+        params[k] = v;
+      }
+    });
+    return params;
+  }
+
+  private _getPrimaryKey(key: string): string {
+    const params = this._parseTraceKey(key);
+    if (params['stat']) {
+      delete params['stat'];
+      try {
+        return makeKey(params);
+      } catch (e) {
+        console.error('makeKey failed in _getPrimaryKey for', params, e);
+        return key;
+      }
+    }
+    return key;
+  }
+
+  private _mergeSeriesWithStats(existing: TraceSeries[], newSeries: TraceSeries[]): TraceSeries[] {
+    const existingMap = new Map(existing.map((s) => [s.id, s]));
+
+    newSeries.forEach((s) => {
+      const existingSeries = existingMap.get(s.id);
+      if (existingSeries) {
+        if (s.rows && s.rows.length > 0) {
+          existingSeries.rows = s.rows;
+        }
+        if (s.allStats) {
+          existingSeries.allStats = { ...existingSeries.allStats, ...s.allStats };
+        }
+      } else {
+        existingMap.set(s.id, s);
+      }
+    });
+
+    return Array.from(existingMap.values());
+  }
+
+  private _handleHoverChanged(e: CustomEvent<{ dataX: number | null }>) {
+    this._globalHoverX = e.detail.dataX;
+  }
+
+  private _handlePinPoint(e: CustomEvent<{ dataX: number | null }>) {
+    this._globalPinnedX = e.detail.dataX;
+  }
+
+  private _onAddQuery() {
+    this._queries = [...this._queries, { ...this._defaultParamSelections }];
+  }
+
+  private _onRemoveQueryBar(idx: number) {
+    if (this._queries.length > 1) {
+      this._queries = this._queries.filter((_, i) => i !== idx);
+    }
+  }
+
+  private _handleSuggest(idx: number, e: CustomEvent<{ query: string }>) {
+    const queryInput = e.detail.query;
+    const currentQuery = this._queries[idx] || {};
+
+    this._workerController?.suggest(queryInput, currentQuery, idx);
+  }
+
+  private _handleAddQuery(idx: number, e: CustomEvent<{ key: string; value: string }>) {
+    const { key, value } = e.detail;
+    const queries = [...this._queries];
+    const current = queries[idx][key] || [];
+    if (!current.includes(value)) {
+      queries[idx] = { ...queries[idx], [key]: [...current, value] };
+      this._queries = queries;
+    }
+  }
+
+  private _handleRemoveQuery(idx: number, e: CustomEvent<{ key: string; value: string }>) {
+    const { key, value } = e.detail;
+    const queries = [...this._queries];
+    const current = queries[idx][key] || [];
+    const updated = current.filter((v) => v !== value);
+    if (updated.length === 0) {
+      const nextQuery = { ...queries[idx] };
+      delete nextQuery[key];
+      queries[idx] = nextQuery;
+    } else {
+      queries[idx] = { ...queries[idx], [key]: updated };
+    }
+    this._queries = queries;
+  }
+
+  private _handleSetSelected(idx: number, e: CustomEvent<{ key: string; values: string[] }>) {
+    const { key, values } = e.detail;
+    const queries = [...this._queries];
+    queries[idx] = { ...queries[idx], [key]: values };
+
+    // Apply conditional defaults
+    if (this._conditionalDefaults) {
+      for (const rule of this._conditionalDefaults) {
+        if (
+          rule.trigger.param === key &&
+          rule.trigger.values.some((v: string) => values.includes(v))
+        ) {
+          for (const apply of rule.apply) {
+            let newValues = apply.values;
+            if (apply.select_only_first && newValues.length > 0) {
+              newValues = [newValues[0]];
+            }
+            queries[idx] = { ...queries[idx], [apply.param]: newValues };
+          }
+        }
+      }
+    }
+
+    this._queries = queries;
+  }
+
+  private _handleRemoveKey(idx: number, e: CustomEvent<{ key: string }>) {
+    if (!e.detail) {
+      const queries = [...this._queries];
+      queries[idx] = {};
+      this._queries = queries;
+      return;
+    }
+    const { key } = e.detail;
+    const queries = [...this._queries];
+    const nextQuery = { ...queries[idx] };
+    delete nextQuery[key];
+    queries[idx] = nextQuery;
+    this._queries = queries;
+  }
+
+  private _handleSplit(e: CustomEvent<{ key: string }>) {
+    const { key } = e.detail;
+    const nextSplit = new Set(this._splitKeys);
+    if (nextSplit.has(key)) {
+      nextSplit.delete(key);
+    } else {
+      nextSplit.add(key);
+    }
+    this._splitKeys = nextSplit;
+  }
+
+  private _handleReorderSplitKeys(e: CustomEvent<{ keys: string[] }>) {
+    this._splitKeys = new Set(e.detail.keys);
+  }
+
+  private _handleDiffBase(e: CustomEvent<{ key: string; value: string }>) {
+    const { key, value } = e.detail;
+    if (this._diffBase && this._diffBase.key === key && this._diffBase.value === value) {
+      this._diffBase = null;
+    } else {
+      this._diffBase = { key, value };
+    }
+  }
+
+  private async _fetchMetadataForVisibleTraces() {
+    if (!this._seriesData || this._seriesData.length === 0) return;
+
+    const startIdx = this._tracePage * this._pageSize;
+    const endIdx = startIdx + this._pageSize;
+    const currentVisibleIds = new Set(this._matchingTraceIds.slice(startIdx, endIdx));
+
+    const visibleSeries = this._seriesData.filter((s) => currentVisibleIds.has(s.id));
+    if (visibleSeries.length === 0) return;
+
+    const traceIds = visibleSeries.map((s) => s.id);
+    const commitNumbersSet = new Set<number>();
+
+    visibleSeries.forEach((s) => {
+      s.rows.forEach((r) => {
+        if (r.metadata === undefined && !this._inFlightMetadataCommits.has(r.commit_number)) {
+          commitNumbersSet.add(r.commit_number);
+        }
+      });
+    });
+
+    const commitNumbers = Array.from(commitNumbersSet);
+    if (commitNumbers.length === 0) {
+      return;
+    }
+
+    commitNumbers.forEach((c) => this._inFlightMetadataCommits.add(c));
+
+    try {
+      console.log(
+        `Fetching metadata for ${traceIds.length} traces and ${commitNumbers.length} commits.`
+      );
+      const metadataResp = await DataService.getInstance().getLinksBatch(commitNumbers, traceIds);
+
+      const nextSeriesData = [...this._seriesData];
+      let updatedCount = 0;
+
+      nextSeriesData.forEach((s, idx) => {
+        if (currentVisibleIds.has(s.id)) {
+          const nextRows = [...s.rows];
+          let rowChanged = false;
+          nextRows.forEach((r, rowIdx) => {
+            if (commitNumbersSet.has(r.commit_number) && r.metadata === undefined) {
+              const commitMetadata = metadataResp?.[r.commit_number.toString()]?.[s.id] || null;
+              nextRows[rowIdx] = { ...r, metadata: commitMetadata };
+              rowChanged = true;
+              updatedCount++;
+            }
+          });
+          if (rowChanged) {
+            nextSeriesData[idx] = { ...s, rows: nextRows };
+          }
+        }
+      });
+
+      if (updatedCount > 0) {
+        console.log(`Successfully fetched and attached metadata to ${updatedCount} trace rows.`);
+        this._seriesData = nextSeriesData;
+        this._updateAvailableSubrepos();
+      }
+
+      // Clear in-flight requests since they are either fulfilled or marked as null
+      commitNumbers.forEach((c) => this._inFlightMetadataCommits.delete(c));
+    } catch (e) {
+      console.error('Failed to fetch metadata:', e);
+      // On failure, remove from in-flight so we can retry later
+      commitNumbers.forEach((c) => this._inFlightMetadataCommits.delete(c));
+    }
+  }
+
+  private _updateAvailableSubrepos() {
+    const keys = new Set<string>();
+    this._seriesData.forEach((s) => {
+      s.rows.forEach((r: any) => {
+        if (r.metadata) {
+          Object.keys(r.metadata).forEach((k) => {
+            if (SUBREPO_CONFIG[k]) {
+              keys.add(k);
+            }
+          });
+        }
+      });
+    });
+    this._availableSubrepos = Array.from(keys).sort();
+  }
+
+  private _handleControlChange(e: CustomEvent<{ name: string; value: any }>) {
+    const { name, value } = e.detail;
+    (this as any)[`_${name}`] = value;
+
+    // Handle side effects
+    if (name === 'dateMode') {
+      this._globalBounds = {};
+      this._loadedBounds = calculateLoadedBounds(this._seriesData as any, this._dateMode);
+      this._viewportMinX = null;
+      this._viewportMaxX = null;
+    } else if (name === 'smooth') {
+      this._hoverMode = value ? 'both' : 'original';
+    }
+  }
+
+  render() {
+    const displaySeries = this._diffBase
+      ? computeTraceDiffs(this._seriesData, this._diffBase)
+      : this._seriesData;
+
+    const totalMatchedPages = Math.max(
+      1,
+      Math.ceil(this._matchingTraceIds.length / this._pageSize)
+    );
+    const clampedPage = Math.max(0, Math.min(this._tracePage, totalMatchedPages - 1));
+
+    const startIdx = clampedPage * this._pageSize;
+    const endIdx = startIdx + this._pageSize;
+    const currentVisibleIds = this._showAllTraces
+      ? new Set(this._matchingTraceIds.slice(0, 500).map((id) => this._getPrimaryKey(id)))
+      : new Set(
+          this._matchingTraceIds.slice(startIdx, endIdx).map((id) => this._getPrimaryKey(id))
+        );
+
+    const currentPageTraces = displaySeries.filter((s) => currentVisibleIds.has(s.id));
+    const groups = computeSplitGroups(currentPageTraces, this._splitKeys);
+
+    return html`
+      <div class="header">
+        <h1>Explore Multi V2</h1>
+        <p class="subtitle">High-performance custom dimension analysis (Work in Progress)</p>
+      </div>
+
+      <div class="workspace">
+        <div class="section-title">Faceted Search Bar</div>
+        ${this._queries.map(
+          (q, idx) => html`
+            <div class="query-row" style="display: flex; align-items: center; gap: 8px;">
+              <query-bar-sk
+                style="flex: 1;"
+                .query=${q}
+                .availableParams=${this._availableParams}
+                .optionsByKey=${this._optionsByKey}
+                .splitKeys=${this._splitKeys}
+                .includeParams=${this._includeParams}
+                .defaults=${this._defaults}
+                .showRemoveQueryButton=${this._queries.length > 1}
+                .externalSuggestions=${this._suggestionsForQueryBar[idx] || null}
+                @suggest=${(e: CustomEvent) => this._handleSuggest(idx, e)}
+                @add-query=${(e: CustomEvent) => this._handleAddQuery(idx, e)}
+                @remove-query=${(e: CustomEvent) => this._handleRemoveQuery(idx, e)}
+                @set-selected=${(e: CustomEvent) => this._handleSetSelected(idx, e)}
+                @remove-key=${(e: CustomEvent) => this._handleRemoveKey(idx, e)}
+                @split=${(e: CustomEvent) => this._handleSplit(e)}
+                @diff-base=${(e: CustomEvent) => this._handleDiffBase(e)}
+                @clear-query=${() => this._onRemoveQueryBar(idx)}></query-bar-sk>
+            </div>
+          `
+        )}
+        <div
+          style="display: flex; justify-content: center; margin-top: -6px; position: relative; z-index: 1;">
+          <button class="add-query-circle-btn" @click=${this._onAddQuery} title="Add Query">
+            +
+          </button>
+        </div>
+
+        <explore-toolbar-sk
+          .tracePage=${this._tracePage}
+          .totalMatchedPages=${totalMatchedPages}
+          .showAllTraces=${this._showAllTraces}
+          .selectedSubrepo=${this._selectedSubrepo}
+          .availableSubrepos=${this._availableSubrepos}
+          .normalizeCentre=${this._normalizeCentre}
+          .smooth=${this._smooth}
+          .showDots=${this._showDots}
+          .showSparklines=${this._showSparklines}
+          .showMinMax=${this._showMinMax}
+          .showStd=${this._showStd}
+          .showCount=${this._showCount}
+          .showRegressions=${this._showRegressions}
+          .tooltipDiffs=${this._tooltipDiffs}
+          .showLoadedBounds=${this._showLoadedBounds}
+          .dateMode=${this._dateMode}
+          .hoverMode=${this._hoverMode}
+          .smoothingRadius=${this._smoothingRadius}
+          .edgeDetectionFactor=${this._edgeDetectionFactor}
+          .edgeLookahead=${this._edgeLookahead}
+          @control-change=${this._handleControlChange}
+          @reset-zoom=${this._onResetZoom}></explore-toolbar-sk>
+
+        <div class="section-title">Visualizations</div>
+
+        ${this._loading && groups.length === 0
+          ? html`
+              <div class="page-loading">
+                <div class="spinner"></div>
+                <span>Loading traces...</span>
+              </div>
+            `
+          : ''}
+
+        <div class="${this._showSparklines ? 'sparklines-grid' : 'charts-container'}">
+          ${groups.map(
+            (g) => html`
+              <trace-chart-sk
+                .title=${g.title}
+                .canvasHeight=${this._showSparklines ? 150 : 300}
+                .isSparkline=${this._showSparklines}
+                .loading=${this._loading}
+                .series=${g.series}
+                .dateMode=${this._dateMode}
+                .regressions=${this._showRegressions ? this._regressions : {}}
+                .normalizeCentre=${this._normalizeCentre}
+                .normalizeScale=${this._normalizeScale}
+                .hoverMode=${this._hoverMode}
+                .smoothingRadius=${this._smoothingRadius}
+                .edgeDetectionFactor=${this._edgeDetectionFactor}
+                .edgeLookahead=${this._edgeLookahead}
+                .showDots=${this._showDots}
+                .showVariance=${this._showMinMax}
+                .showStd=${this._showStd}
+                .showCount=${this._showCount}
+                .viewportMinX=${this._viewportMinX}
+                .viewportMaxX=${this._viewportMaxX}
+                .globalHoverX=${this._globalHoverX}
+                .globalPinnedX=${this._globalPinnedX}
+                .loadedBounds=${this._loadedBounds}
+                .globalBounds=${this._globalBounds}
+                .showLoadedBounds=${this._showLoadedBounds}
+                .tooltipDiffs=${this._tooltipDiffs}
+                .selectedSubrepo=${this._selectedSubrepo}
+                .activeSplitKeys=${Array.from(this._splitKeys)}
+                .yAxisLabel=${this._determineYAxisTitle(g.series.map((s) => s.id))}
+                @viewport-changed=${this._handleViewportChanged}
+                @range-selected=${this._handleRangeSelected}
+                @range-cleared=${() => (this._rangeSelection = null)}
+                @hover-changed=${this._handleHoverChanged}
+                @pin-point=${this._handlePinPoint}
+                @toggle-split=${this._handleSplit}
+                @reorder-split-keys=${this._handleReorderSplitKeys}
+                @remove-trace=${(e: CustomEvent<{ id: string }>) =>
+                  this._handleRemoveTrace(e.detail.id)}
+                @close-chart=${() =>
+                  this._handleCloseChart(g.series.map((s) => s.id))}></trace-chart-sk>
+            `
+          )}
+        </div>
+
+        ${this._rangeSelection
+          ? html`
+              <div
+                class="range-menu"
+                style="position: absolute; left: ${this._rangeSelection.clientX}px; top: ${this
+                  ._rangeSelection.clientY}px;">
+                <button @click=${this._zoomToRange}>Zoom to Range</button>
+                <button @click=${this._queryRange}>Query Range</button>
+                <button @click=${this._showCommits}>Show Commits</button>
+                <button @click=${this._bisect}>Bisect</button>
+              </div>
+            `
+          : ''}
+      </div>
+    `;
+  }
+}

@@ -1,0 +1,887 @@
+import './explore-multi-v2-sk';
+import { ExploreMultiV2Sk } from './explore-multi-v2-sk';
+import { expect } from 'chai';
+import { DataService } from '../data-service';
+import { TraceDatabase } from './db';
+
+describe('explore-multi-v2-sk', () => {
+  let element: ExploreMultiV2Sk;
+  let globalOldSubtle: any;
+  let globalOldGet: any;
+  let globalOldSet: any;
+
+  beforeEach(async () => {
+    window.history.replaceState(null, '', window.location.pathname);
+    (window as any).WORKER_URL =
+      'data:application/javascript,self.postMessage({ type: "LOADED" }); self.onmessage = (e) => { if (e.data.type === "INIT") { self.postMessage({ type: "READY" }); } };';
+    element = document.createElement('explore-multi-v2-sk') as ExploreMultiV2Sk;
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    // Mock crypto.subtle for hashRequest
+    globalOldSubtle = window.crypto.subtle;
+    Object.defineProperty(window.crypto, 'subtle', {
+      get: () => ({
+        digest: async () => new ArrayBuffer(32),
+      }),
+      configurable: true,
+    });
+
+    // Mock TraceDatabase to avoid real IndexedDB calls
+    globalOldGet = TraceDatabase.prototype.get;
+    globalOldSet = TraceDatabase.prototype.set;
+    TraceDatabase.prototype.get = async () => null; // Default to cache miss
+    TraceDatabase.prototype.set = async () => {};
+  });
+
+  afterEach(() => {
+    document.body.removeChild(element);
+    // Restore mocks
+    Object.defineProperty(window.crypto, 'subtle', {
+      get: () => globalOldSubtle,
+      configurable: true,
+    });
+    TraceDatabase.prototype.get = globalOldGet;
+    TraceDatabase.prototype.set = globalOldSet;
+  });
+
+  it('uses custom selects', () => {
+    const toolbar = element.shadowRoot!.querySelector('explore-toolbar-sk');
+    const selects = toolbar!.shadowRoot!.querySelectorAll('select.custom-select');
+    expect(selects.length).to.be.greaterThan(0);
+  });
+
+  it('uses custom checkboxes', () => {
+    const toolbar = element.shadowRoot!.querySelector('explore-toolbar-sk');
+    const checkboxes = toolbar!.shadowRoot!.querySelectorAll(
+      '.custom-checkbox input[type="checkbox"]'
+    );
+    expect(checkboxes.length).to.be.greaterThan(0);
+  });
+
+  it('uses custom sliders for numeric inputs', async () => {
+    element['_hoverMode'] = 'smoothed';
+    await element.updateComplete;
+    const toolbar = element.shadowRoot!.querySelector('explore-toolbar-sk');
+    await (toolbar as any).updateComplete;
+    const sliders = toolbar!.shadowRoot!.querySelectorAll('input.custom-slider[type="range"]');
+    expect(sliders.length).to.be.greaterThan(0);
+  });
+
+  it('updates edge slider max and adds outlier slider', async () => {
+    element['_hoverMode'] = 'smoothed';
+    await element.updateComplete;
+    const toolbar = element.shadowRoot!.querySelector('explore-toolbar-sk');
+    await (toolbar as any).updateComplete;
+
+    const edgeSlider = toolbar!.shadowRoot!.querySelector(
+      'input.custom-slider[type="range"][max="1"]'
+    );
+    expect(edgeSlider).to.not.be.null;
+
+    const outlierSlider = toolbar!.shadowRoot!.querySelector(
+      'input.custom-slider[type="range"][max="5"]'
+    );
+    expect(outlierSlider).to.not.be.null;
+  });
+
+  it('uses custom buttons', async () => {
+    const toolbar = element.shadowRoot!.querySelector('explore-toolbar-sk');
+    await (toolbar as any).updateComplete;
+    const buttons = toolbar!.shadowRoot!.querySelectorAll('button.custom-btn');
+    expect(buttons.length).to.be.greaterThan(0);
+  });
+
+  it('smooth is unchecked by default', () => {
+    expect((element as any)._smooth).to.be.false;
+  });
+
+  it('syncs all toolbar checkboxes to URL', async () => {
+    (element as any)._showSparklines = true;
+    (element as any)._showMinMax = false;
+    (element as any)._showStd = true;
+    (element as any)._showCount = true;
+    (element as any)._showRegressions = false;
+    (element as any)._tooltipDiffs = true;
+    (element as any)._showLoadedBounds = true;
+
+    (element as any)._stateHasChanged();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const url = new URL(window.location.href);
+    expect(url.searchParams.get('sparklines')).to.equal('true');
+    expect(url.searchParams.get('minmax')).to.equal('false');
+    expect(url.searchParams.get('std')).to.equal('true');
+    expect(url.searchParams.get('count')).to.equal('true');
+    expect(url.searchParams.get('regressions')).to.equal('false');
+    expect(url.searchParams.get('tooltipDiffs')).to.equal('true');
+    expect(url.searchParams.get('loadedBounds')).to.equal('true');
+  });
+
+  it('sends all queries to worker', async () => {
+    let filterArgs: any = null;
+    const mockController = {
+      isReady: () => true,
+      filter: (queries: any, numUserQueries: number) => {
+        filterArgs = { queries, numUserQueries };
+      },
+      terminate: () => {},
+    };
+    (element as any)['_workerController'] = mockController;
+
+    element['_queries'] = [{ bot: ['linux32'], test: ['binary_size'] }, { bot: ['mac64'] }];
+
+    element['_triggerWorkerFilter']();
+
+    expect(filterArgs).to.not.be.null;
+    expect(filterArgs.queries.length).to.equal(4); // 2 user queries + 2 facet removed queries
+    expect(filterArgs.numUserQueries).to.equal(2);
+  });
+
+  it('does not set globalBounds to loadedBounds on trace selection', async () => {
+    const mockDataService = {
+      getLinksBatch: async () => ({}),
+      sendFrameRequest: async () => ({
+        dataframe: {
+          header: [{ offset: 10, timestamp: 1000 }],
+          traceset: { t1: [1.0] },
+        },
+      }),
+    };
+    const oldInstance = (DataService as any).instance;
+    (DataService as any).instance = mockDataService;
+
+    const oldSubtle = window.crypto.subtle;
+    Object.defineProperty(window.crypto, 'subtle', {
+      get: () => ({
+        digest: async () => new ArrayBuffer(32),
+      }),
+      configurable: true,
+    });
+
+    const oldGet = TraceDatabase.prototype.get;
+    const oldSet = TraceDatabase.prototype.set;
+    TraceDatabase.prototype.get = async () => null;
+    TraceDatabase.prototype.set = async () => {};
+
+    try {
+      element['_seriesData'] = [];
+      element['_matchingTraceIds'] = ['t1'];
+      element['_tracePage'] = 0;
+      element['_pageSize'] = 10;
+
+      await element['_fetchData']();
+
+      expect(element['_globalBounds']).to.deep.equal({});
+    } finally {
+      (DataService as any).instance = oldInstance;
+      Object.defineProperty(window.crypto, 'subtle', {
+        get: () => oldSubtle,
+        configurable: true,
+      });
+      TraceDatabase.prototype.get = oldGet;
+      TraceDatabase.prototype.set = oldSet;
+    }
+  });
+
+  it('calls fetchTraceValues with integer commits when given floats', async () => {
+    let fetchTraceValuesArg: any = null;
+    const mockDataService = {
+      getLinksBatch: async () => ({}),
+      fetchTraceValues: async (arg: any) => {
+        fetchTraceValuesArg = arg;
+        return { results: {} };
+      },
+    };
+    const oldInstance = (DataService as any).instance;
+    (DataService as any).instance = mockDataService;
+
+    try {
+      element['_matchingTraceIds'] = ['t1'];
+      element['_tracePage'] = 0;
+      element['_pageSize'] = 10;
+      element['_seriesData'] = [{ id: 't1', rows: [], color: '#fff' }];
+      element['_loadedBounds'] = { t1: { min: 100000, max: 104000 } };
+      element['_globalBounds'] = { t1: { min: 90000, max: 110000 } };
+
+      await element['_doHandleViewportChanged']({
+        detail: { minCommit: 103700.01463834244, maxCommit: 105000.5 },
+      });
+
+      expect(fetchTraceValuesArg).to.not.be.null;
+      expect(Number.isInteger(fetchTraceValuesArg.min_commit)).to.be.true;
+      expect(Number.isInteger(fetchTraceValuesArg.max_commit)).to.be.true;
+    } finally {
+      (DataService as any).instance = oldInstance;
+    }
+  });
+
+  it('calls fetchTraceValues with begin and end in Date Mode', async () => {
+    let fetchTraceValuesArg: any = null;
+    const mockDataService = {
+      getLinksBatch: async () => ({}),
+      fetchTraceValues: async (arg: any) => {
+        fetchTraceValuesArg = arg;
+        return { results: {} };
+      },
+    };
+    const oldInstance = (DataService as any).instance;
+    (DataService as any).instance = mockDataService;
+
+    try {
+      element['_matchingTraceIds'] = ['t1'];
+      element['_tracePage'] = 0;
+      element['_pageSize'] = 10;
+      element['_seriesData'] = [];
+      element['_loadedBounds'] = {};
+      element['_globalBounds'] = {};
+      element['_dateMode'] = true;
+
+      await element['_doHandleViewportChanged']({
+        detail: { minCommit: 1700000000.5, maxCommit: 1700005000.7 },
+      });
+
+      expect(fetchTraceValuesArg).to.not.be.null;
+      expect(fetchTraceValuesArg.begin).to.equal(1700000000);
+      expect(fetchTraceValuesArg.end).to.equal(1700005001);
+      expect(fetchTraceValuesArg.min_commit).to.equal(0);
+      expect(fetchTraceValuesArg.max_commit).to.equal(0);
+    } finally {
+      (DataService as any).instance = oldInstance;
+    }
+  });
+
+  it('updates globalBounds when fetch returns no new data on the left', async () => {
+    let fetchCalled = false;
+    const mockDataService = {
+      getLinksBatch: async () => ({}),
+      fetchTraceValues: async (_arg: any) => {
+        fetchCalled = true;
+        return { results: { t1: [] } }; // Return empty rows for t1
+      },
+    };
+    const oldInstance = (DataService as any).instance;
+    (DataService as any).instance = mockDataService;
+
+    try {
+      element['_matchingTraceIds'] = ['t1'];
+      element['_tracePage'] = 0;
+      element['_pageSize'] = 10;
+      element['_seriesData'] = [
+        {
+          id: 't1',
+          rows: [{ commit_number: 1000, createdat: 0, val: 1, smoothedVal: 1 }],
+          color: '#fff',
+        },
+      ];
+      element['_loadedBounds'] = { t1: { min: 1000, max: 2000 } };
+      element['_globalBounds'] = {}; // Empty global bounds
+      element['_showMinMax'] = false;
+      element['_showStd'] = false;
+      element['_showCount'] = false;
+
+      // Trigger viewport change that requires left fetch
+      await element['_doHandleViewportChanged']({
+        detail: { minCommit: 500, maxCommit: 1500 },
+      });
+
+      expect(fetchCalled).to.be.true;
+      // Since it returned no new data, globalBounds.min should be set to loadedBounds.min
+      expect(element['_globalBounds']['t1']).to.not.be.undefined;
+      expect(element['_globalBounds']['t1'].min).to.equal(1000);
+    } finally {
+      (DataService as any).instance = oldInstance;
+    }
+  });
+
+  it('determines Y axis title correctly', () => {
+    const title1 = element['_determineYAxisTitle'](['benchmark=A,unit=ms', 'benchmark=B,unit=ms']);
+    expect(title1).to.equal('ms');
+
+    const title2 = element['_determineYAxisTitle'](['benchmark=A,unit=ms', 'benchmark=B,unit=s']);
+    expect(title2).to.equal('');
+
+    const title3 = element['_determineYAxisTitle']([
+      'benchmark=A,unit=ms,improvement_dir=up',
+      'benchmark=B,unit=ms,improvement_dir=up',
+    ]);
+    expect(title3).to.equal('ms - up');
+
+    const title4 = element['_determineYAxisTitle']([]);
+    expect(title4).to.equal('');
+  });
+
+  it('gets primary key correctly by removing stat', () => {
+    const key1 = ',benchmark=A,stat=min,test=B,';
+    const primary1 = element['_getPrimaryKey'](key1);
+    expect(primary1).to.equal(',benchmark=A,test=B,');
+
+    const key2 = ',benchmark=A,test=B,';
+    const primary2 = element['_getPrimaryKey'](key2);
+    expect(primary2).to.equal(',benchmark=A,test=B,');
+  });
+
+  it('groups traces by primary key and populates allStats', () => {
+    const df = {
+      header: [{ offset: 10, timestamp: 1000 }],
+      traceset: {
+        ',benchmark=A,test=B,': [1.0],
+        ',benchmark=A,test=B,stat=min,': [0.5],
+        ',benchmark=A,test=B,stat=max,': [1.5],
+      },
+    };
+
+    const series = element['_translateDataFrame'](df);
+
+    expect(series.length).to.equal(1);
+    expect(series[0].id).to.equal(',benchmark=A,test=B,');
+    expect(series[0].rows.length).to.equal(1);
+    expect(series[0].rows[0].val).to.equal(1.0);
+    expect(series[0].allStats).to.not.be.undefined;
+    expect(series[0].allStats!['min']).to.not.be.undefined;
+    expect(series[0].allStats!['min'][0].val).to.equal(0.5);
+    expect(series[0].allStats!['max']).to.not.be.undefined;
+    expect(series[0].allStats!['max'][0].val).to.equal(1.5);
+  });
+
+  it('merges series data correctly accumulating stats', () => {
+    const existing = [
+      {
+        id: ',benchmark=A,test=B,',
+        color: 'red',
+        rows: [{ commit_number: 10, val: 1.0 }],
+        allStats: {},
+      },
+    ];
+
+    const newSeries = [
+      {
+        id: ',benchmark=A,test=B,',
+        color: 'blue',
+        rows: [],
+        allStats: { min: [{ commit_number: 10, val: 0.5 }] },
+      },
+    ];
+
+    const merged = (element as any)['_mergeSeriesWithStats'](existing, newSeries);
+
+    expect(merged.length).to.equal(1);
+    expect(merged[0].rows.length).to.equal(1);
+    expect(merged[0].rows[0].val).to.equal(1.0); // Kept existing rows
+    expect(merged[0].allStats['min']).to.not.be.undefined;
+    expect(merged[0].allStats['min'][0].val).to.equal(0.5); // Accumulated stats
+  });
+
+  it('shows range menu on range-selected event', async () => {
+    (element as any)['_handleRangeSelected'](
+      new CustomEvent('range-selected', {
+        detail: {
+          minCommit: 100,
+          maxCommit: 200,
+          clientX: 150,
+          clientY: 250,
+        },
+      })
+    );
+
+    await element.updateComplete;
+
+    const menu = element.shadowRoot!.querySelector('.range-menu');
+    expect(menu).to.not.be.null;
+
+    const style = (menu as HTMLElement).style;
+    expect(style.left).to.equal('150px');
+    expect(style.top).to.equal('250px');
+  });
+
+  it('closes range menu on range-cleared event', async () => {
+    // First show it
+    element['_rangeSelection'] = { minCommit: 100, maxCommit: 200, clientX: 150, clientY: 250 };
+    await element.updateComplete;
+
+    expect(element.shadowRoot!.querySelector('.range-menu')).to.not.be.null;
+
+    // Now clear it by setting state directly (as the inline handler would)
+    element['_rangeSelection'] = null;
+    await element.updateComplete;
+
+    expect(element.shadowRoot!.querySelector('.range-menu')).to.be.null;
+  });
+
+  it('zooms to range when Zoom button is clicked', async () => {
+    element['_rangeSelection'] = { minCommit: 100, maxCommit: 200, clientX: 150, clientY: 250 };
+    await element.updateComplete;
+
+    const zoomBtn = element.shadowRoot!.querySelectorAll(
+      '.range-menu button'
+    )[0] as HTMLButtonElement;
+    expect(zoomBtn.textContent?.trim()).to.equal('Zoom to Range');
+
+    zoomBtn.click();
+    await element.updateComplete;
+
+    expect(element['_viewportMinX']).to.equal(100);
+    expect(element['_viewportMaxX']).to.equal(200);
+    expect(element['_rangeSelection']).to.be.null;
+  });
+
+  it('toggles showAllTraces when Show All button is clicked', async () => {
+    element['_showAllTraces'] = false;
+    await element.updateComplete;
+
+    const toolbar = element.shadowRoot!.querySelector('explore-toolbar-sk');
+    const showAllBtn = Array.from(toolbar!.shadowRoot!.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim().includes('Show All')
+    );
+    expect(showAllBtn).to.not.be.undefined;
+
+    showAllBtn!.click();
+    await element.updateComplete;
+
+    expect(element['_showAllTraces']).to.be.true;
+    expect(showAllBtn!.textContent?.trim()).to.include('Show Paged');
+
+    showAllBtn!.click();
+    await element.updateComplete;
+
+    expect(element['_showAllTraces']).to.be.false;
+    expect(showAllBtn!.textContent?.trim()).to.include('Show All');
+  });
+
+  it('triggers fetch and fetches all traces when showAllTraces changes', async () => {
+    let fetchCount = 0;
+    let fetchTraceIdsArg: string[] = [];
+    const mockDataService = {
+      getLinksBatch: async () => ({}),
+      sendFrameRequest: async (req: any) => {
+        fetchCount++;
+        fetchTraceIdsArg = req.trace_ids;
+        return {
+          dataframe: {
+            header: [{ offset: 10, timestamp: 1000 }],
+            traceset: { t1: [1.0] },
+          },
+        };
+      },
+    };
+    const oldInstance = (DataService as any).instance;
+    (DataService as any).instance = mockDataService;
+
+    const oldGet = TraceDatabase.prototype.get;
+    const oldSet = TraceDatabase.prototype.set;
+    TraceDatabase.prototype.get = async () => null;
+    TraceDatabase.prototype.set = async () => {};
+
+    const oldSubtle = window.crypto.subtle;
+    Object.defineProperty(window.crypto, 'subtle', {
+      get: () => ({
+        digest: async () => new ArrayBuffer(32),
+      }),
+      configurable: true,
+    });
+
+    try {
+      element['_matchingTraceIds'] = Array.from({ length: 20 }, (_, i) => `t${i}`);
+      element['_tracePage'] = 0;
+      element['_pageSize'] = 10;
+      element['_seriesData'] = [];
+      element['_showMinMax'] = false;
+      element['_showStd'] = false;
+      element['_showCount'] = false;
+
+      await element.updateComplete;
+
+      await element['_fetchData']();
+
+      expect(fetchCount).to.be.greaterThan(0);
+      const countBefore = fetchCount;
+      expect(fetchTraceIdsArg.length).to.equal(10);
+
+      element['_showAllTraces'] = true;
+      await element.updateComplete;
+
+      await element['_fetchData']();
+
+      expect(fetchCount).to.be.greaterThan(countBefore);
+      expect(fetchTraceIdsArg.length).to.equal(20);
+    } finally {
+      (DataService as any).instance = oldInstance;
+      TraceDatabase.prototype.get = oldGet;
+      TraceDatabase.prototype.set = oldSet;
+      Object.defineProperty(window.crypto, 'subtle', {
+        get: () => oldSubtle,
+        configurable: true,
+      });
+    }
+  });
+
+  it('loads worker via Blob URL when fetch succeeds', async () => {
+    const newElement = document.createElement('explore-multi-v2-sk') as ExploreMultiV2Sk;
+
+    const mockWorker = {
+      postMessage: () => {},
+      terminate: () => {},
+    };
+
+    let workerCreatedWithUrl = '';
+    const originalWorker = window.Worker;
+    (window as any).Worker = function (url: string) {
+      workerCreatedWithUrl = url;
+      return mockWorker;
+    } as any;
+
+    const originalWorkerUrl = (window as any).WORKER_URL;
+    delete (window as any).WORKER_URL; // Use default path (/dist/explore-multi-v2-sk/filter.worker.js)
+
+    const originalFetch = window.fetch;
+    window.fetch = async () =>
+      ({
+        ok: true,
+        text: async () => 'console.log("mock worker code")',
+      }) as any;
+
+    try {
+      document.body.appendChild(newElement);
+      // Wait a bit for the fetch promise to resolve and worker to be created
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(workerCreatedWithUrl).to.match(/^blob:/);
+    } finally {
+      window.Worker = originalWorker;
+      window.fetch = originalFetch;
+      (window as any).WORKER_URL = originalWorkerUrl;
+      document.body.removeChild(newElement);
+    }
+  });
+
+  it('attempts to load static files from cache', async () => {
+    const oldGet = TraceDatabase.prototype.get;
+    const getCalledWith: string[] = [];
+    TraceDatabase.prototype.get = async (key: string) => {
+      getCalledWith.push(key);
+      return null;
+    };
+
+    const oldFetch = window.fetch;
+    window.fetch = async (url: string | Request | URL) => {
+      const urlStr = url.toString();
+      if (urlStr.includes('meta.json')) {
+        return {
+          ok: true,
+          json: async () => ({ version: 'test-version' }),
+        } as any;
+      }
+      return {
+        ok: true,
+        json: async () => ({}),
+        arrayBuffer: async () => new ArrayBuffer(0),
+      } as any;
+    };
+
+    try {
+      const controller = new (element as any)._workerController.constructor(
+        () => {},
+        () => {},
+        () => {},
+        () => {},
+        () => {},
+        () => {},
+        () => {}
+      );
+      controller.worker = { postMessage: () => {} } as any;
+      await controller.fetchDataForWorker();
+
+      expect(getCalledWith).to.include('static:params:test-version');
+      expect(getCalledWith).to.include('static:wasm:test-version');
+      expect(getCalledWith).to.include('static:traces:test-version');
+    } finally {
+      TraceDatabase.prototype.get = oldGet;
+      window.fetch = oldFetch;
+    }
+  });
+
+  it('skips fetching static files when cached', async () => {
+    const oldGet = TraceDatabase.prototype.get;
+    TraceDatabase.prototype.get = async (key: string) => {
+      if (key.includes('params')) return {};
+      if (key.includes('wasm')) return new ArrayBuffer(0);
+      if (key.includes('traces')) return new ArrayBuffer(0);
+      return null;
+    };
+
+    const oldFetch = window.fetch;
+    const fetchCalledWith: string[] = [];
+    window.fetch = async (url: string | Request | URL) => {
+      const urlStr = url.toString();
+      fetchCalledWith.push(urlStr);
+      if (urlStr.includes('meta.json')) {
+        return {
+          ok: true,
+          json: async () => ({ version: 'test-version' }),
+        } as any;
+      }
+      throw new Error(`Unexpected fetch for ${urlStr}`);
+    };
+
+    try {
+      const controller = new (element as any)._workerController.constructor(
+        () => {},
+        () => {},
+        () => {},
+        () => {},
+        () => {},
+        () => {},
+        () => {}
+      );
+      controller.worker = { postMessage: () => {} } as any;
+      await controller.fetchDataForWorker();
+
+      expect(fetchCalledWith.length).to.equal(1);
+      expect(fetchCalledWith[0]).to.include('meta.json');
+    } finally {
+      TraceDatabase.prototype.get = oldGet;
+      window.fetch = oldFetch;
+    }
+  });
+
+  it('applies default param selections on load if queries empty', async () => {
+    const mockDataService = {
+      getInitPage: async () => ({ dataframe: { paramset: {} } }),
+      getDefaults: async () => ({
+        default_param_selections: { branch_name: ['aosp-androidx-main'] },
+      }),
+    };
+    const oldInstance = (DataService as any).instance;
+    (DataService as any).instance = mockDataService as any;
+
+    try {
+      const newElement = document.createElement('explore-multi-v2-sk') as ExploreMultiV2Sk;
+      document.body.appendChild(newElement);
+      await newElement.updateComplete;
+
+      // Wait for _fetchMetadata to complete!
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect((newElement as any)._queries.length).to.equal(1);
+      expect((newElement as any)._queries[0]['branch_name']).to.deep.equal(['aosp-androidx-main']);
+
+      document.body.removeChild(newElement);
+    } finally {
+      (DataService as any).instance = oldInstance;
+    }
+  });
+
+  it('applies conditional defaults on selection', async () => {
+    (element as any)._conditionalDefaults = [
+      {
+        trigger: { param: 'metric', values: ['timeNs'] },
+        apply: [{ param: 'stat', values: ['min'], select_only_first: true }],
+      },
+    ];
+    (element as any)._queries = [{ metric: [] }];
+
+    (element as any)._handleSetSelected(
+      0,
+      new CustomEvent('set-selected', {
+        detail: { key: 'metric', values: ['timeNs'] },
+      })
+    );
+
+    expect((element as any)._queries[0]['stat']).to.deep.equal(['min']);
+  });
+
+  it('merges anomalymap from fetchTraceValues response correctly stripping stat', async () => {
+    const mockDataService = {
+      getLinksBatch: async () => ({}),
+      fetchTraceValues: async (_arg: any) => {
+        return {
+          results: {
+            ',benchmark=A,test=B,stat=value,': [{ commit_number: 50, createdat: 0, val: 1.5 }],
+          },
+          anomalymap: {
+            ',benchmark=A,test=B,stat=value,': {
+              100: {
+                id: 'a1',
+                is_improvement: true,
+                state: 'untriaged',
+                bug_id: 0,
+                recovered: false,
+              },
+            },
+          },
+        };
+      },
+    };
+    const oldInstance = (DataService as any).instance;
+    (DataService as any).instance = mockDataService;
+
+    const oldGet = TraceDatabase.prototype.get;
+    const oldSet = TraceDatabase.prototype.set;
+    TraceDatabase.prototype.get = async () => null; // Force cache miss
+    TraceDatabase.prototype.set = async () => {};
+
+    const oldSubtle = window.crypto.subtle;
+    Object.defineProperty(window.crypto, 'subtle', {
+      get: () => ({
+        digest: async () => new ArrayBuffer(32),
+      }),
+      configurable: true,
+    });
+
+    try {
+      element['_matchingTraceIds'] = [',benchmark=A,test=B,'];
+      element['_tracePage'] = 0;
+      element['_pageSize'] = 10;
+      element['_seriesData'] = [
+        {
+          id: ',benchmark=A,test=B,',
+          rows: [{ commit_number: 150, createdat: 0, val: 1.0 }],
+          color: '#fff',
+        },
+      ];
+      element['_loadedBounds'] = { ',benchmark=A,test=B,': { min: 100, max: 200 } };
+      element['_globalBounds'] = {};
+
+      // Trigger viewport change that requires left fetch
+      await element['_doHandleViewportChanged']({
+        detail: { minCommit: 50, maxCommit: 150 },
+      });
+
+      expect(element['_regressions']).to.not.be.empty;
+      const reg = element['_regressions'][',benchmark=A,test=B,'];
+      expect(reg).to.not.be.undefined;
+      expect(reg[100]).to.not.be.undefined;
+      expect(reg[100].is_improvement).to.be.true;
+      expect((reg[100] as any).status).to.equal('untriaged');
+    } finally {
+      (DataService as any).instance = oldInstance;
+      TraceDatabase.prototype.get = oldGet;
+      TraceDatabase.prototype.set = oldSet;
+      Object.defineProperty(window.crypto, 'subtle', {
+        get: () => oldSubtle,
+        configurable: true,
+      });
+    }
+  });
+
+  it('uses cache in _doHandleViewportChanged and skips fetch', async () => {
+    let fetchCalled = false;
+    const mockDataService = {
+      getLinksBatch: async () => ({}),
+      fetchTraceValues: async (_arg: any) => {
+        fetchCalled = true;
+        return { results: {} };
+      },
+    };
+    const oldInstance = (DataService as any).instance;
+    (DataService as any).instance = mockDataService;
+
+    const oldGet = TraceDatabase.prototype.get;
+    const oldSet = TraceDatabase.prototype.set;
+
+    const cachedData = {
+      results: {
+        ',benchmark=A,test=B,': [{ commit_number: 50, createdat: 0, val: 1.5 }],
+      },
+    };
+
+    TraceDatabase.prototype.get = async () => cachedData;
+    TraceDatabase.prototype.set = async () => {};
+
+    const oldSubtle = window.crypto.subtle;
+    Object.defineProperty(window.crypto, 'subtle', {
+      get: () => ({
+        digest: async () => new ArrayBuffer(32),
+      }),
+      configurable: true,
+    });
+
+    try {
+      element['_matchingTraceIds'] = [',benchmark=A,test=B,'];
+      element['_tracePage'] = 0;
+      element['_pageSize'] = 10;
+      element['_seriesData'] = [{ id: ',benchmark=A,test=B,', rows: [], color: '#fff' }];
+      element['_loadedBounds'] = { ',benchmark=A,test=B,': { min: 100, max: 200 } };
+      element['_globalBounds'] = {};
+
+      // Trigger viewport change that requires left fetch
+      await element['_doHandleViewportChanged']({
+        detail: { minCommit: 50, maxCommit: 150 },
+      });
+
+      expect(fetchCalled).to.be.false; // Verified fetch skipped!
+
+      // Verify data was merged from cache
+      const series = element['_seriesData'][0];
+      expect(series.rows.length).to.equal(1);
+      expect(series.rows[0].commit_number).to.equal(50);
+      expect(series.rows[0].val).to.equal(1.5);
+    } finally {
+      (DataService as any).instance = oldInstance;
+      TraceDatabase.prototype.get = oldGet;
+      TraceDatabase.prototype.set = oldSet;
+      Object.defineProperty(window.crypto, 'subtle', {
+        get: () => oldSubtle,
+        configurable: true,
+      });
+    }
+  });
+
+  it('puts stat=median rows into s.rows and allStats', async () => {
+    const mockDataService = {
+      getLinksBatch: async () => ({}),
+      fetchTraceValues: async (_arg: any) => {
+        return {
+          results: {
+            ',benchmark=A,test=B,stat=median,': [{ commit_number: 50, createdat: 0, val: 1.5 }],
+          },
+        };
+      },
+    };
+    const oldInstance = (DataService as any).instance;
+    (DataService as any).instance = mockDataService;
+
+    const oldGet = TraceDatabase.prototype.get;
+    const oldSet = TraceDatabase.prototype.set;
+    TraceDatabase.prototype.get = async () => null;
+    TraceDatabase.prototype.set = async () => {};
+
+    const oldSubtle = window.crypto.subtle;
+    Object.defineProperty(window.crypto, 'subtle', {
+      get: () => ({
+        digest: async () => new ArrayBuffer(32),
+      }),
+      configurable: true,
+    });
+
+    try {
+      element['_matchingTraceIds'] = [',benchmark=A,test=B,'];
+      element['_tracePage'] = 0;
+      element['_pageSize'] = 10;
+      element['_seriesData'] = [{ id: ',benchmark=A,test=B,', rows: [], color: '#fff' }];
+      element['_loadedBounds'] = { ',benchmark=A,test=B,': { min: 100, max: 200 } };
+      element['_globalBounds'] = {};
+      element['_showMinMax'] = false;
+      element['_showStd'] = false;
+      element['_showCount'] = false;
+
+      await element['_doHandleViewportChanged']({
+        detail: { minCommit: 50, maxCommit: 150 },
+      });
+
+      const series = element['_seriesData'][0];
+      expect(series.rows.length).to.equal(1); // Should be in rows!
+      expect(series.rows[0].val).to.equal(1.5);
+      expect(series.allStats?.['median']).to.not.be.undefined; // Should ALSO be in allStats!
+      expect(series.allStats?.['median'][0].val).to.equal(1.5);
+    } finally {
+      (DataService as any).instance = oldInstance;
+      TraceDatabase.prototype.get = oldGet;
+      TraceDatabase.prototype.set = oldSet;
+      Object.defineProperty(window.crypto, 'subtle', {
+        get: () => oldSubtle,
+        configurable: true,
+      });
+    }
+  });
+});

@@ -11,6 +11,7 @@ filegroup(
             "extralinks",
             "help",
             "multiexplore",
+            "multiexplore-v2",
             "newindex",
             "triage",
             "favorites",

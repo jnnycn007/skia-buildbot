@@ -91,6 +91,8 @@ type FrameRequest struct {
 
 	Pivot *pivot.Request `json:"pivot,omitempty"`
 
+	TraceIDs []string `json:"trace_ids,omitempty"`
+
 	Progress progress.Progress `json:"-"`
 }
 
@@ -244,6 +246,15 @@ func (p *frameRequestProcess) run(ctx context.Context) (*dataframe.DataFrame, er
 		newDF, err := p.doKeys(ctx, p.request.Keys, begin, end)
 		if err != nil {
 			return nil, p.reportError(err, "Failed to complete query for keys")
+		}
+		df = dataframe.Join(df, newDF)
+	}
+
+	if len(p.request.TraceIDs) > 0 {
+		p.request.Progress.Message("Loading", fmt.Sprintf("Direct Trace IDs batch (%d)", len(p.request.TraceIDs)))
+		newDF, err := p.dfBuilder.NewFromKeysAndRange(ctx, p.request.TraceIDs, begin, end, p.request.Progress)
+		if err != nil {
+			return nil, p.reportError(err, fmt.Sprintf("Failed to load direct keys batch: %v", err))
 		}
 		df = dataframe.Join(df, newDF)
 	}

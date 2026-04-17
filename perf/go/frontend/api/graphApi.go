@@ -88,6 +88,7 @@ func (api graphApi) RegisterHandlers(router *chi.Mux) {
 	router.Post("/_/shift", api.shiftHandler)
 	router.Post("/_/cidRange", api.cidRangeHandler)
 	router.Get("/_/shortcut/graphs", api.getGraphsShortcutDataHandler)
+	router.Post("/_/links_batch", api.linksBatchHandler)
 }
 
 // NewGraphApi returns a new instance of the graphApi struct.
@@ -141,7 +142,7 @@ func (api graphApi) frameStartHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	fr.Queries = q
 
-	if len(fr.Formulas) == 0 && len(fr.Queries) == 0 && fr.Keys == "" {
+	if len(fr.Formulas) == 0 && len(fr.Queries) == 0 && fr.Keys == "" && len(fr.TraceIDs) == 0 {
 		httputils.ReportError(w, fmt.Errorf("Invalid query."), "Empty queries are not allowed.", http.StatusInternalServerError)
 		return
 	}
@@ -630,5 +631,71 @@ func (api graphApi) getGraphsShortcutDataHandler(w http.ResponseWriter, r *http.
 
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		sklog.Errorf("Failed to write or encode output: %s", err)
+	}
+}
+
+// linksBatchHandler returns the links for a batch of commits and traces.
+func (api graphApi) linksBatchHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var req struct {
+		CommitNumbers []types.CommitNumber `json:"commit_numbers"`
+		TraceIDs      []string             `json:"trace_ids"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httputils.ReportError(w, err, "Failed to decode JSON.", http.StatusInternalServerError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), defaultDatabaseTimeout)
+	defer cancel()
+	// Preallocate the outer map
+	resp := make(map[string]map[string]map[string]string, len(req.CommitNumbers))
+
+	// Batch fetch source file names (source ids)
+	sourceIdsMap, err := api.traceStore.GetSourceIds(ctx, req.CommitNumbers, req.TraceIDs)
+	if err != nil {
+		httputils.ReportError(w, err, "Failed to fetch source IDs.", http.StatusInternalServerError)
+		return
+	}
+
+	// Collect unique source file names
+	filenamesMap := make(map[string]bool)
+	for _, commitMap := range sourceIdsMap {
+		for _, filename := range commitMap {
+			if filename != "" {
+				filenamesMap[filename] = true
+			}
+		}
+	}
+
+	filenames := make([]string, 0, len(filenamesMap))
+	for f := range filenamesMap {
+		filenames = append(filenames, f)
+	}
+
+	// Batch fetch metadata
+	metadataMap, err := api.metadataStore.GetMetadataMultiple(ctx, filenames)
+	if err != nil {
+		httputils.ReportError(w, err, "Failed to fetch metadata.", http.StatusInternalServerError)
+		return
+	}
+
+	// Populate response
+	for _, cn := range req.CommitNumbers {
+		cnStr := fmt.Sprintf("%d", cn)
+		resp[cnStr] = make(map[string]map[string]string)
+		for _, tid := range req.TraceIDs {
+			if commitMap, ok := sourceIdsMap[tid]; ok {
+				if filename, ok := commitMap[cn]; ok {
+					if links, ok := metadataMap[filename]; ok {
+						resp[cnStr][tid] = links
+					}
+				}
+			}
+		}
+	}
+
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		sklog.Errorf("Failed to encode response: %s", err)
 	}
 }

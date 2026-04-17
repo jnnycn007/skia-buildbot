@@ -1,0 +1,17 @@
+# gazelle:exclude filter.ts
+
+load("@npm//:assemblyscript/package_json.bzl", _asc_bin = "bin")
+
+_asc_bin.asc(
+    name = "compile_wasm_filter",
+    srcs = ["filter.ts"],
+    outs = ["filter.wasm"],
+    args = [
+        "$(rootpath filter.ts)",
+        "-o",
+        "$(rootpath filter.wasm)",
+        "--enable",
+        "simd",
+    ],
+    visibility = ["//visibility:public"],
+)

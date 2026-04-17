@@ -174,4 +174,43 @@ describe('DataService', () => {
       assert.isTrue(fetchMock.called('/_/frame/start'));
     });
   });
+
+  describe('getLinksBatch', () => {
+    it('sends POST request and returns metadata', async () => {
+      const commitNumbers = [123, 456];
+      const traceIds = [',trace1,', ',trace2,'];
+      const response = {
+        '123': {
+          ',trace1,': {
+            Text: 'Commit Link 1',
+            Href: 'http://example.com/1',
+          },
+        },
+      };
+
+      fetchMock.post('/_/links_batch', response);
+
+      const result = await dataService.getLinksBatch(commitNumbers, traceIds);
+      assert.deepEqual(result, response);
+
+      const options = fetchMock.lastOptions('/_/links_batch');
+      assert.isDefined(options);
+      assert.equal(options!.method, 'POST');
+      assert.deepEqual(JSON.parse(options!.body as unknown as string), {
+        commit_numbers: commitNumbers,
+        trace_ids: traceIds,
+      });
+    });
+
+    it('throws error on failure', async () => {
+      fetchMock.post('/_/links_batch', 500);
+
+      try {
+        await dataService.getLinksBatch([1], ['t1']);
+        assert.fail('Should have thrown an error');
+      } catch (error: any) {
+        assert.equal(error.name, 'DataServiceError');
+      }
+    });
+  });
 });

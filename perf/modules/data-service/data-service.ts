@@ -9,6 +9,9 @@ import {
   ShiftResponse,
   progress,
   QueryConfig,
+  RegressionRangeRequest,
+  RegressionRangeResponse,
+  AnomalyMap,
 } from '../json';
 import {
   messageByName,
@@ -17,6 +20,25 @@ import {
   startRequest,
   RequestOptions,
 } from '../progress/progress';
+
+export interface TraceValuesRequest {
+  ids: string[];
+  min_commit: number;
+  max_commit: number;
+  begin?: number;
+  end?: number;
+}
+
+export interface TraceRow {
+  commit_number: number;
+  createdat: number;
+  val: number;
+}
+
+export interface TraceValuesResponse {
+  results: Record<string, TraceRow[]>;
+  anomalymap?: AnomalyMap;
+}
 
 /**
  * Custom error class for DataService operations.
@@ -162,6 +184,32 @@ export class DataService {
   }
 
   /**
+   * Fetches regressions for a given range.
+   */
+  async sendRegressionRangeRequest(req: RegressionRangeRequest): Promise<RegressionRangeResponse> {
+    return await this.fetchJson('/_/reg', {
+      method: 'POST',
+      body: JSON.stringify(req),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  }
+
+  /**
+   * Fetches specific trace values for a given commit range.
+   */
+  async fetchTraceValues(req: TraceValuesRequest): Promise<TraceValuesResponse> {
+    return await this.fetchJson('/_/trace_values', {
+      method: 'POST',
+      body: JSON.stringify(req),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  }
+
+  /**
    * Starts the frame request and returns the resulting data.
    *
    * @param body - The frame request body.
@@ -195,5 +243,29 @@ export class DataService {
     }
 
     return finishedProg.results as FrameResponse;
+  }
+
+  /**
+   * Fetches the subrepo links for a batch of commits and traces.
+   */
+  async getLinksBatch(
+    commitNumbers: number[],
+    traceIds: string[]
+  ): Promise<Record<string, Record<string, Record<string, string>>>> {
+    const body = {
+      commit_numbers: commitNumbers,
+      trace_ids: traceIds,
+    };
+
+    return await this.fetchJson<Record<string, Record<string, Record<string, string>>>>(
+      '/_/links_batch',
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
   }
 }

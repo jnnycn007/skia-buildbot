@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    {%- template "googleanalytics" . -%}
+    <title>Graphs V2 ({% if .InstanceName %}{% .InstanceName %} Perf{% else %}Performance Monitoring{% end %})</title>
+    <script type="text/javascript" charset="utf-8" nonce="{% .Nonce %}">
+      window.perf = {% .context %};
+    </script>
+    <meta charset="utf-8" />
+    <meta name="theme-color" content="#1f78b4" />
+    <link rel="icon" href="/dist/images/line-chart.svg?v=2" type="image/svg+xml" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  </head>
+
+  <body class="body-sk font-sk">
+    <perf-scaffold-sk>
+      <explore-multi-v2-sk></explore-multi-v2-sk>
+      <div id="sidebar_help">
+        <h4>Navigation V2</h4>
+        <table>
+          <tr>
+            <td class="mono">Zoom</td>
+            <td>Ctrl</td>
+          </tr>
+          <tr>
+            <td class="mono">Pan</td>
+            <td>Click</td>
+          </tr>
+          <tr>
+            <td class="mono">Delta</td>
+            <td>Shift</td>
+          </tr>
+        </table>
+        <div style="font-style: italic; font-size: 12px; margin-top: 14px;">
+          Note: The gestures apply to every graph on
+          the multi-graph view.
+        </div>
+      </div>
+    </perf-scaffold-sk>
+  </body>
+  {%- template "cookieconsent" . -%}
+</html>

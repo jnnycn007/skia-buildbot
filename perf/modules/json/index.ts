@@ -266,6 +266,7 @@ export interface FrameRequest {
 	request_type?: RequestType;
 	disable_filter_parent_traces?: boolean;
 	pivot?: pivot.Request | null;
+	trace_ids?: string[] | null;
 }
 
 export interface AlertUpdateResponse {

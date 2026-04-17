@@ -20,6 +20,7 @@ export enum CountMetric {
   AnomalyDataRaceTraceNotFound = 'fe_anomaly_data_race_trace_not_found',
   DataFetchFailure = 'fe_data_fetch_failure',
   ExistingBugDialogSkBugIdUsedAsAnomalyKey = 'fe_exisitng_dialog_sk_bug_id_used_as_anomaly_key',
+  ExploreMultiV2Visit = 'fe_explore_multi_v2_page_visit_count',
   FrontendErrorReported = 'fe_errors_reported_count',
   MultiGraphVisit = 'fe_multi_graph_page_visit_count',
   ReportPageVisit = 'fe_report_page_visit_count',

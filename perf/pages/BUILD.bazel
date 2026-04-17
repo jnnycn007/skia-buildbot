@@ -158,6 +158,31 @@ sk_page(
 )
 
 sk_page(
+    name = "multiexplore-v2",
+    assets_serving_path = "/dist",
+    copy_files = [
+        {
+            "src": "//perf/modules/explore-multi-v2-sk/wasm:compile_wasm_filter",
+            "dst": "explore-multi-v2-sk/filter.wasm",
+        },
+        {
+            "src": "//perf/modules/explore-multi-v2-sk/worker:filter.worker.bundle.js",
+            "dst": "explore-multi-v2-sk/filter.worker.js",
+        },
+    ],
+    html_file = "multiexplore-v2.html",
+    nonce = "{% .Nonce %}",
+    production_sourcemap = True,
+    sass_deps = [":body_sass_lib"],
+    scss_entry_point = "multiexplore-v2.scss",
+    sk_element_deps = [
+        "//perf/modules/explore-multi-v2-sk",
+        "//perf/modules/perf-scaffold-sk",
+    ],
+    ts_entry_point = "multiexplore-v2.ts",
+)
+
+sk_page(
     name = "triage",
     assets_serving_path = "/dist",
     html_file = "triage.html",
