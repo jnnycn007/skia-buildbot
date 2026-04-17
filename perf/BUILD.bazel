@@ -116,6 +116,7 @@ skia_app_container(
                 "extralinks",
                 "help",
                 "multiexplore",
+                "multiexplore-v2",
                 "newindex",
                 "triage",
                 "favorites",
