@@ -233,6 +233,8 @@ func getShortBotName(bot string) string {
 		return "tang"
 	case "mac-m3-pro-perf-cbb":
 		return "m3"
+	case "mac-m4-mini-perf-cbb":
+		return "m4"
 	case "win-victus-perf-cbb":
 		return "vic"
 	case "win-arm64-snapdragon-elite-perf-cbb":

@@ -70,6 +70,35 @@
     "repository": "chromium",
     "swarming_server": "https://chrome-swarming.appspot.com"
   },
+  "mac-m4-mini-perf-cbb": {
+    "browser": "release",
+    "bucket": "luci.chrome.try",
+    "builder": "Mac arm Builder Perf",
+    "dimensions": [
+      {
+        "key": "pool",
+        "value": "chrome.tests.pinpoint-cbb"
+      },
+      {
+        "key": "mac_model",
+        "value": "Mac16,10"
+      },
+      {
+        "key": "synthetic_product_name",
+        "value": "Mac16,10_arm64-64-Apple_M4_apple m4_32768_APPLE SSD AP2048Z"
+      },
+      {
+        "key": "os",
+        "value": "Mac"
+      },
+      {
+        "key": "cpu",
+        "value": "arm"
+      }
+    ],
+    "repository": "chromium",
+    "swarming_server": "https://chrome-swarming.appspot.com"
+  },
   "win-arm64-snapdragon-elite-perf": {
     "browser": "release",
     "bucket": "luci.chrome.try",
