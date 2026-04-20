@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"go.skia.org/infra/go/issuetracker/v1"
 	"go.skia.org/infra/go/metrics2"
@@ -79,20 +80,18 @@ func (t *IssueTrackerTransport) SendNewNotification(ctx context.Context,
 		hotlists = append(hotlists, j)
 	}
 	ccs := []*issuetracker.User{}
-	for _, i := range subscription.BugCcEmails {
-		j := &issuetracker.User{
-			EmailAddress: i,
+	for _, email := range subscription.BugCcEmails {
+		if trimmedEmail := strings.TrimSpace(email); trimmedEmail != "" {
+			ccs = append(ccs, &issuetracker.User{EmailAddress: trimmedEmail})
 		}
-		ccs = append(ccs, j)
 	}
-	reporter := &issuetracker.User{
-		EmailAddress: subscription.ContactEmail,
-	}
-	if subscription.ContactEmail == "" {
-		reporter.EmailAddress = "browser-perf-engprod@google.com"
 
+	reporterEmail := strings.TrimSpace(subscription.ContactEmail)
+	if reporterEmail == "" {
+		reporterEmail = "browser-perf-engprod@google.com"
 		body += "\n\nWarning: subscription this issue belongs to has no proper contact email!"
 	}
+	reporter := &issuetracker.User{EmailAddress: reporterEmail}
 
 	newIssue := &issuetracker.Issue{
 		IssueComment: &issuetracker.IssueComment{

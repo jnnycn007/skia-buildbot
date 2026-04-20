@@ -41,6 +41,7 @@ func MaybeTriggerBisectionWorkflow(
 	ctx workflow.Context,
 	input *workflows.MaybeTriggerBisectionParam,
 ) (*workflows.MaybeTriggerBisectionResult, error) {
+
 	ctx = workflow.WithChildOptions(ctx, childWorkflowOptions)
 	ctx = workflow.WithActivityOptions(ctx, regularActivityOptions)
 
@@ -65,6 +66,8 @@ func MaybeTriggerBisectionWorkflow(
 		input.AnomalyGroupId,
 		"GroupAction",
 		anomalyGroupResponse.AnomalyGroup.GroupAction,
+		"AnomalyGroupServiceUrl",
+		input.AnomalyGroupServiceUrl,
 	)
 
 	switch anomalyGroupResponse.AnomalyGroup.GroupAction {
@@ -78,7 +81,8 @@ func MaybeTriggerBisectionWorkflow(
 			if err == nil {
 				return res, nil
 			}
-			workflow.GetLogger(ctx).Error("Bisection failed, falling back to reporting.", "error", err)
+			workflow.GetLogger(ctx).
+				Error("Bisection failed, falling back to reporting.", "error", err)
 		}
 		// Fallback: bisection not allowed or failed.
 		return processAnomaliesAsReporting(ctx, input)
