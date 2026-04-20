@@ -80,7 +80,10 @@ type ChromeReleaseInfo struct {
 // Bot configs that are available in each platform. This should eventually be
 // put in a config file, but is currently stored here for simplicity.
 var platformBots = map[string][]string{
-	"mac": {"mac-m3-pro-perf-cbb"},
+	"mac": {
+		"mac-m3-pro-perf-cbb",
+		"mac-m4-mini-perf-cbb",
+	},
 	"windows": {
 		"win-victus-perf-cbb",
 		"win-arm64-snapdragon-elite-perf-cbb",
@@ -102,7 +105,8 @@ const (
 
 // All Mac bot config names, with the number of devices in each config.
 var safariConfigs = map[string]int32{
-	"mac-m3-pro-perf-cbb": 5,
+	"mac-m3-pro-perf-cbb":  5,
+	"mac-m4-mini-perf-cbb": 5,
 }
 
 // All Windows bot config names, with the number of devices in each config.
@@ -259,7 +263,7 @@ func CbbGetBrowserVersionsWorkflow(ctx workflow.Context, browser string) ([]Buil
 	var results []BuildInfo
 	for config, count := range configCounts {
 		p := &SingleCommitRunnerParams{
-			PinpointJobID:  fmt.Sprintf("Get %s version on %s", browser, config),
+			PinpointJobID:  fmt.Sprintf("CBB get %s version on %s", browser, getShortBotName(config)),
 			BotConfig:      config,
 			Benchmark:      browserVersionsBenchmark,
 			Story:          "default",
