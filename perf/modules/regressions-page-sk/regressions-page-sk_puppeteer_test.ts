@@ -36,6 +36,40 @@ describe('regressions-page-sk', () => {
     });
   });
 
+  describe('Sheriff actions', () => {
+    it('toggles triaged view when the button is clicked', async () => {
+      // Select a sheriff to enable the button.
+      await regressionsPageSkPO.selectSheriff('Sheriff Config 2');
+
+      // Initial state should be "Show Triaged".
+      let buttonText = await regressionsPageSkPO.triagedButton.innerText;
+      expect(buttonText).to.equal('Show Triaged');
+
+      // Click the button.
+      await regressionsPageSkPO.triagedButton.click();
+
+      // After clicking, the text should change to "Hide Triaged".
+      buttonText = await regressionsPageSkPO.triagedButton.innerText;
+      expect(buttonText).to.equal('Hide Triaged');
+    });
+
+    it('toggles improvements view when the button is clicked', async () => {
+      // Select a sheriff to enable the button.
+      await regressionsPageSkPO.selectSheriff('Sheriff Config 2');
+
+      // Initial state should be "Show Improvements".
+      let buttonText = await regressionsPageSkPO.improvementsButton.innerText;
+      expect(buttonText).to.equal('Show Improvements');
+
+      // Click the button.
+      await regressionsPageSkPO.improvementsButton.click();
+
+      // After clicking, the text should change to "Hide Improvements".
+      buttonText = await regressionsPageSkPO.improvementsButton.innerText;
+      expect(buttonText).to.equal('Hide Improvements');
+    });
+  });
+
   describe('anomalies list', () => {
     it('sheriff config 1: All anomalies are triaged!', async () => {
       // https://screenshot.googleplex.com/3c9AgSN3MQKUtLo
@@ -72,7 +106,7 @@ describe('regressions-page-sk', () => {
       expect(await (await deltaCell!.getProperty('innerText')).jsonValue()).to.contain('+23.6228%');
     });
 
-    it('sheriff config 3: displays different anomalies table', async () => {
+    it('sheriff config 3: displays different anomalies table and clicks Show More', async () => {
       // https://screenshot.googleplex.com/BHgQtN7VpFSndmu
       await regressionsPageSkPO.selectSheriff('Sheriff Config 3');
 
@@ -87,6 +121,36 @@ describe('regressions-page-sk', () => {
       expect(await (await revisionsCell!.getProperty('innerText')).jsonValue()).to.contain(
         '71321 - 71325'
       );
+
+      // Wait for the "Show More" button to become visible by checking that its
+      // parent div no longer has the 'hidden' attribute.
+      await testBed.page
+        .waitForFunction(
+          () => {
+            const showMoreDiv = document.querySelector('#showmore');
+            return showMoreDiv && !showMoreDiv.hasAttribute('hidden');
+          },
+          { timeout: 5000 }
+        )
+        .catch(() => {
+          throw new Error('Timed out waiting for the "Show More" button to become visible.');
+        });
+
+      await regressionsPageSkPO.showMoreButton.click();
+
+      // Wait for two rows to be present.
+      await testBed.page.waitForFunction(
+        () => document.querySelectorAll('anomalies-table-sk tbody[id^="rows-"] tr').length === 2
+      );
+
+      // Verify that one of the regression cells contains the expected text.
+      const deltaCells = await anomaliesTable!.$$('tbody[id^="rows-"] tr td.regression');
+      expect(deltaCells).to.have.length.of.at.least(1);
+      const texts = await Promise.all(
+        deltaCells.map((cell) => cell.evaluate((el) => el.textContent))
+      );
+      const hasRegression = texts.some((text) => text!.includes('+23.6228%'));
+      expect(hasRegression).to.be.true;
     });
   });
 });

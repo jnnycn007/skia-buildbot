@@ -6,6 +6,18 @@ export class RegressionPageSkPO extends PageObject {
     return this.bySelector('select[id^="filter-"]');
   }
 
+  get triagedButton(): PageObjectElement {
+    return this.bySelector('#btnTriaged');
+  }
+
+  get improvementsButton(): PageObjectElement {
+    return this.bySelector('#btnImprovements');
+  }
+
+  get showMoreButton(): PageObjectElement {
+    return this.bySelector('#showMoreAnomalies');
+  }
+
   async selectSheriff(sheriff: string) {
     await this.sheriffSelect.enterValue(sheriff);
   }

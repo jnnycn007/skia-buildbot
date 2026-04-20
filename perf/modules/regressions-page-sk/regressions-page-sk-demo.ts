@@ -93,6 +93,11 @@ fetchMock.get('/_/anomalies/anomaly_list?sheriff=Sheriff%20Config%203', {
   anomaly_list: Object.values(normalTracesResponse.results.anomalymap![MOCK_TRACE_KEY_2] || {}).map(
     (a) => ({ ...a, start_revision: 71321, end_revision: 71325 })
   ),
+  anomaly_cursor: 'cursor123',
+});
+
+fetchMock.get('/_/anomalies/anomaly_list?sheriff=Sheriff%20Config%203&anomaly_cursor=cursor123', {
+  anomaly_list: Object.values(normalTracesResponse.results.anomalymap![MOCK_TRACE_KEY_1] || {}),
 });
 
 fetchMock.get(`/_/regressions?sub_name=Sheriff%20Config%201&limit=10&offset=0`, [
