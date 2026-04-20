@@ -354,3 +354,54 @@ func TestFrontend_feErrorLogHandler_DecodeError(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, w.Result().StatusCode)
 	require.Contains(t, w.Body.String(), "Failed to decode JSON.")
 }
+
+func TestFrontend_CSPHeaders_AllowsWASM(t *testing.T) {
+	host := "localhost:8001"
+
+	f := &Frontend{
+		loginProvider: mocks.NewLogin(t),
+		flags: &config.FrontendFlags{
+			ConfigFilename:         "./testdata/config.json",
+			NumParamSetsForQueries: 2,
+		},
+	}
+
+	mapFS := fstest.MapFS{}
+	for _, filename := range templateFilenames {
+		mapFS[filename] = &fstest.MapFile{
+			Data: []byte(""),
+		}
+	}
+	f.distFileSystem = http.FS(mapFS)
+
+	configFileBytes := testutils.ReadFileBytes(t, "config.json")
+	err := json.Unmarshal(configFileBytes, &config.Config)
+	require.NoError(t, err)
+	u, err := url.Parse(config.Config.URL)
+	require.NoError(t, err)
+	f.host = u.Host
+
+	r := f.GetHandler([]string{host})
+
+	// Check /e2 (should allow WASM)
+	w1 := httptest.NewRecorder()
+	req1 := httptest.NewRequest("GET", "/e2", nil)
+	req1.Host = host
+	req1.TLS = &tls.ConnectionState{}
+	r.ServeHTTP(w1, req1)
+
+	require.Equal(t, http.StatusOK, w1.Result().StatusCode)
+	csp1 := w1.Result().Header.Get("Content-Security-Policy")
+	require.Contains(t, csp1, "'unsafe-eval'")
+
+	// Check /m (should NOT allow WASM)
+	w2 := httptest.NewRecorder()
+	req2 := httptest.NewRequest("GET", "/m", nil)
+	req2.Host = host
+	req2.TLS = &tls.ConnectionState{}
+	r.ServeHTTP(w2, req2)
+
+	require.Equal(t, http.StatusOK, w2.Result().StatusCode)
+	csp2 := w2.Result().Header.Get("Content-Security-Policy")
+	require.NotContains(t, csp2, "'unsafe-eval'")
+}

@@ -1168,7 +1168,10 @@ func (f *Frontend) GetHandler(allowedHosts []string) http.Handler {
 	// New endpoints that use ptracestore will go here.
 	router.HandleFunc("/e", f.templateHandler("newindex.html"))
 	router.HandleFunc("/m", f.templateHandler("multiexplore.html"))
-	router.HandleFunc("/e2", f.templateHandler("multiexplore-v2.html"))
+	router.Group(func(r chi.Router) {
+		r.Use(baseapp.SecurityMiddleware(ah, local, []baseapp.Option{baseapp.AllowWASM{}}))
+		r.HandleFunc("/e2", f.templateHandler("multiexplore-v2.html"))
+	})
 	router.HandleFunc("/c", f.templateHandler("clusters2.html"))
 	router.HandleFunc("/pg", f.templateHandler("playground.html"))
 	router.HandleFunc("/t", f.templateHandler("triage.html"))
