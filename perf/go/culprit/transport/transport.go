@@ -86,12 +86,12 @@ func (t *IssueTrackerTransport) SendNewNotification(ctx context.Context,
 		}
 	}
 
-	reporterEmail := strings.TrimSpace(subscription.ContactEmail)
-	if reporterEmail == "" {
-		reporterEmail = "browser-perf-engprod@google.com"
+	var reporter *issuetracker.User
+	if reporterEmail := strings.TrimSpace(subscription.ContactEmail); reporterEmail != "" {
+		reporter = &issuetracker.User{EmailAddress: reporterEmail}
+	} else {
 		body += "\n\nWarning: subscription this issue belongs to has no proper contact email!"
 	}
-	reporter := &issuetracker.User{EmailAddress: reporterEmail}
 
 	newIssue := &issuetracker.Issue{
 		IssueComment: &issuetracker.IssueComment{
