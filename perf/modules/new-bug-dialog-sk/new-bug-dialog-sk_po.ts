@@ -3,11 +3,15 @@ import { PageObjectElement } from '../../../infra-sk/modules/page_object/page_ob
 
 export class NewBugDialogSkPO extends PageObject {
   get dialog(): PageObjectElement {
-    return this.bySelector('#new-bug-dialog');
+    return this.bySelector('dialog');
   }
 
   get closeIcon(): PageObjectElement {
     return this.bySelector('#closeIcon');
+  }
+
+  async isDialogOpen(): Promise<boolean> {
+    return this.dialog.applyFnToDOMNode((el: any) => el.open);
   }
 
   get titleInput(): PageObjectElement {

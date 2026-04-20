@@ -106,7 +106,13 @@ window.customElements.whenDefined('new-bug-dialog-sk').then(() => {
   ele.traceNames = [''];
 });
 
-$$('#file-bug')?.addEventListener('click', () => {
+// Add a button to the DOM for the test to click.
+const openDialogButton = document.createElement('button');
+openDialogButton.id = 'open-dialog';
+openDialogButton.textContent = 'Open Dialog';
+document.body.appendChild(openDialogButton);
+
+$$('#open-dialog')?.addEventListener('click', () => {
   const ele = document.querySelector('new-bug-dialog-sk') as NewBugDialogSk;
-  ele.fileNewBug();
+  ele.open();
 });
