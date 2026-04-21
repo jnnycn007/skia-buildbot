@@ -446,7 +446,7 @@
     "//bazel:gcs_mirror.bzl%gcs_mirror": {
       "general": {
         "bzlTransitiveDigest": "jdW+wRYbJnW1LhtYTEmLeaqbAiWx9f3njqO9DpL7HVM=",
-        "usagesDigest": "qeaKu+PRi1MWHLCqr43ovSWspFP6VCxBkov+L7NBZ4g=",
+        "usagesDigest": "cE+FxmaxoNWhYtBb39j1VO+akkOvpjn/f8R9aZH+l4U=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -455,11 +455,11 @@
             "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_archive",
             "attributes": {
               "build_file_content": "exports_files([\"data.tar.xz\"])",
-              "sha256": "ef590f89563aa4b46c8260d49d1cea0fc1b181d19e8df3782694706adf05c184",
+              "sha256": "0b5970c26e74d254bb2a59100d7b9d0612ea0b60bd78987cd71e0aebae5221d7",
               "strip_prefix": "",
               "urls": [
-                "https://cdn.skia.org/bazel/ef590f89563aa4b46c8260d49d1cea0fc1b181d19e8df3782694706adf05c184.deb",
-                "https://snapshot-cloudflare.debian.org/archive/debian/20260201T022025Z/pool/main/c/ca-certificates/ca-certificates_20250419_all.deb"
+                "https://cdn.skia.org/bazel/0b5970c26e74d254bb2a59100d7b9d0612ea0b60bd78987cd71e0aebae5221d7.deb",
+                "https://snapshot-cloudflare.debian.org/archive/debian/20260421T143351Z/pool/main/c/ca-certificates/ca-certificates_20260223_all.deb"
               ]
             }
           },
@@ -1775,7 +1775,7 @@
     "@@rules_oci+//oci:extensions.bzl%oci": {
       "general": {
         "bzlTransitiveDigest": "48mBsGmRAc9avLzUVYibjYzgMDj5MPLQjRGJUm1fvjA=",
-        "usagesDigest": "yC7GqVBFyouPj7lCwScXwTkZ+fzcAnwTLOrAqmtAkC4=",
+        "usagesDigest": "rhWNpy6oCiMjNlyYV+mezeDDUuuXeZb/WR4KhmawtKg=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -1922,7 +1922,7 @@
               "scheme": "https",
               "registry": "index.docker.io",
               "repository": "library/debian",
-              "identifier": "sha256:0aff819e18d66aa7e3795a5145494f7bfbf55df4710494fa9746c2df1b51231b",
+              "identifier": "sha256:fc00cc6049937150a6ae6403d0ab99db9583eafc9252b448ecec5011f62a3602",
               "platform": "linux/amd64",
               "target_name": "debian-testing-slim_linux_amd64",
               "bazel_tags": []
@@ -1936,7 +1936,7 @@
               "scheme": "https",
               "registry": "index.docker.io",
               "repository": "library/debian",
-              "identifier": "sha256:0aff819e18d66aa7e3795a5145494f7bfbf55df4710494fa9746c2df1b51231b",
+              "identifier": "sha256:fc00cc6049937150a6ae6403d0ab99db9583eafc9252b448ecec5011f62a3602",
               "platforms": {
                 "@@platforms//cpu:x86_64": "@debian-testing-slim_linux_amd64"
               },
