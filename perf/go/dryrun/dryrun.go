@@ -83,13 +83,13 @@ func (d *Requests) StartHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Create a callback that will be passed each found Regression. It will
 	// update the Progress after each new regression is found.
-	detectorResponseProcessor := func(ctx context.Context, queryRequest *regression.RegressionDetectionRequest, allClusterResponses []*regression.ConfirmedRegression, summaryMessage string) {
+	detectorResponseProcessor := func(ctx context.Context, queryRequest *regression.RegressionDetectionRequest, allClusterResponses []*regression.ConfirmedRegression, summaryMessage string) error {
 		// Loop over allClusterResponses, convert each one to a regression, and merge with running.Regressions.
 		for _, cr := range allClusterResponses {
 			c, reg, err := regression.ConfirmedRegressionFromClusterResponse(ctx, cr, req.Alert, d.perfGit)
 			if err != nil {
 				sklog.Errorf("Failed to convert to Regression: %s", err)
-				return
+				return err
 			}
 			req.Progress.Message("Step", fmt.Sprintf("%d/%d", queryRequest.Step+1, queryRequest.TotalQueries))
 			req.Progress.Message("Query", fmt.Sprintf("%q", queryRequest.Query()))
@@ -125,6 +125,7 @@ func (d *Requests) StartHandler(w http.ResponseWriter, r *http.Request) {
 			})
 		}
 		req.Progress.Results(regressions)
+		return nil
 	}
 
 	go func() {

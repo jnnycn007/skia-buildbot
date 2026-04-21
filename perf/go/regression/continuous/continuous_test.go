@@ -262,7 +262,8 @@ func createArgsForReportRegressions(t *testing.T) (*Continuous, *regression.Regr
 func TestReportRegressions_EmptyRegressionDetectionResponse_NoRegressionsReported(t *testing.T) {
 	c, req, resp, cfg, _ := createArgsForReportRegressions(t)
 	// We know this works since we didn't need to supply any implementations for any of the mocks.
-	c.reportRegressions(context.Background(), req, resp, cfg)
+	err := c.reportRegressions(context.Background(), req, resp, cfg)
+	require.NoError(t, err)
 }
 
 func TestReportRegressions_OneNewStepDownRegressionFound_OneRegressionStoredAndNotified(t *testing.T) {
@@ -329,7 +330,8 @@ func TestReportRegressions_OneNewStepDownRegressionFound_OneRegressionStoredAndN
 	allMocks.regressionStore.On("SetLow", testutils.AnyContext, regressionCommitNumber, types.CommitNumber(1), cfg.IDAsString, resp[0].Frame, resp[0].Summary.Clusters[0]).Return(true, "", nil).Twice()
 	allMocks.notifier.On("RegressionFound", testutils.AnyContext, commitAtStep, previousCommit, cfg, resp[0].Summary.Clusters[0], resp[0].Frame, mock.Anything).Return(notificationID, nil)
 
-	c.reportRegressions(ctx, req, resp, cfg)
+	err := c.reportRegressions(ctx, req, resp, cfg)
+	require.NoError(t, err)
 
 	require.Equal(t, notificationID, resp[0].Summary.Clusters[0].NotificationID)
 }
@@ -488,7 +490,8 @@ func TestReportRegressions_OneNewStepDownRegressionFound_OneHighRegressionFoundA
 	allMocks.regressionStore.On("SetHigh", testutils.AnyContext, regressionCommitNumber, types.CommitNumber(1), cfg.IDAsString, resp[1].Frame, resp[1].Summary.Clusters[0]).Return(false, "", nil)
 	allMocks.notifier.On("RegressionFound", testutils.AnyContext, commitAtStep, previousCommit, cfg, resp[0].Summary.Clusters[0], resp[0].Frame, mock.Anything).Return(notificationID, nil)
 
-	c.reportRegressions(ctx, req, resp, cfg)
+	err := c.reportRegressions(ctx, req, resp, cfg)
+	require.NoError(t, err)
 
 	require.Equal(t, notificationID, resp[0].Summary.Clusters[0].NotificationID)
 }

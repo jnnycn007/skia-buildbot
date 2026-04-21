@@ -55,7 +55,35 @@ var (
 )
 
 // ConfirmedRegressionHandler is a callback that is called with ConfirmedRegressions as a RegressionDetectionRequest is being processed.
-type ConfirmedRegressionHandler func(context.Context, *RegressionDetectionRequest, []*ConfirmedRegression, string)
+type ConfirmedRegressionHandler func(context.Context, *RegressionDetectionRequest, []*ConfirmedRegression, string) error
+
+// CountErrors recursively computes the true total leaf error count.
+func CountErrors(errs []error) int {
+	total := 0
+	for _, e := range errs {
+		if e == nil {
+			continue
+		}
+		if multiErr, ok := e.(interface{ Unwrap() []error }); ok {
+			unwrapped := multiErr.Unwrap()
+			if len(unwrapped) > 0 {
+				total += CountErrors(unwrapped)
+			} else {
+				total += 1
+			}
+		} else if wrappedErr, ok := e.(interface{ Unwrap() error }); ok {
+			unwrapped := wrappedErr.Unwrap()
+			if unwrapped != nil {
+				total += CountErrors([]error{unwrapped})
+			} else {
+				total += 1
+			}
+		} else {
+			total += 1
+		}
+	}
+	return total
+}
 
 // ParamsetProvider is a function that's called to return the current paramset.
 type ParamsetProvider func() paramtools.ReadOnlyParamSet
@@ -121,24 +149,25 @@ func ProcessRegressions(ctx context.Context,
 	timeoutContext, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 
+	var processErrs []error
 	for index, req := range allRequests {
 		req.Progress.Message("Requests", fmt.Sprintf("Processing request %d/%d", index, len(allRequests)))
 		req.Progress.Message("Stage", "Loading data to analyze")
-		// Create a single large dataframe then chop it into 2*radius+1 length sub-dataframes in the iterator.
 		req.Progress.Message("Query", req.Query())
 		iterErrorCallback := func(msg string) {
 			req.Progress.Message("Iteration", msg)
 		}
 
+		// Create a single large dataframe then chop it into 2*radius+1 length sub-dataframes in the iterator.
 		iter, err := dfiter.NewDataFrameIterator(timeoutContext, req.Progress, dfBuilder, perfGit, iterErrorCallback, req.Query(), req.Domain, req.Alert, anomalyConfig, dfProvider)
 		if err != nil {
 			if errors.Is(err, context.DeadlineExceeded) {
 				timeoutCounter(req.Alert.DisplayName).Inc(1)
-				sklog.Errorf("Failed with timeout. Query: %s, err: %v", req.Query(), err)
+				sklog.Errorf("NewDataFrameIterator: Failed with timeout. Query: %s, err: %v", req.Query(), err)
 			} else if iteration == ContinueOnError {
-				// Don't log if we just didn't get enough data.
-				if err != dfiter.ErrInsufficientData {
+				if !errors.Is(err, dfiter.ErrInsufficientData) {
 					sklog.Warning(err)
+					processErrs = append(processErrs, err)
 				}
 				continue
 			}
@@ -157,10 +186,19 @@ func ProcessRegressions(ctx context.Context,
 		if err := detectionProcess.run(timeoutContext); err != nil {
 			if errors.Is(err, context.DeadlineExceeded) {
 				timeoutCounter(req.Alert.DisplayName).Inc(1)
-				sklog.Errorf("Failed with timeout. Query: %s, err: %v", req.Query(), err)
+				sklog.Errorf("detectionProcess.run: Failed with timeout. Query: %s, err: %v", req.Query(), err)
 			}
-			return skerr.Wrapf(err, "Failed to run a sub-query: %q", req.Query())
+			wrappedErr := skerr.Wrapf(err, "Error in ProcessRegressions with Query: %q", req.Query())
+			if iteration == ContinueOnError {
+				processErrs = append(processErrs, wrappedErr)
+				continue
+			}
+			return wrappedErr
 		}
+	}
+
+	if len(processErrs) > 0 {
+		return errors.Join(processErrs...)
 	}
 	return nil
 }
@@ -195,7 +233,6 @@ func allRequestsFromBaseRequest(req *RegressionDetectionRequest, ps paramtools.R
 
 // reportError records the reason a RegressionDetectionProcess failed.
 func (p *regressionDetectionProcess) reportError(err error, message string) error {
-	sklog.Warningf("RegressionDetectionRequest failed: %#v %s: %s", *(p.request), message, err)
 	p.request.Progress.Message("Warning", fmt.Sprintf("RegressionDetectionRequest failed: %#v %s: %s", *(p.request), message, err))
 	return skerr.Wrapf(err, "%s", message)
 }
@@ -343,8 +380,11 @@ func (p *regressionDetectionProcess) refineAndReportRegressions(ctx context.Cont
 		// The summary message can still refer to the original count for clarity.
 		summaryMessage := fmt.Sprintf("Batch processing complete for %d dataframes.", len(allResponses))
 		handlerTimer := metrics2.NewTimer("perf_regression_confirmed_handler")
-		p.confirmedRegressionHandler(ctx, p.request, confirmedRegressions, summaryMessage)
+		err := p.confirmedRegressionHandler(ctx, p.request, confirmedRegressions, summaryMessage)
 		handlerTimer.Stop()
+		if err != nil {
+			return p.reportError(err, "Failed to handle confirmed regressions.")
+		}
 		// The refineAndReportRegressions callback should add the results to Progress if that's required.
 	}
 	return nil
@@ -361,6 +401,7 @@ func (p *regressionDetectionProcess) run(ctx context.Context) error {
 	if p.request.Alert.Algo == "" {
 		p.request.Alert.Algo = types.KMeansGrouping
 	}
+	var errs []error
 	for p.iter.Next() {
 		df, err := p.iter.Value(ctx)
 		if err != nil {
@@ -375,11 +416,20 @@ func (p *regressionDetectionProcess) run(ctx context.Context) error {
 			}
 			sklog.Errorf("Failed to detect regressions on DataFrame: %s", err)
 			metrics2.GetCounter("perf_regression_detection_errors", map[string]string{"alert": p.request.Alert.DisplayName}).Inc(1)
+			errs = append(errs, err)
 			continue
 		}
 		if resp != nil {
 			allResponses = append(allResponses, resp)
 		}
 	}
-	return p.refineAndReportRegressions(ctx, allResponses)
+
+	if err := p.refineAndReportRegressions(ctx, allResponses); err != nil {
+		errs = append(errs, err)
+	}
+
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
+	return nil
 }

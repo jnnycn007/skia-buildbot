@@ -3,6 +3,7 @@ package regression
 import (
 	"bytes"
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -263,13 +264,66 @@ func refineAndReportRegressions(t *testing.T) {
 	var handlerCalled bool
 	var handledResponses []*ConfirmedRegression
 
-	p.confirmedRegressionHandler = func(ctx context.Context, req *RegressionDetectionRequest, resps []*ConfirmedRegression, message string) {
+	p.confirmedRegressionHandler = func(ctx context.Context, req *RegressionDetectionRequest, resps []*ConfirmedRegression, message string) error {
 		handlerCalled = true
 		handledResponses = resps
+		return nil
 	}
 
 	err := p.refineAndReportRegressions(ctx, responses)
 	assert.NoError(t, err)
 	assert.True(t, handlerCalled)
 	assert.Equal(t, confirmedRegressions, handledResponses)
+}
+
+func TestCountErrors(t *testing.T) {
+	err1 := errors.New("error one")
+	err2 := errors.New("error two")
+	err3 := errors.New("error three")
+	err4 := errors.New("error four")
+	err5 := errors.New("error five")
+
+	// Case 1: Simple standard errors
+	assert.Equal(t, 3, CountErrors([]error{err1, err2, err3}))
+
+	// Custom Err simulated with errors.Join
+	customErr := errors.Join(err1, err2)
+
+	// Custom Err2 simulated with errors.Join
+	customErr2 := errors.Join(customErr, err4)
+
+	// Case 2: Custom interface bundle (simulated)
+	assert.Equal(t, 2, CountErrors([]error{customErr}))
+
+	// Case 3: Standard errors.Join multi-error
+	stdMulti := errors.Join(err1, err2)
+	assert.Equal(t, 2, CountErrors([]error{stdMulti}))
+
+	// Case 4: Hybrid - Custom object (simulated) wrapped inside standard errors.Join
+	hybrid := errors.Join(err3, customErr)
+	assert.Equal(t, 3, CountErrors([]error{hybrid}))
+
+	// Case 5: Nested standard multi-errors
+	nestedStd := errors.Join(err3, stdMulti)
+	assert.Equal(t, 3, CountErrors([]error{nestedStd}))
+
+	// Case 6: Hybrid 2 - Custom object (simulated) with nested errors
+	hybrid2 := errors.Join(err5, customErr2)
+	assert.Equal(t, 4, CountErrors([]error{hybrid2}))
+
+	// Case 7: Count customErr2 (simulated)
+	assert.Equal(t, 3, CountErrors([]error{customErr2}))
+}
+
+type nilUnwrapErr struct {
+	msg string
+}
+
+func (e *nilUnwrapErr) Error() string { return e.msg }
+func (e *nilUnwrapErr) Unwrap() error { return nil }
+
+func TestCountErrors_NilUnwrap(t *testing.T) {
+	// Case 8: Error that implements Unwrap() error but returns nil
+	nilErrInstance := &nilUnwrapErr{msg: "defensive nil wrapper"}
+	assert.Equal(t, 1, CountErrors([]error{nilErrInstance}))
 }

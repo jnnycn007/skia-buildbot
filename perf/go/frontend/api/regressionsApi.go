@@ -640,9 +640,10 @@ func (rApi regressionsApi) clusterStartHandler(w http.ResponseWriter, r *http.Re
 	}
 	auditlog.LogWithUser(r, rApi.loginProvider.LoggedInAs(r).String(), "cluster", req)
 
-	cb := func(ctx context.Context, _ *regression.RegressionDetectionRequest, clusterResponse []*regression.ConfirmedRegression, _ string) {
+	cb := func(ctx context.Context, _ *regression.RegressionDetectionRequest, clusterResponse []*regression.ConfirmedRegression, _ string) error {
 		// We don't do GroupBy clustering, so there will only be one clusterResponse.
 		req.Progress.Results(clusterResponse[0])
+		return nil
 	}
 	rApi.progressTracker.Add(req.Progress)
 
