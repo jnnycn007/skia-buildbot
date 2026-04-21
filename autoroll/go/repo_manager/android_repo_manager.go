@@ -477,11 +477,11 @@ third_party {
     type: HOMEPAGE
     value: "%s"
   }
-  url {
-    type: GIT
+  identifier {
+    type: "Git"
     value: "%s"
+    version: "%s"
   }
-  version: "%s"
   license_type: %s
   last_upgrade_date {
     year: %d
