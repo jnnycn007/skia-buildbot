@@ -127,8 +127,7 @@ func NewDEPSLocal(ctx context.Context, c *config.DEPSLocalParentConfig, client *
 				{Path: deps_parser.DepsFileName},
 			},
 		},
-		Transitive:     c.GitCheckout.Dep.Transitive,
-		FindAndReplace: c.GitCheckout.Dep.FindAndReplace,
+		Transitive: c.GitCheckout.Dep.Transitive,
 	})
 	createRoll := func(ctx context.Context, co git.Checkout, from *revision.Revision, to *revision.Revision, rolling []*revision.Revision, commitMsg string) (string, error) {
 		// Run the helper to set the new dependency version(s).

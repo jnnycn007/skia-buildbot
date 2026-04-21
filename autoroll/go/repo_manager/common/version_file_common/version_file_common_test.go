@@ -632,10 +632,6 @@ func TestUpdateDep(t *testing.T) {
 			"my-dep-path": "my-dep@old-rev",
 			"transitive-dep-path": "transitive-dep@transitive-dep-old-rev",
 		}`,
-		"find/and/replace/file": `Unrelated stuff
-Version: old-rev;
-Transitive-dep-version: transitive-dep-old-rev;
-`,
 	}
 	getFile := func(ctx context.Context, path string) (string, error) {
 		contents, ok := oldContents[path]
@@ -668,9 +664,6 @@ Transitive-dep-version: transitive-dep-old-rev;
 				},
 			},
 		},
-		FindAndReplace: []string{
-			"find/and/replace/file",
-		},
 	}, &revision.Revision{
 		Id: "new-rev",
 		Dependencies: map[string]string{
@@ -684,21 +677,14 @@ Transitive-dep-version: transitive-dep-old-rev;
 			"my-dep-path": "my-dep@new-rev",
 			"transitive-dep-path": "transitive-dep@transitive-dep-new-rev",
 		}`,
-		"find/and/replace/file": `Unrelated stuff
-Version: new-rev;
-Transitive-dep-version: transitive-dep-new-rev;
-`,
 	}, changes)
 }
 
 func TestUpdateDep_UsesChangeCache(t *testing.T) {
-	// This configuration updates DEPS twice: once for the primary dependency
-	// and again using find-and-replace to update a comment. Verify that we only
-	// read the file from the repo once (since reading it a second time would
-	// undo the first update).
+	// This configuration updates DEPS twice. Verify that we only read the file
+	// from the repo once.
 	oldContents := map[string]string{
 		deps_parser.DepsFileName: `deps = {
-			# Use my-dep at commit old-rev.
 			"my-dep-path": "my-dep@old-rev",
 		}`,
 	}
@@ -720,10 +706,10 @@ func TestUpdateDep_UsesChangeCache(t *testing.T) {
 				{
 					Path: deps_parser.DepsFileName,
 				},
+				{
+					Path: deps_parser.DepsFileName,
+				},
 			},
-		},
-		FindAndReplace: []string{
-			deps_parser.DepsFileName,
 		},
 	}, &revision.Revision{
 		Id: "new-rev",
@@ -732,7 +718,6 @@ func TestUpdateDep_UsesChangeCache(t *testing.T) {
 
 	require.Equal(t, map[string]string{
 		deps_parser.DepsFileName: `deps = {
-			# Use my-dep at commit new-rev.
 			"my-dep-path": "my-dep@new-rev",
 		}`,
 	}, changes)

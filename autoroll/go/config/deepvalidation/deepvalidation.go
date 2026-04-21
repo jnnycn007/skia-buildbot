@@ -636,11 +636,6 @@ func (dv *deepvalidator) dependencyConfig(ctx context.Context, c *config.Depende
 	if err := dv.versionFileConfig(ctx, c.Primary, getFileParent); err != nil {
 		return skerr.Wrap(err)
 	}
-	for _, findAndReplaceFile := range c.FindAndReplace {
-		if _, err := getFileParent(ctx, findAndReplaceFile); err != nil {
-			return skerr.Wrap(err)
-		}
-	}
 	for _, dep := range c.Transitive {
 		if err := dv.transitiveDepConfig(ctx, dep, getFileParent, getFileChild); err != nil {
 			return skerr.Wrap(err)

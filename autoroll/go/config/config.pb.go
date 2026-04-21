@@ -2485,10 +2485,6 @@ type GoModParentConfig struct {
 	GitCheckout *GitCheckoutConfig     `protobuf:"bytes,1,opt,name=git_checkout,json=gitCheckout,proto3" json:"git_checkout,omitempty"`
 	// module_path is the Go module path of the dependency.
 	ModulePath string `protobuf:"bytes,2,opt,name=module_path,json=modulePath,proto3" json:"module_path,omitempty"`
-	// find_and_replace lists additional files in which all instances of the
-	// previous primary revision ID should be replaced with the new primary
-	// revision ID.
-	FindAndReplace []string `protobuf:"bytes,3,rep,name=find_and_replace,json=findAndReplace,proto3" json:"find_and_replace,omitempty"`
 	// pre_upload describes command(s) to run before uploading roll CLs.
 	PreUploadCommands *PreUploadConfig `protobuf:"bytes,5,opt,name=pre_upload_commands,json=preUploadCommands,proto3" json:"pre_upload_commands,omitempty"`
 	// go_cmd is an alternate command to run to invoke Go, eg. for hermetic
@@ -2540,13 +2536,6 @@ func (x *GoModParentConfig) GetModulePath() string {
 		return x.ModulePath
 	}
 	return ""
-}
-
-func (x *GoModParentConfig) GetFindAndReplace() []string {
-	if x != nil {
-		return x.FindAndReplace
-	}
-	return nil
 }
 
 func (x *GoModParentConfig) GetPreUploadCommands() *PreUploadConfig {
@@ -4047,13 +4036,9 @@ type DependencyConfig struct {
 	// primary dependency.
 	Primary *VersionFileConfig `protobuf:"bytes,1,opt,name=primary,proto3" json:"primary,omitempty"`
 	// transitive dependencies.
-	Transitive []*TransitiveDepConfig `protobuf:"bytes,2,rep,name=transitive,proto3" json:"transitive,omitempty"`
-	// find_and_replace lists additional files in which all instances of the
-	// previous primary revision ID should be replaced with the new primary
-	// revision ID.
-	FindAndReplace []string `protobuf:"bytes,3,rep,name=find_and_replace,json=findAndReplace,proto3" json:"find_and_replace,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	Transitive    []*TransitiveDepConfig `protobuf:"bytes,2,rep,name=transitive,proto3" json:"transitive,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *DependencyConfig) Reset() {
@@ -4096,13 +4081,6 @@ func (x *DependencyConfig) GetPrimary() *VersionFileConfig {
 func (x *DependencyConfig) GetTransitive() []*TransitiveDepConfig {
 	if x != nil {
 		return x.Transitive
-	}
-	return nil
-}
-
-func (x *DependencyConfig) GetFindAndReplace() []string {
-	if x != nil {
-		return x.FindAndReplace
 	}
 	return nil
 }
@@ -5042,12 +5020,11 @@ const file_config_proto_rawDesc = "" +
 	"\x13default_bug_project\x18\x04 \x01(\tR\x11defaultBugProject\"\x8b\x01\n" +
 	"\x17GoModGerritParentConfig\x129\n" +
 	"\x06go_mod\x18\x01 \x01(\v2\".autoroll.config.GoModParentConfigR\x05goMod\x125\n" +
-	"\x06gerrit\x18\x02 \x01(\v2\x1d.autoroll.config.GerritConfigR\x06gerrit\"\x8e\x02\n" +
+	"\x06gerrit\x18\x02 \x01(\v2\x1d.autoroll.config.GerritConfigR\x06gerrit\"\xe4\x01\n" +
 	"\x11GoModParentConfig\x12E\n" +
 	"\fgit_checkout\x18\x01 \x01(\v2\".autoroll.config.GitCheckoutConfigR\vgitCheckout\x12\x1f\n" +
 	"\vmodule_path\x18\x02 \x01(\tR\n" +
-	"modulePath\x12(\n" +
-	"\x10find_and_replace\x18\x03 \x03(\tR\x0efindAndReplace\x12P\n" +
+	"modulePath\x12P\n" +
 	"\x13pre_upload_commands\x18\x05 \x01(\v2 .autoroll.config.PreUploadConfigR\x11preUploadCommands\x12\x15\n" +
 	"\x06go_cmd\x18\x06 \x01(\tR\x05goCmd\"\x82\x03\n" +
 	"\x15DEPSLocalParentConfig\x12K\n" +
@@ -5165,13 +5142,12 @@ const file_config_proto_rawDesc = "" +
 	"\x16VersionFileConfig_File\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12\x14\n" +
 	"\x05regex\x18\x02 \x01(\tR\x05regex\x12*\n" +
-	"\x11regex_replace_all\x18\x03 \x01(\bR\x0fregexReplaceAll\"\xc0\x01\n" +
+	"\x11regex_replace_all\x18\x03 \x01(\bR\x0fregexReplaceAll\"\x96\x01\n" +
 	"\x10DependencyConfig\x12<\n" +
 	"\aprimary\x18\x01 \x01(\v2\".autoroll.config.VersionFileConfigR\aprimary\x12D\n" +
 	"\n" +
 	"transitive\x18\x02 \x03(\v2$.autoroll.config.TransitiveDepConfigR\n" +
-	"transitive\x12(\n" +
-	"\x10find_and_replace\x18\x03 \x03(\tR\x0efindAndReplace\"\xe2\x01\n" +
+	"transitive\"\xe2\x01\n" +
 	"\x11GitCheckoutConfig\x12\x16\n" +
 	"\x06branch\x18\x01 \x01(\tR\x06branch\x12\x19\n" +
 	"\brepo_url\x18\x02 \x01(\tR\arepoUrl\x12\"\n" +

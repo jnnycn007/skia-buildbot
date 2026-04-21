@@ -652,7 +652,6 @@ func TestDeepValidator_dependencyConfig(t *testing.T) {
 		err := dv.dependencyConfig(t.Context(), cfg, getFile, getFile)
 		require.NoError(t, err)
 		require.True(t, loadedFiles[deps_parser.DepsFileName])
-		require.True(t, loadedFiles[cfg.FindAndReplace[0]])
 	})
 
 	t.Run("Not Found", func(t *testing.T) {
@@ -1471,9 +1470,6 @@ func makeFuchsiaSDKChildConfig() *config.FuchsiaSDKChildConfig {
 func makeDependencyConfig() *config.DependencyConfig {
 	return &config.DependencyConfig{
 		Primary: makeVersionFileConfig(),
-		FindAndReplace: []string{
-			"some/submodule",
-		},
 	}
 }
 
@@ -1682,9 +1678,6 @@ func mocksForDependencyConfig(t *testing.T, urlMock *mockhttpclient.URLMock, cfg
 	}
 
 	mockFile(deps_parser.DepsFileName, fakeDepsContent)
-	for _, findAndReplaceFile := range cfg.FindAndReplace {
-		mockFile(findAndReplaceFile, "")
-	}
 }
 
 func mocksForGitilesChildConfig(t *testing.T, urlMock *mockhttpclient.URLMock, cfg *config.GitilesChildConfig) {

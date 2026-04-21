@@ -447,10 +447,6 @@ message GoModParentConfig {
   GitCheckoutConfig git_checkout = 1;
   // module_path is the Go module path of the dependency.
   string module_path = 2;
-  // find_and_replace lists additional files in which all instances of the
-  // previous primary revision ID should be replaced with the new primary
-  // revision ID.
-  repeated string find_and_replace = 3;
   // pre_upload describes command(s) to run before uploading roll CLs.
   PreUploadConfig pre_upload_commands = 5;
   // go_cmd is an alternate command to run to invoke Go, eg. for hermetic
@@ -771,10 +767,6 @@ message DependencyConfig {
   VersionFileConfig primary = 1;
   // transitive dependencies.
   repeated TransitiveDepConfig transitive = 2;
-  // find_and_replace lists additional files in which all instances of the
-  // previous primary revision ID should be replaced with the new primary
-  // revision ID.
-  repeated string find_and_replace = 3;
 }
 
 // GitCheckoutConfig provides configuration for a Git checkout.
