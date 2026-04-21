@@ -70,9 +70,14 @@
         "title": "Comparative Browser Benchmarking (CBB)",
         "links": [
             {
-                "text": "Mac (go/cbb-mac)",
+                "text": "Mac M3 (go/cbb-mac or go/cbb-mac-m3)",
                 "href": "https://chrome-perf.corp.goog/m?begin=1752000000&end=1798761600&numCommits=50&shortcut=734af8a7b2b3ac5357d8b3f1edccadeb&splitByKeys=benchmark",
-                "description": "CBB results on Mac"
+                "description": "CBB results on Mac M3 Pro"
+            },
+            {
+                "text": "Mac M4 (go/cbb-mac-m4)",
+                "href": "https://chrome-perf.corp.goog/m?begin=1752000000&end=1798761600&numCommits=50&shortcut=77516ea5ecb61920085a3bc36bed6ca4&splitByKeys=benchmark",
+                "description": "CBB results on Mac M4 Mini"
             },
             {
                 "text": "Windows x64 (go/cbb-win)",
@@ -91,22 +96,22 @@
             },
             {
                 "text": "Speedometer3 (go/cbb-sp3)",
-                "href": "https://chrome-perf.corp.goog/m?begin=1752000000&end=1798761600&numCommits=50&shortcut=9932c03c06247dea0117eaf6cad7f7e0&splitByKeys=bot",
+                "href": "https://chrome-perf.corp.goog/m?begin=1752000000&end=1798761600&numCommits=50&shortcut=c356c8f9923592a3c4ca13c9a910efa3&splitByKeys=bot",
                 "description": "CBB Speedometer3 results"
             },
             {
                 "text": "JetStream2 (go/cbb-js2)",
-                "href": "https://chrome-perf.corp.goog/m?begin=1752000000&end=1798761600&numCommits=50&shortcut=ca136dd256ad2863c14313b0c5abebaf&splitByKeys=bot",
+                "href": "https://chrome-perf.corp.goog/m?begin=1752000000&end=1798761600&numCommits=50&shortcut=a5ee01abf18568a7638262f3ef4a5c75&splitByKeys=bot",
                 "description": "CBB JetStream2 results"
             },
             {
                 "text": "JetStream3 (go/cbb-js3)",
-                "href": "https://chrome-perf.corp.goog/m?begin=1752000000&end=1798761600&numCommits=50&shortcut=5e0adcbfa0bf14b1cb8f4df6ad839d76&splitByKeys=bot",
+                "href": "https://chrome-perf.corp.goog/m?begin=1752000000&end=1798761600&numCommits=50&shortcut=dd57dc2db697e8ea1d5413a05d23607f&splitByKeys=bot",
                 "description": "CBB JetStream3 results"
             },
             {
                 "text": "MotionMark (go/cbb-mm)",
-                "href": "https://chrome-perf.corp.goog/m?begin=1752000000&end=1798761600&numCommits=50&shortcut=e81da86ff1dccb62b7687fb4d3a85a63&splitByKeys=bot",
+                "href": "https://chrome-perf.corp.goog/m?begin=1752000000&end=1798761600&numCommits=50&shortcut=0e44129ba57dc3a19b2de7cebd3b5aad&splitByKeys=bot",
                 "description": "CBB MotionMark results"
             },
             {
@@ -116,7 +121,7 @@
             },
             {
                 "text": "Overall results (go/cbb-all)",
-                "href": "https://chrome-perf.corp.goog/m?begin=1752000000&end=1798761600&numCommits=50&shortcut=f072585ca68beb7d8bc0337417d2fe59&splitByKeys=benchmark",
+                "href": "https://chrome-perf.corp.goog/m?begin=1752000000&end=1798761600&numCommits=50&shortcut=d7bcc58e5275b37f28f06082355bef65&splitByKeys=benchmark",
                 "description": "CBB results for all benchmarks and platforms"
             }
         ]
