@@ -216,7 +216,7 @@ func (b *builder) new(ctx context.Context, colHeaders []*dataframe.ColumnHeader,
 			Message: err.Error(),
 		})
 
-		return nil, fmt.Errorf("Failed while querying: %s", err)
+		return nil, skerr.Wrapf(err, "Failed while querying")
 	}
 	traceSet, paramSet := traceSetBuilder.Build(ctx)
 	d := &dataframe.DataFrame{
@@ -335,7 +335,7 @@ func (b *builder) NewFromKeysAndRange(ctx context.Context, keys []string, begin,
 		})
 	}
 	if err := g.Wait(); err != nil {
-		return nil, fmt.Errorf("Failed while querying: %s", err)
+		return nil, skerr.Wrapf(err, "Failed while querying")
 	}
 	d := &dataframe.DataFrame{
 		TraceSet:   traceSet,
@@ -384,7 +384,7 @@ func (b *builder) newNFromQuery(ctx context.Context, end time.Time, q *query.Que
 
 	endIndex, err := b.findIndexForTime(ctx, end)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to find end index: %s", err)
+		return nil, skerr.Wrapf(err, "Failed to find end index")
 	}
 	if endIndex == types.BadCommitNumber {
 		return dataframe.NewEmpty(), nil
@@ -417,12 +417,12 @@ func (b *builder) newNFromQuery(ctx context.Context, end time.Time, q *query.Que
 		// Query for traces.
 		headers, indices, skip, err := fromIndexRange(ctx, b.git, beginIndex, endIndex)
 		if err != nil {
-			return nil, fmt.Errorf("Failed building index range: %s", err)
+			return nil, skerr.Wrapf(err, "Failed building index range")
 		}
 
 		df, err := b.new(ctx, headers, indices, q, progress, skip)
 		if err != nil {
-			return nil, fmt.Errorf("Failed while querying: %s", err)
+			return nil, skerr.Wrapf(err, "Failed while querying")
 		}
 
 		// Track all traces found in this tile.
@@ -543,7 +543,7 @@ func (b *builder) NewNFromKeys(ctx context.Context, end time.Time, keys []string
 
 	endIndex, err := b.findIndexForTime(ctx, end)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to find end index: %s", err)
+		return nil, skerr.Wrapf(err, "Failed to find end index")
 	}
 	if endIndex == types.BadCommitNumber {
 		return dataframe.NewEmpty(), nil
@@ -562,7 +562,7 @@ func (b *builder) NewNFromKeys(ctx context.Context, end time.Time, keys []string
 	for total < n {
 		headers, indices, skip, err := fromIndexRange(ctx, b.git, beginIndex, endIndex)
 		if err != nil {
-			return nil, fmt.Errorf("Failed building index range: %s", err)
+			return nil, skerr.Wrapf(err, "Failed building index range")
 		}
 
 		// Determine which tiles we are querying over, and how each tile maps into our results.
@@ -836,7 +836,7 @@ func (b *builder) NumMatches(ctx context.Context, q *query.Query) (int64, error)
 		// Count the matches in the second tile.
 		out, err = b.store.QueryTracesIDOnly(queryContext, tileNumber, q)
 		if err != nil {
-			return -1, fmt.Errorf("Failed to query traces: %s", err)
+			return -1, skerr.Wrapf(err, "Failed to query traces")
 		}
 		var tileTwoCount int64
 		for range out {

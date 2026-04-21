@@ -427,12 +427,12 @@ func (p *frameRequestProcess) doSearch(ctx context.Context, queryStr string, beg
 
 	urlValues, err := url.ParseQuery(queryStr)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to parse query: %s", err)
+		return nil, skerr.Wrapf(err, "Failed to parse query")
 	}
 
 	q, err := query.New(urlValues)
 	if err != nil {
-		return nil, fmt.Errorf("Invalid Query: %s", err)
+		return nil, skerr.Wrapf(err, "Invalid Query")
 	}
 
 	keysWithMissingSentinel := pqp.PrepareQueryWithSentinel(q)
@@ -468,7 +468,7 @@ func (p *frameRequestProcess) doSearch(ctx context.Context, queryStr string, beg
 func (p *frameRequestProcess) doKeys(ctx context.Context, keyID string, begin, end time.Time) (*dataframe.DataFrame, error) {
 	keys, err := p.shortcutStore.Get(ctx, keyID)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to find that set of keys %q: %s", keyID, err)
+		return nil, skerr.Wrapf(err, "Failed to find that set of keys %q", keyID)
 	}
 	if p.request.RequestType == REQUEST_TIME_RANGE {
 		return p.dfBuilder.NewFromKeysAndRange(ctx, keys.Keys, begin, end, p.request.Progress)

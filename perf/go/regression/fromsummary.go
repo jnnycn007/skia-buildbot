@@ -2,9 +2,9 @@ package regression
 
 import (
 	"context"
-	"fmt"
 	"math"
 
+	"go.skia.org/infra/go/skerr"
 	"go.skia.org/infra/perf/go/alerts"
 	perfgit "go.skia.org/infra/perf/go/git"
 	"go.skia.org/infra/perf/go/git/provider"
@@ -20,7 +20,7 @@ func ConfirmedRegressionFromClusterResponse(ctx context.Context, resp *Confirmed
 	commitNumber := resp.Frame.DataFrame.Header[midPoint].Offset
 	details, err := perfGit.CommitFromCommitNumber(ctx, commitNumber)
 	if err != nil {
-		return perfgit.BadCommit, nil, fmt.Errorf("Failed to look up commit %d: %s", commitNumber, err)
+		return perfgit.BadCommit, nil, skerr.Wrapf(err, "Failed to look up commit %d", commitNumber)
 	}
 	lastLowRegression := float64(-1.0)
 	lastHighRegression := float64(-1.0)

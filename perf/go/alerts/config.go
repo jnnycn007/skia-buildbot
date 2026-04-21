@@ -275,12 +275,12 @@ func (c *Alert) QueriesFromParamset(paramset paramtools.ReadOnlyParamSet) ([]str
 	if len(c.GroupBy) != 0 {
 		allCombinations, err := c.GroupCombinations(paramset)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to build GroupBy combinations: %s", err)
+			return nil, skerr.Wrapf(err, "Failed to build GroupBy combinations")
 		}
 		for _, combo := range allCombinations {
 			parsed, err := url.ParseQuery(c.Query)
 			if err != nil {
-				return nil, fmt.Errorf("Found invalid query %q: %s", c.Query, err)
+				return nil, skerr.Wrapf(err, "Found invalid query %q", c.Query)
 			}
 			for _, kv := range combo {
 				parsed[kv.Key] = []string{kv.Value}
@@ -297,7 +297,7 @@ func (c *Alert) QueriesFromParamset(paramset paramtools.ReadOnlyParamSet) ([]str
 func (c *Alert) Validate() error {
 	parsed, err := url.ParseQuery(c.Query)
 	if err != nil {
-		return fmt.Errorf("Invalid Config: Invalid Query: %s", err)
+		return skerr.Wrapf(err, "Invalid Config: Invalid Query")
 	}
 	if c.GroupBy != "" {
 		for _, groupParam := range c.GroupedBy() {
