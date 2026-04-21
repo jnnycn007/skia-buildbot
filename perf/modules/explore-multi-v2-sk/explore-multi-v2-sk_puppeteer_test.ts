@@ -158,4 +158,71 @@ describe('explore-multi-v2-sk', () => {
 
     expect(workerReady).to.be.true;
   });
+
+  it('should set diffBase when Diff button is clicked', async () => {
+    const page = testBed.page;
+
+    // Set availableParams and query to make options appear
+    await page.evaluate(() => {
+      const explore = document.querySelector('explore-multi-v2-sk') as any;
+      const queryBar = explore.shadowRoot.querySelector('query-bar-sk') as any;
+      queryBar.availableParams = [{ key: 'test', value: 'Score', count: 1 }];
+      queryBar.optionsByKey = { test: [{ value: 'Score', count: 1 }] };
+      queryBar.query = { test: ['Score'] }; // So it appears as a pill
+    });
+
+    // Open the multi-select-sk dropdown
+    await page.evaluate(async () => {
+      const explore = document.querySelector('explore-multi-v2-sk') as any;
+      const queryBar = explore.shadowRoot.querySelector('query-bar-sk') as any;
+      const multiSelect = queryBar.shadowRoot.querySelector('multi-select-sk') as any;
+      multiSelect._isOpen = true;
+      await multiSelect.updateComplete;
+    });
+
+    // Click the Diff button
+    await page.evaluate(async () => {
+      const explore = document.querySelector('explore-multi-v2-sk') as any;
+      const queryBar = explore.shadowRoot.querySelector('query-bar-sk') as any;
+      const multiSelect = queryBar.shadowRoot.querySelector('multi-select-sk') as any;
+      const diffBtn = multiSelect.shadowRoot.querySelector('.ms-diff-btn') as HTMLElement;
+      diffBtn.click();
+      await explore.updateComplete;
+    });
+
+    // Verify _diffBase is set
+    const diffBase = await page.evaluate(() => {
+      const explore = document.querySelector('explore-multi-v2-sk') as any;
+      return explore._diffBase;
+    });
+
+    expect(diffBase).to.deep.equal({ key: 'test', value: 'Score' });
+  });
+
+  it('should display Diff Base chip when diffBase is set', async () => {
+    const page = testBed.page;
+
+    // Set diffBase directly
+    await page.evaluate(() => {
+      const explore = document.querySelector('explore-multi-v2-sk') as any;
+      explore._diffBase = { key: 'test', value: 'Score' };
+      explore.requestUpdate();
+    });
+
+    // Wait for the chip to appear
+    await page.waitForFunction(() => {
+      const explore = document.querySelector('explore-multi-v2-sk');
+      const chip = explore?.shadowRoot?.querySelector('.config-pill');
+      return chip && chip.textContent?.includes('Diff Base:');
+    });
+
+    const chipText = await page.evaluate(() => {
+      const explore = document.querySelector('explore-multi-v2-sk');
+      const chip = explore?.shadowRoot?.querySelector('.config-pill');
+      return chip ? chip.textContent : '';
+    });
+
+    expect(chipText).to.include('Diff Base:');
+    expect(chipText).to.include('Score');
+  });
 });

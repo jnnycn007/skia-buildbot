@@ -884,4 +884,20 @@ describe('explore-multi-v2-sk', () => {
       });
     }
   });
+  it('renders config pills when diffBase or splitKeys is set', async () => {
+    element['_diffBase'] = { key: 'test', value: 'Score' };
+    element['_splitKeys'] = new Set(['bot']);
+    await element.updateComplete;
+
+    const pills = element.shadowRoot!.querySelectorAll('.config-pill');
+    expect(pills.length).to.equal(2);
+
+    const diffPill = Array.from(pills).find((p) => p.textContent?.includes('Diff Base:'));
+    expect(diffPill).to.not.be.undefined;
+    expect(diffPill!.textContent).to.include('Score');
+
+    const splitPill = Array.from(pills).find((p) => p.textContent?.includes('Split by:'));
+    expect(splitPill).to.not.be.undefined;
+    expect(splitPill!.textContent).to.include('bot');
+  });
 });

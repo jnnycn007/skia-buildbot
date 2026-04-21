@@ -10,6 +10,7 @@ let loadedData: {
   traceData: TraceData;
   wasmFilter: WasmExports;
   globalCounts: Int32Array;
+  commonParams: Record<string, string>;
 } | null = null;
 let paramsOnlyData: { params: Param[] } | null = null;
 
@@ -48,7 +49,7 @@ async function loadData(
       self.postMessage({ type: 'PROGRESS', payload: { name, loaded, total } });
     };
 
-    const { stride, count } = meta;
+    const { stride, count, commonParams } = meta;
     console.log('Worker: Using meta:', meta);
     console.log('Worker: Using params, count:', params.length);
 
@@ -65,6 +66,16 @@ async function loadData(
       if (!groupedParams[p.key]) groupedParams[p.key] = [];
       groupedParams[p.key].push({ value: p.value, count: 0 }); // Init with 0
     });
+
+    // Add common params to available params
+    if (commonParams) {
+      for (const [key, value] of Object.entries(commonParams as Record<string, string>)) {
+        flatParams.push({ key, value, count: count });
+        if (!groupedParams[key]) groupedParams[key] = [];
+        groupedParams[key].push({ value, count: count });
+      }
+    }
+
     Object.keys(groupedParams).forEach((k) =>
       groupedParams[k].sort((a: any, b: any) => a.value.localeCompare(b.value))
     );
@@ -159,6 +170,7 @@ async function loadData(
       traceData,
       wasmFilter,
       globalCounts,
+      commonParams: commonParams || {},
     };
 
     self.postMessage({ type: 'READY' });
@@ -226,23 +238,52 @@ async function handleFilter(queries: Query[], requestId: number, numUserQueries:
     const queryKeysOrder = queryEntries.map(([k]) => k);
 
     let count = 0;
+    const filteredQueryEntries: [string, string[]][] = [];
+    let alwaysFalse = false;
 
-    if (queryEntries.length === 0) {
-      traceData.matchingParams.set(globalCounts, 0);
-      if (queries.length === 1) {
-        count = traceData.numTraces;
-        const limit = Math.min(count, OUTPUT_LIMIT);
-        for (let k = 0; k < limit; k++) {
-          traceData.filteredTraceIndices[k] = k;
+    for (const [key, values] of queryEntries) {
+      if (loadedData && loadedData.commonParams && loadedData.commonParams[key]) {
+        const commonVal = loadedData.commonParams[key];
+        const matches = values.some((v) => {
+          const parts = v.split(',').map((s) => s.trim());
+          return parts.some((part) => {
+            if (part.includes('*') || part.includes('?')) {
+              try {
+                const escaped = part.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+                const pattern = '^' + escaped.replace(/\*/g, '.*').replace(/\?/g, '.') + '$';
+                const regex = new RegExp(pattern, 'i');
+                return regex.test(commonVal);
+              } catch (_e) {
+                return false;
+              }
+            }
+            return part === commonVal;
+          });
+        });
+        if (!matches) {
+          alwaysFalse = true;
+          break;
         }
-      } else {
-        count = 0;
+        continue; // All traces have this value, no need to filter in Wasm
+      }
+      filteredQueryEntries.push([key, values]);
+    }
+
+    if (alwaysFalse) {
+      count = 0;
+      console.log('Worker: Query contradicts commonParams. 0 matches.');
+    } else if (filteredQueryEntries.length === 0) {
+      traceData.matchingParams.set(globalCounts, 0);
+      count = traceData.numTraces;
+      const limit = Math.min(count, OUTPUT_LIMIT);
+      for (let k = 0; k < limit; k++) {
+        traceData.filteredTraceIndices[k] = k;
       }
     } else {
       const serializedQuery: number[] = [];
-      serializedQuery.push(queryEntries.length);
+      serializedQuery.push(filteredQueryEntries.length);
 
-      for (const [key, values] of queryEntries) {
+      for (const [key, values] of filteredQueryEntries) {
         const ids: number[] = [];
         for (const v of values) {
           const parts = v
@@ -356,6 +397,14 @@ async function handleFilter(queries: Query[], requestId: number, numUserQueries:
       const p = params[pid - 1];
       if (p) traceParams.push(p);
     }
+
+    // Append common params
+    if (loadedData && loadedData.commonParams) {
+      for (const [key, value] of Object.entries(loadedData.commonParams)) {
+        traceParams.push({ id: 0, key, value });
+      }
+    }
+
     results.push({ index: traceIndex, params: traceParams });
   }
 

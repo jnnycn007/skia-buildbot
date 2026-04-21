@@ -23,6 +23,7 @@ describe('multi-select-sk', () => {
   });
 
   it('emits diff-base event when Diff button is clicked', async () => {
+    element.label = 'test-key';
     element.options = [{ value: 'value1', count: 10 }];
     element.showDiffButton = true;
     element['_isOpen'] = true;
@@ -37,7 +38,7 @@ describe('multi-select-sk', () => {
     expect(diffBtn).to.not.be.null;
     diffBtn.click();
 
-    expect(eventDetail).to.deep.equal({ value: 'value1' });
+    expect(eventDetail).to.deep.equal({ key: 'test-key', value: 'value1' });
   });
 
   it('emits split event when Split button is clicked', async () => {
@@ -55,6 +56,40 @@ describe('multi-select-sk', () => {
     splitBtn.click();
 
     expect(eventEmitted).to.be.true;
+  });
+
+  it('toggles selection when option is clicked', async () => {
+    element.options = [{ value: 'value1', count: 10 }];
+    element['_isOpen'] = true;
+    await element.updateComplete;
+
+    let eventDetail: any = null;
+    element.addEventListener('selection-change', (e: any) => {
+      eventDetail = e.detail;
+    });
+
+    const optionDiv = element.shadowRoot!.querySelector('.multiselect-option') as HTMLElement;
+    expect(optionDiv).to.not.be.null;
+    optionDiv.click();
+
+    expect(eventDetail).to.deep.equal({ value: 'value1' });
+  });
+
+  it('toggles selection when checkmark is clicked', async () => {
+    element.options = [{ value: 'value1', count: 10 }];
+    element['_isOpen'] = true;
+    await element.updateComplete;
+
+    let eventDetail: any = null;
+    element.addEventListener('selection-change', (e: any) => {
+      eventDetail = e.detail;
+    });
+
+    const checkmark = element.shadowRoot!.querySelector('.checkmark') as HTMLElement;
+    expect(checkmark).to.not.be.null;
+    checkmark.click();
+
+    expect(eventDetail).to.deep.equal({ value: 'value1' });
   });
 
   it('uses CSS variable for pill border and color', async () => {

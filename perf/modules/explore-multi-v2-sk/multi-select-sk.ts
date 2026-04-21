@@ -382,7 +382,7 @@ export class MultiSelectSk extends LitElement {
       border-color: var(--outline, rgba(255, 255, 255, 0.2));
     }
 
-    .custom-checkbox input:checked ~ .checkmark {
+    .checkmark.checked {
       background-color: var(--primary, #6366f1);
       border-color: var(--primary, #6366f1);
     }
@@ -398,7 +398,7 @@ export class MultiSelectSk extends LitElement {
       margin-bottom: 2px;
     }
 
-    .custom-checkbox input:checked ~ .checkmark:after {
+    .checkmark.checked:after {
       display: block;
     }
   `;
@@ -771,14 +771,12 @@ export class MultiSelectSk extends LitElement {
                               }
                             }}>
                             <div class="ms-opt-checkbox">
-                              <label class="custom-checkbox">
-                                <input
-                                  type="checkbox"
-                                  .checked=${isEffectivelySelected}
-                                  @click=${(e: Event) => e.stopPropagation()}
-                                  @change=${() => this._handleToggle(option.value)} />
-                                <span class="checkmark"></span>
-                              </label>
+                              <div class="custom-checkbox">
+                                <span
+                                  class="checkmark ${isEffectivelySelected
+                                    ? 'checked'
+                                    : ''}"></span>
+                              </div>
                             </div>
                             <span class="ms-opt-text">
                               <span class="ms-opt-value">${option.value}</span>
@@ -791,14 +789,11 @@ export class MultiSelectSk extends LitElement {
                                     @click=${(e: Event) => {
                                       e.stopPropagation();
                                       this.dispatchEvent(
-                                        new CustomEvent<MultiSelectSelectionEventDetail>(
-                                          'diff-base',
-                                          {
-                                            detail: { value: option.value },
-                                            bubbles: true,
-                                            composed: true,
-                                          }
-                                        )
+                                        new CustomEvent('diff-base', {
+                                          detail: { key: this.label, value: option.value },
+                                          bubbles: true,
+                                          composed: true,
+                                        })
                                       );
                                       this._isOpen = false;
                                     }}

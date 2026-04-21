@@ -814,39 +814,6 @@ func (s *SQLTraceStore) QueryTracesIDOnly(ctx context.Context, tileNumber types.
 	return outParams, nil
 }
 
-// GetNonEmptyTraceIDs returns the IDs of traces that have at least one data point in the given commit range.
-func (s *SQLTraceStore) GetNonEmptyTraceIDs(ctx context.Context, startCommit, endCommit types.CommitNumber) ([][]byte, error) {
-	statement := `
-		SELECT DISTINCT
-			trace_id
-		FROM
-			TraceValues
-		WHERE
-			commit_number >= $1
-			AND commit_number <= $2
-	`
-
-	rows, err := s.db.Query(ctx, statement, startCommit, endCommit)
-	if err != nil {
-		return nil, skerr.Wrap(err)
-	}
-	defer rows.Close()
-
-	var ret [][]byte
-	for rows.Next() {
-		var traceID []byte
-		if err := rows.Scan(&traceID); err != nil {
-			return nil, skerr.Wrapf(err, "Failed to scan trace ID")
-		}
-		ret = append(ret, traceID)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, skerr.Wrap(err)
-	}
-
-	return ret, nil
-}
-
 // ReadTraces implements the tracestore.TraceStore interface.
 func (s *SQLTraceStore) ReadTraces(ctx context.Context, tileNumber types.TileNumber, traceNames []string) (types.TraceSet, []provider.Commit, map[string]*types.TraceSourceInfo, error) {
 	ctx, span := trace.StartSpan(ctx, "sqltracestore.ReadTraces")

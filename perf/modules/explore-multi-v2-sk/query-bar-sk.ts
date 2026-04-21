@@ -658,11 +658,10 @@ export class QueryBarSk extends LitElement {
                     this._dispatchEvent('remove-key', { key });
                   }}
                   @split=${() => this._dispatchEvent('split', { key })}
-                  @diff-base=${(e: CustomEvent<MultiSelectSelectionEventDetail>) =>
-                    this._dispatchEvent('diff-base', {
-                      key,
-                      value: e.detail.value,
-                    })}></multi-select-sk>
+                  @diff-base=${(e: CustomEvent) => {
+                    e.stopPropagation();
+                    this._dispatchEvent('diff-base', e.detail);
+                  }}></multi-select-sk>
               `;
             }
           )}

@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -34,11 +33,6 @@ type Param struct {
 	Id    uint16 `json:"id"`
 	Key   string `json:"key"`
 	Value string `json:"value"`
-}
-
-// WasmSupport defines the methods needed by WasmApi that are not in the main TraceStore interface.
-type WasmSupport interface {
-	GetNonEmptyTraceIDs(ctx context.Context, startCommit, endCommit types.CommitNumber) ([][]byte, error)
 }
 
 type wasmApi struct {
@@ -181,8 +175,6 @@ func (api *wasmApi) ensureCache(ctx context.Context) error {
 
 	sklog.Infof("Generating Wasm memory cache for tile %d", tile)
 
-	lookup, stride, params := api.buildLookup()
-
 	// Fetch traces to build traces.bin.
 	fmt.Println("filterQuery: ", api.filterQuery)
 	q, err := query.NewFromString(api.filterQuery)
@@ -208,37 +200,49 @@ func (api *wasmApi) ensureCache(ctx context.Context) error {
 		allKeys = append(allKeys, key)
 	}
 
-	// Filter by non-empty traces
-	wasmSupport, ok := api.traceStore.(WasmSupport)
-	if !ok {
-		return skerr.Fmt("TraceStore does not support Wasm operations")
+	// Find common params
+	commonParams := map[string]string{}
+	if len(allParams) > 0 {
+		first := allParams[0]
+		for k, v := range first {
+			allMatch := true
+			for _, p := range allParams[1:] {
+				if p[k] != v {
+					allMatch = false
+					break
+				}
+			}
+			if allMatch {
+				commonParams[k] = v
+			}
+		}
 	}
-	tileSize := api.traceStore.TileSize()
-	beginCommit, endCommit := types.TileCommitRangeForTileNumber(tile, tileSize)
 
-	// Use a timeout for this potentially heavy operation
-	ctxTimeout, cancel := context.WithTimeout(ctx, 20*time.Minute)
-	defer cancel()
-	nonEmptyTraceIDs, err := wasmSupport.GetNonEmptyTraceIDs(ctxTimeout, beginCommit, endCommit)
-	if err != nil {
-		return skerr.Wrap(err)
+	// Filter ParamSet to remove common keys
+	ps := api.psRefresher.GetAll()
+	filteredPs := paramtools.ParamSet{}
+	for k, v := range ps {
+		if _, ok := commonParams[k]; !ok {
+			filteredPs[k] = v
+		}
 	}
 
-	nonEmptyKeys := filterNonEmptyKeys(allKeys, nonEmptyTraceIDs)
-	sklog.Infof("Filtered to %d non-empty traces out of %d", len(nonEmptyKeys), len(allKeys))
+	lookup, stride, params := api.buildLookup(filteredPs)
 
-	tracesBinary, traceCount := encodeTraces(allParams, allKeys, nonEmptyKeys, lookup, stride)
+	tracesBinary, traceCount := encodeTraces(allParams, allKeys, lookup, stride)
 
 	version := fmt.Sprintf("%d", time.Now().Unix())
 
 	meta := struct {
-		Stride  int    `json:"stride"`
-		Count   int    `json:"count"`
-		Version string `json:"version"`
+		Stride       int               `json:"stride"`
+		Count        int               `json:"count"`
+		Version      string            `json:"version"`
+		CommonParams map[string]string `json:"commonParams"`
 	}{
-		Stride:  stride,
-		Count:   traceCount,
-		Version: version,
+		Stride:       stride,
+		Count:        traceCount,
+		Version:      version,
+		CommonParams: commonParams,
 	}
 
 	metaBytes, err := json.Marshal(meta)
@@ -309,8 +313,7 @@ func (api *wasmApi) tracesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (api *wasmApi) buildLookup() (map[string]map[string]uint16, int, []Param) {
-	ps := api.psRefresher.GetAll()
+func (api *wasmApi) buildLookup(ps paramtools.ParamSet) (map[string]map[string]uint16, int, []Param) {
 	lookup := map[string]map[string]uint16{}
 	var idCounter uint16 = 1
 	var params []Param
@@ -332,32 +335,10 @@ func (api *wasmApi) buildLookup() (map[string]map[string]uint16, int, []Param) {
 	return lookup, stride, params
 }
 
-func filterNonEmptyKeys(allKeys []string, nonEmptyTraceIDs [][]byte) map[string]bool {
-	traceNameMap := map[[16]byte]string{}
-	for _, key := range allKeys {
-		hash := md5.Sum([]byte(key))
-		traceNameMap[hash] = key
-	}
-
-	nonEmptyKeys := map[string]bool{}
-	for _, id := range nonEmptyTraceIDs {
-		var idArray [16]byte
-		copy(idArray[:], id)
-		if key, ok := traceNameMap[idArray]; ok {
-			nonEmptyKeys[key] = true
-		}
-	}
-	return nonEmptyKeys
-}
-
-func encodeTraces(allParams []paramtools.Params, allKeys []string, nonEmptyKeys map[string]bool, lookup map[string]map[string]uint16, stride int) ([]byte, int) {
+func encodeTraces(allParams []paramtools.Params, allKeys []string, lookup map[string]map[string]uint16, stride int) ([]byte, int) {
 	var tracesBinary []byte
 	traceCount := 0
-	for idx, p := range allParams {
-		key := allKeys[idx]
-		if !nonEmptyKeys[key] {
-			continue
-		}
+	for _, p := range allParams {
 
 		row := make([]uint16, stride)
 		i := 0

@@ -492,6 +492,59 @@ export class ExploreMultiV2Sk extends LitElement {
       background: #f1f3f4;
       box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
     }
+
+    .config-pills {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 12px 0;
+    }
+
+    .config-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 16px;
+      font-size: 12px;
+      color: var(--on-surface, #f8fafc);
+      border: 1px solid var(--outline, rgba(255, 255, 255, 0.1));
+    }
+
+    .config-pill.diff-base {
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+    }
+
+    .config-pill-label {
+      font-weight: 600;
+      color: var(--primary, #818cf8);
+    }
+
+    .config-pill-value {
+      max-width: 300px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .config-pill-remove {
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--on-surface, #94a3b8);
+      padding: 0;
+      margin-left: 4px;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+    }
+
+    .config-pill-remove:hover {
+      color: var(--on-background, #fff);
+    }
   `;
 
   protected firstUpdated() {
@@ -585,6 +638,7 @@ export class ExploreMultiV2Sk extends LitElement {
       changedProperties.has('_smoothingRadius') ||
       changedProperties.has('_showDots') ||
       changedProperties.has('_splitKeys') ||
+      changedProperties.has('_diffBase') ||
       changedProperties.has('_showSparklines') ||
       changedProperties.has('_showMinMax') ||
       changedProperties.has('_showStd') ||
@@ -1319,9 +1373,12 @@ export class ExploreMultiV2Sk extends LitElement {
 
   private _handleDiffBase(e: CustomEvent<{ key: string; value: string }>) {
     const { key, value } = e.detail;
+    console.log('[_handleDiffBase] Received event. key:', key, 'value:', value);
     if (this._diffBase && this._diffBase.key === key && this._diffBase.value === value) {
+      console.log('[_handleDiffBase] Clearing diffBase');
       this._diffBase = null;
     } else {
+      console.log('[_handleDiffBase] Setting diffBase to:', { key, value });
       this._diffBase = { key, value };
     }
   }
@@ -1487,6 +1544,49 @@ export class ExploreMultiV2Sk extends LitElement {
             +
           </button>
         </div>
+
+        ${this._diffBase || this._splitKeys.size > 0
+          ? html`
+              <div class="config-pills">
+                ${Array.from(this._splitKeys).map(
+                  (key) => html`
+                    <div class="config-pill">
+                      <span class="config-pill-label">Split by:</span>
+                      <span>${key}</span>
+                      <button
+                        class="config-pill-remove"
+                        @click=${() =>
+                          this._handleSplit(new CustomEvent('split', { detail: { key } }))}>
+                        &times;
+                      </button>
+                    </div>
+                  `
+                )}
+                ${this._diffBase
+                  ? html`
+                      <div class="config-pill diff-base">
+                        <span class="config-pill-label">Diff Base:</span>
+                        <span
+                          class="config-pill-value"
+                          title=${`${this._diffBase.key}=${this._diffBase.value}`}>
+                          ${this._diffBase.value}
+                        </span>
+                        <button
+                          class="config-pill-remove"
+                          @click=${() =>
+                            this._handleDiffBase(
+                              new CustomEvent('diff-base', {
+                                detail: { key: this._diffBase!.key, value: this._diffBase!.value },
+                              })
+                            )}>
+                          &times;
+                        </button>
+                      </div>
+                    `
+                  : ''}
+              </div>
+            `
+          : ''}
 
         <explore-toolbar-sk
           .tracePage=${this._tracePage}

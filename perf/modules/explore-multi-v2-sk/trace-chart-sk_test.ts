@@ -238,4 +238,24 @@ describe('trace-chart-sk', () => {
       (element as any)['_drawBackground'] = oldDrawBackground;
     }
   });
+  it('draws No Data message when minX is Infinity', async () => {
+    const canvas = element.shadowRoot!.querySelector('#chart-canvas') as HTMLCanvasElement;
+    const ctx = canvas.getContext('2d')!;
+    const oldFillText = ctx.fillText;
+    const texts: string[] = [];
+    ctx.fillText = function (text: string, x: number, y: number) {
+      texts.push(text);
+      oldFillText.call(this, text, x, y);
+    };
+
+    try {
+      (element as any)['_processedSeries'] = [{ id: 'test', color: '#fff', rows: [] }];
+      (element as any)['_drawBackground']();
+
+      const hasMessage = texts.some((t) => t.includes('No data available'));
+      expect(hasMessage).to.be.true;
+    } finally {
+      ctx.fillText = oldFillText;
+    }
+  });
 });

@@ -166,4 +166,31 @@ describe('query-bar-sk', () => {
 
     expect((element as any)['_isOpen']).to.be.false;
   });
+  it('forwards diff-base event and stops propagation', async () => {
+    element.query = { bot: ['linux'] };
+    element.optionsByKey = { bot: [{ value: 'linux', count: 1 }] };
+    await element.updateComplete;
+
+    const multiSelect = element.shadowRoot!.querySelector('multi-select-sk');
+    expect(multiSelect).to.not.be.null;
+
+    let eventDetail: any = null;
+    let eventCount = 0;
+    element.addEventListener('diff-base', (e: any) => {
+      eventDetail = e.detail;
+      eventCount++;
+    });
+
+    // Simulate diff-base event from multi-select
+    multiSelect!.dispatchEvent(
+      new CustomEvent('diff-base', {
+        detail: { key: 'bot', value: 'linux' },
+        bubbles: true,
+        composed: true,
+      })
+    );
+
+    expect(eventCount).to.equal(1);
+    expect(eventDetail).to.deep.equal({ key: 'bot', value: 'linux' });
+  });
 });

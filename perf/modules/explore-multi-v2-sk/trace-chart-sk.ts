@@ -491,7 +491,18 @@ export class TraceChartSk extends LitElement {
       mapCountY,
     } = this._getChartBoundsAndMapping(rect);
 
-    if (minX === Infinity) return; // Empty rows
+    if (minX === Infinity) {
+      ctx.fillStyle = textColorSecondary;
+      ctx.font = '14px "Inter", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(
+        'No data available for this trace in the selected time range',
+        width / 2,
+        height / 2
+      );
+      return;
+    }
 
     // Draw frame border (removed for cleaner look)
 

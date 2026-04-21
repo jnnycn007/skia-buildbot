@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"crypto/md5"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -40,11 +39,6 @@ func (m *mockTraceStore) TileSize() int32 {
 	return args.Get(0).(int32)
 }
 
-func (m *mockTraceStore) GetNonEmptyTraceIDs(ctx context.Context, startCommit, endCommit types.CommitNumber) ([][]byte, error) {
-	args := m.Called(ctx, startCommit, endCommit)
-	return args.Get(0).([][]byte), args.Error(1)
-}
-
 type mockPsRefresher struct {
 	mock.Mock
 }
@@ -80,16 +74,11 @@ func TestWasmApi_MetaHandler_Success(t *testing.T) {
 	ts.On("TileSize").Return(int32(256))
 
 	p1 := paramtools.Params{"config": "8888", "arch": "arm"}
-	k1, err := query.MakeKeyFast(p1)
-	require.NoError(t, err)
-	h1 := md5.Sum([]byte(k1))
 
 	pChan := make(chan paramtools.Params, 1)
 	pChan <- p1
 	close(pChan)
 	ts.On("QueryTracesIDOnly", mock.Anything, types.TileNumber(1), mock.Anything).Return((<-chan paramtools.Params)(pChan), nil)
-
-	ts.On("GetNonEmptyTraceIDs", mock.Anything, mock.Anything, mock.Anything).Return([][]byte{h1[:]}, nil)
 
 	paramSet := paramtools.ParamSet{}
 	paramSet["config"] = []string{"8888"}
@@ -104,15 +93,18 @@ func TestWasmApi_MetaHandler_Success(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Result().StatusCode)
 
 	var meta struct {
-		Stride  int    `json:"stride"`
-		Count   int    `json:"count"`
-		Version string `json:"version"`
+		Stride       int               `json:"stride"`
+		Count        int               `json:"count"`
+		Version      string            `json:"version"`
+		CommonParams map[string]string `json:"commonParams"`
 	}
 	err = json.Unmarshal(w.Body.Bytes(), &meta)
 	require.NoError(t, err)
 
-	require.Equal(t, 1, meta.Count) // We now load traces in ensureCache
-	require.True(t, meta.Stride > 0)
+	require.Equal(t, 1, meta.Count)
+	// Since there is only 1 trace, both params should be common!
+	require.Equal(t, "8888", meta.CommonParams["config"])
+	require.Equal(t, "arm", meta.CommonParams["arch"])
 }
 
 func TestWasmApi_EmptyQueryWithStat(t *testing.T) {
@@ -131,9 +123,6 @@ func TestWasmApi_EmptyQueryWithStat(t *testing.T) {
 	ts.On("TileSize").Return(int32(256))
 
 	p1 := paramtools.Params{"config": "8888", "stat": "median"}
-	k1, err := query.MakeKeyFast(p1)
-	require.NoError(t, err)
-	h1 := md5.Sum([]byte(k1))
 
 	pChan := make(chan paramtools.Params, 1)
 	pChan <- p1
@@ -143,8 +132,6 @@ func TestWasmApi_EmptyQueryWithStat(t *testing.T) {
 	ts.On("QueryTracesIDOnly", mock.Anything, types.TileNumber(1), mock.MatchedBy(func(q *query.Query) bool {
 		return q.String() == ""
 	})).Return((<-chan paramtools.Params)(pChan), nil)
-
-	ts.On("GetNonEmptyTraceIDs", mock.Anything, mock.Anything, mock.Anything).Return([][]byte{h1[:]}, nil)
 
 	paramSet := paramtools.ParamSet{}
 	paramSet["config"] = []string{"8888"}
@@ -175,4 +162,56 @@ func TestInferredFilterQuery(t *testing.T) {
 	query := inferredFilterQuery(cfg)
 	require.Contains(t, query, "branch_name=aosp-androidx-main")
 	require.Contains(t, query, "metric=~(timeNs|timeToInitialDisplayMs)")
+}
+
+func TestWasmApi_CommonParamsExtraction(t *testing.T) {
+	ts := &mockTraceStore{}
+	ps := &mockPsRefresher{}
+
+	cacheDir, err := os.MkdirTemp("", "wasm_cache_test")
+	require.NoError(t, err)
+	defer func() {
+		_ = os.RemoveAll(cacheDir)
+	}()
+
+	api := NewWasmApi(ts, ps, cacheDir, &config.InstanceConfig{})
+
+	ts.On("GetLatestTile", mock.Anything).Return(types.TileNumber(1), nil)
+	ts.On("TileSize").Return(int32(256))
+
+	// Return two traces that share "master=master" but differ in "bot"
+	p1 := paramtools.Params{"master": "master", "bot": "bot1"}
+	p2 := paramtools.Params{"master": "master", "bot": "bot2"}
+
+	pChan := make(chan paramtools.Params, 2)
+	pChan <- p1
+	pChan <- p2
+	close(pChan)
+	ts.On("QueryTracesIDOnly", mock.Anything, types.TileNumber(1), mock.Anything).Return((<-chan paramtools.Params)(pChan), nil)
+
+	paramSet := paramtools.ParamSet{}
+	paramSet["master"] = []string{"master"}
+	paramSet["bot"] = []string{"bot1", "bot2"}
+	ps.On("GetAll").Return(paramSet.Freeze())
+
+	req := httptest.NewRequest("GET", "/_/wasm/meta.json", nil)
+	w := httptest.NewRecorder()
+
+	api.metaHandler(w, req)
+
+	require.Equal(t, http.StatusOK, w.Result().StatusCode)
+
+	var meta struct {
+		Stride       int               `json:"stride"`
+		Count        int               `json:"count"`
+		Version      string            `json:"version"`
+		CommonParams map[string]string `json:"commonParams"`
+	}
+	err = json.Unmarshal(w.Body.Bytes(), &meta)
+	require.NoError(t, err)
+
+	require.Equal(t, 2, meta.Count)
+	require.Equal(t, "master", meta.CommonParams["master"])
+	_, ok := meta.CommonParams["bot"]
+	require.False(t, ok) // bot should not be common!
 }
