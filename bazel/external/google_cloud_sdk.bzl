@@ -83,6 +83,7 @@ filegroup(
             "pubsub-emulator",
             "cloud-spanner-emulator",
         ],
+        environment = {"CLOUDSDK_CORE_DISABLE_PROMPTS": "1"},
         quiet = repository_ctx.attr.quiet,
     )
     fail_if_nonzero_status(exec_result, "Failed to install Cloud Emulators.")

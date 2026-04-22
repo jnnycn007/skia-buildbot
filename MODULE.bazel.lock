@@ -581,7 +581,7 @@
     },
     "//bazel/external:google_cloud_sdk.bzl%google_cloud_sdk": {
       "general": {
-        "bzlTransitiveDigest": "gs49vO1ZJ4cpUNwWnL65KWdtKd9E0NcJqih5wyOlU08=",
+        "bzlTransitiveDigest": "qc9WRqtqFNLGTsd4OsESrnhLXa88VyKCiddtK0hUMWg=",
         "usagesDigest": "aSHiA0iD4STRDED7T16EpqIXTP6/jwI1dOHiU8ZeyGI=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
