@@ -44,7 +44,7 @@ func TestConvertRegressionToAnomalies_Success(t *testing.T) {
 	anomaly := commitMap[types.CommitNumber(12345)]
 	assert.Equal(t, "test_regression", anomaly.Id)
 	assert.Equal(t, "ChromiumPerf/mac-m1/MyBench/MyTest/sub1", anomaly.TestPath)
-	assert.Equal(t, 12340, anomaly.StartRevision)
+	assert.Equal(t, 12340+1, anomaly.StartRevision)
 	assert.Equal(t, 12345, anomaly.EndRevision)
 	assert.False(t, anomaly.IsImprovement)
 	assert.Equal(t, 10.0, anomaly.MedianBeforeAnomaly)

@@ -25,7 +25,7 @@ func ConvertRegressionToAnomalies(reg *regression.Regression) (chromeperf.Anomal
 		anomaly := chromeperf.Anomaly{
 			Id:                  reg.Id,
 			TestPath:            testPath,
-			StartRevision:       int(reg.PrevCommitNumber),
+			StartRevision:       int(reg.PrevCommitNumber) + 1,
 			EndRevision:         int(reg.CommitNumber),
 			IsImprovement:       reg.IsImprovement,
 			MedianBeforeAnomaly: float64(reg.MedianBefore),

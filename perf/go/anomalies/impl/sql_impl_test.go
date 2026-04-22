@@ -62,8 +62,8 @@ func newTestRegresstionsMap() RegressionMap {
 	return RegressionMap{
 		types.CommitNumber(endCommit): &regression.AllRegressionsForCommit{
 			ByAlertID: map[string]*regression.Regression{
-				"alert_id_1": newTestRegression("alert_id_1", startCommit, endCommit, traceKey1, false, medianBefore, medianAfter),
-				"alert_id_2": newTestRegression("alert_id_2", startCommit, endCommit, traceKey2, true, medianBefore*2, medianAfter*2),
+				"alert_id_1": newTestRegression("alert_id_1", startCommit-1, endCommit, traceKey1, false, medianBefore, medianAfter),
+				"alert_id_2": newTestRegression("alert_id_2", startCommit-1, endCommit, traceKey2, true, medianBefore*2, medianAfter*2),
 			},
 		},
 	}
