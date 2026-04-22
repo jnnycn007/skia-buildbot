@@ -11,6 +11,8 @@ window.perf.display_group_by = true;
 window.perf.notifications = 'markdown_issuetracker';
 window.perf.enable_v2_ui = false;
 
+let isDeleted = false;
+
 fetchMock.get('/_/login/status', {
   email: 'someone@example.org',
   roles: ['editor'],
@@ -27,31 +29,41 @@ fetchMock.post(
 
 fetchMock.post('/_/alert/update', 200);
 
+fetchMock.post('/_/alert/delete/5646874153320448', () => {
+  isDeleted = true;
+  return 200;
+});
+
 // eslint-disable-next-line no-use-before-define
-fetchMock.get('/_/alert/list/false', (): Alert[] => [
-  {
-    id_as_string: '5646874153320448',
-    display_name: 'Image',
-    query: 'source_type=image\u0026sub_result=min_ms',
-    issue_tracker_component: SerializesToString('720614'),
-    alert: '',
-    step: 'cohen',
-    interesting: 50,
-    bug_uri_template: '',
-    algo: 'stepfit',
-    state: 'ACTIVE',
-    owner: 'jcgregorio@google.com',
-    step_up_only: false,
-    direction: 'BOTH',
-    radius: 7,
-    k: 0,
-    group_by: '',
-    sparse: false,
-    minimum_num: 0,
-    category: ' ',
-    action: 'noaction',
-  },
-]);
+fetchMock.get('/_/alert/list/false', (): Alert[] => {
+  if (isDeleted) {
+    return [];
+  }
+  return [
+    {
+      id_as_string: '5646874153320448',
+      display_name: 'Image',
+      query: 'source_type=image\u0026sub_result=min_ms',
+      issue_tracker_component: SerializesToString('720614'),
+      alert: '',
+      step: 'cohen',
+      interesting: 50,
+      bug_uri_template: '',
+      algo: 'stepfit',
+      state: 'ACTIVE',
+      owner: 'jcgregorio@google.com',
+      step_up_only: false,
+      direction: 'BOTH',
+      radius: 7,
+      k: 0,
+      group_by: '',
+      sparse: false,
+      minimum_num: 0,
+      category: ' ',
+      action: 'noaction',
+    },
+  ];
+});
 
 // eslint-disable-next-line no-use-before-define
 fetchMock.get('/_/alert/list/true', (): Alert[] => [
