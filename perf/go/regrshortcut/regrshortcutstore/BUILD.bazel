@@ -3,10 +3,14 @@ load("//bazel/go:go_test.bzl", "go_test")
 
 go_library(
     name = "regrshortcutstore",
-    srcs = ["store.go"],
+    srcs = [
+        "cacheregrshortcutstore.go",
+        "store.go",
+    ],
     importpath = "go.skia.org/infra/perf/go/regrshortcut/regrshortcutstore",
     visibility = ["//visibility:public"],
     deps = [
+        "//go/cache",
         "//go/skerr",
         "//go/sql/pool",
         "//perf/go/types",

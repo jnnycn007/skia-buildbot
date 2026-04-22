@@ -44,6 +44,18 @@ func (rss *RegressionsShortcutStore) Create(ctx context.Context, regrIdList []st
 	return shortcut, nil
 }
 
+// Get implements the regrshortcut.Store interface.
+func (rss *RegressionsShortcutStore) Get(ctx context.Context, shortcut string) ([]string, error) {
+	if !strings.HasPrefix(shortcut, "\\x") {
+		shortcut = "\\x" + shortcut
+	}
+	var regrIdList []string
+	if err := rss.db.QueryRow(ctx, `SELECT anomaly_ids FROM RegressionsShortcuts WHERE sid = $1`, shortcut).Scan(&regrIdList); err != nil {
+		return nil, skerr.Wrapf(err, "failed to get regressions shortcut: %s", shortcut)
+	}
+	return regrIdList, nil
+}
+
 func (rss *RegressionsShortcutStore) calcHash(regrIdList []string) string {
 	hash := md5.Sum([]byte(strings.Join(regrIdList, ",")))
 	return string(types.TraceIDForSQLFromTraceIDAsBytes(hash[:]))

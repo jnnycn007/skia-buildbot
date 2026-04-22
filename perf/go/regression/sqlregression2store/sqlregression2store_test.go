@@ -225,38 +225,6 @@ func TestGetByIDs_Success(t *testing.T) {
 	}
 }
 
-// TestGetByRegressionShortcut_Success verifies reading regressions via a shortcut SID.
-func TestGetByRegressionShortcut_Success(t *testing.T) {
-	alertsProvider := alerts_mock.NewConfigProvider(t)
-
-	store := setupStore(t, alertsProvider)
-	ctx := context.Background()
-	r := generateAndStoreNewRegression(ctx, t, store, subName)
-
-	// Manually insert into RegressionsShortcuts
-	sidInDb := "\\xtest-sid-123"
-	sidQuery := "test-sid-123" // without \x
-	absentSid := "other-sid"
-	_, err := store.db.Exec(ctx, "INSERT INTO RegressionsShortcuts (sid, anomaly_ids) VALUES ($1, $2)", sidInDb, []string{r.Id})
-	if skipTestIfSpannerEmulatorNotSupported(t, err) {
-		return
-	}
-	require.NoError(t, err)
-
-	regressions, err := store.GetByRegressionShortcut(ctx, sidQuery)
-	assert.NoError(t, err)
-	assert.Len(t, regressions, 1)
-	assert.Equal(t, r.Id, regressions[0].Id)
-
-	regressionsWithX, err := store.GetByRegressionShortcut(ctx, sidInDb)
-	assert.NoError(t, err)
-	assert.Len(t, regressionsWithX, 1)
-
-	regressions1, err := store.GetByRegressionShortcut(ctx, absentSid)
-	assert.NoError(t, err)
-	assert.Len(t, regressions1, 0)
-}
-
 // TestGetByIDs_Success reads the database using the
 // ids of the created regressions.
 func TestGetByRevision_Success(t *testing.T) {

@@ -133,6 +133,7 @@ go_test(
         "//perf/go/issuetracker/mocks",
         "//perf/go/regression",
         "//perf/go/regression/mocks",
+        "//perf/go/regrshortcut/mocks",
         "//perf/go/shortcut/mocks",
         "//perf/go/subscription/mocks",
         "//perf/go/subscription/proto/v1",

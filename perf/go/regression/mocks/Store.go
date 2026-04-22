@@ -103,36 +103,6 @@ func (_m *Store) GetByIDs(ctx context.Context, ids []string) ([]*regression.Regr
 	return r0, r1
 }
 
-// GetByRegressionShortcut provides a mock function with given fields: ctx, sid
-func (_m *Store) GetByRegressionShortcut(ctx context.Context, sid string) ([]*regression.Regression, error) {
-	ret := _m.Called(ctx, sid)
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetByRegressionShortcut")
-	}
-
-	var r0 []*regression.Regression
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) ([]*regression.Regression, error)); ok {
-		return rf(ctx, sid)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) []*regression.Regression); ok {
-		r0 = rf(ctx, sid)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*regression.Regression)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = rf(ctx, sid)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // GetByRevision provides a mock function with given fields: ctx, rev
 func (_m *Store) GetByRevision(ctx context.Context, rev string) ([]*regression.Regression, error) {
 	ret := _m.Called(ctx, rev)

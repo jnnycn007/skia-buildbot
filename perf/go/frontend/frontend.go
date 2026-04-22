@@ -640,7 +640,7 @@ func (f *Frontend) initialize() {
 		sklog.Fatalf("Failed to build regression.Store: %s", err)
 	}
 
-	f.regrShortcutStore, err = builders.NewRegressionsShortcutStoreFromConfig(ctx, cfg)
+	f.regrShortcutStore, err = builders.NewRegressionsShortcutStoreFromConfig(ctx, f.flags.LocalToProd, cfg)
 	if err != nil {
 		sklog.Fatalf("Failed to build regrShortcutStore.Store: %s", err)
 	}

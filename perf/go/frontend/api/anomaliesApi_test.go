@@ -28,27 +28,30 @@ import (
 	"go.skia.org/infra/perf/go/git/provider"
 	"go.skia.org/infra/perf/go/regression"
 	reg_mocks "go.skia.org/infra/perf/go/regression/mocks"
+	regrshortcut_mocks "go.skia.org/infra/perf/go/regrshortcut/mocks"
 	subscription_mocks "go.skia.org/infra/perf/go/subscription/mocks"
 	pb "go.skia.org/infra/perf/go/subscription/proto/v1"
 	"go.skia.org/infra/perf/go/types"
 	"go.skia.org/infra/perf/go/ui/frame"
 )
 
-func setupAnomaliesApiWithMocks(t *testing.T) (anomaliesApi, *anomalygroup_mocks.Store, *culprit_mocks.Store, *reg_mocks.Store) {
+func setupAnomaliesApiWithMocks(t *testing.T) (anomaliesApi, *anomalygroup_mocks.Store, *culprit_mocks.Store, *reg_mocks.Store, *regrshortcut_mocks.Store) {
 	anomalygroupStore := anomalygroup_mocks.NewStore(t)
 	culpritStore := culprit_mocks.NewStore(t)
 	regStore := reg_mocks.NewStore(t)
+	regrShortcutStore := regrshortcut_mocks.NewStore(t)
 
 	api := anomaliesApi{
 		anomalygroupStore: anomalygroupStore,
 		culpritStore:      culpritStore,
 		regStore:          regStore,
+		regrShortcutStore: regrShortcutStore,
 	}
-	return api, anomalygroupStore, culpritStore, regStore
+	return api, anomalygroupStore, culpritStore, regStore, regrShortcutStore
 }
 
 func TestGetGroupReportByBugId(t *testing.T) {
-	api, anomalygroupStore, culpritStore, regStore := setupAnomaliesApiWithMocks(t)
+	api, anomalygroupStore, culpritStore, regStore, _ := setupAnomaliesApiWithMocks(t)
 
 	ctx := context.Background()
 	bugId := "12345"
@@ -157,7 +160,7 @@ func TestGetGroupReportByBugId(t *testing.T) {
 }
 
 func TestGetGroupReportBySid(t *testing.T) {
-	api, _, _, regStore := setupAnomaliesApiWithMocks(t)
+	api, _, _, regStore, regrShortcutStore := setupAnomaliesApiWithMocks(t)
 
 	ctx := context.Background()
 	sid := "test-sid-123"
@@ -175,7 +178,8 @@ func TestGetGroupReportBySid(t *testing.T) {
 			},
 		},
 	}
-	regStore.On("GetByRegressionShortcut", ctx, sid).Return(regressions, nil).Once()
+	regrShortcutStore.On("Get", ctx, "\\x"+sid).Return([]string{"regression1"}, nil).Once()
+	regStore.On("GetByIDs", ctx, []string{"regression1"}).Return(regressions, nil).Once()
 	regStore.On("GetBugIdsForRegressions", mock.Anything, regressions).Return(regressions, nil)
 
 	req := GetGroupReportRequest{
@@ -193,7 +197,7 @@ func TestGetGroupReportBySid(t *testing.T) {
 }
 
 func TestGetGroupReportByAnomalyGroupId(t *testing.T) {
-	api, anomalygroupStore, _, regStore := setupAnomaliesApiWithMocks(t)
+	api, anomalygroupStore, _, regStore, _ := setupAnomaliesApiWithMocks(t)
 
 	ctx := context.Background()
 	anomalyGroupId := "group-id-1"
@@ -260,7 +264,7 @@ func TestGetGroupReportByAnomalyGroupId(t *testing.T) {
 }
 
 func TestGetGroupReportByAnomalyGroupId_Empty(t *testing.T) {
-	api, anomalygroupStore, _, regStore := setupAnomaliesApiWithMocks(t)
+	api, anomalygroupStore, _, regStore, _ := setupAnomaliesApiWithMocks(t)
 
 	ctx := context.Background()
 	anomalyGroupId := "group-id-1"
@@ -293,7 +297,7 @@ func TestGetGroupReportByAnomalyGroupId_Empty(t *testing.T) {
 }
 
 func TestGetGroupReportByRevision(t *testing.T) {
-	api, anomalygroupStore, _, regStore := setupAnomaliesApiWithMocks(t)
+	api, anomalygroupStore, _, regStore, _ := setupAnomaliesApiWithMocks(t)
 
 	ctx := context.Background()
 	anomalyIds := []string{"anom-id-1", "anom-id-2"}
@@ -357,7 +361,7 @@ func TestGetGroupReportByRevision(t *testing.T) {
 }
 
 func TestGetGroupReportByRevision_InvalidRevisionsAreRejected(t *testing.T) {
-	api, anomalygroupStore, _, regStore := setupAnomaliesApiWithMocks(t)
+	api, anomalygroupStore, _, regStore, _ := setupAnomaliesApiWithMocks(t)
 
 	ctx := context.Background()
 
@@ -452,7 +456,7 @@ func TestGetTimeRangeMap(t *testing.T) {
 }
 
 func TestGetGroupReport_SelectedKeys(t *testing.T) {
-	api, _, _, _ := setupAnomaliesApiWithMocks(t)
+	api, _, _, _, _ := setupAnomaliesApiWithMocks(t)
 
 	// Test case 1: Sid is not empty.
 	anomalies := []chromeperf.Anomaly{

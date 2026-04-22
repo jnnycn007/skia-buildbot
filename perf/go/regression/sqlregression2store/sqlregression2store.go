@@ -166,15 +166,6 @@ var statementFormats = map[statementFormat]string{
 			prev_commit_number < $1
 			AND commit_number >= $1
 	`,
-	readBySid: `
-		SELECT
-			{{ .Columns }}
-		FROM
-			Regressions2 JOIN RegressionsShortcuts
-			ON Regressions2.id = ANY(RegressionsShortcuts.anomaly_ids)
-		WHERE
-			RegressionsShortcuts.sid = $1
-	`,
 	readRangeFiltered: `
 		SELECT
 			{{ .Columns }}
@@ -597,25 +588,6 @@ func (s *SQLRegression2Store) GetIdsByManualTriageBugID(ctx context.Context, bug
 	}
 
 	return regIDs, nil
-}
-
-// Get a list of regressions matching a regression shortcut.
-func (s *SQLRegression2Store) GetByRegressionShortcut(ctx context.Context, sid string) ([]*regression.Regression, error) {
-	if !strings.HasPrefix(sid, "\\x") {
-		sid = "\\x" + sid
-	}
-	statement := s.statements[readBySid]
-	rows, err := s.db.Query(ctx, statement, sid)
-	if err != nil {
-		return nil, skerr.Wrapf(err, "failed to get regressions by regression shortcut")
-	}
-	defer rows.Close()
-
-	regressions, err := s.convertRowsIntoRegressions(rows)
-	if err != nil {
-		return nil, skerr.Wrapf(err, "failed to convert rows into regressions")
-	}
-	return regressions, nil
 }
 
 // Get a list of regressions given a revision.

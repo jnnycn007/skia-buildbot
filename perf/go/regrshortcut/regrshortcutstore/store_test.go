@@ -42,6 +42,29 @@ func TestCreate_DifferentOrderIdList_ReturnsSameShortcut(t *testing.T) {
 	assert.Equal(t, shortcut1, shortcut2)
 }
 
+func TestGet_Success(t *testing.T) {
+	db := sqltest.NewSpannerDBForTests(t, "regrshortcuts")
+	store := New(db)
+	ctx := context.Background()
+
+	regrIds := []string{"regr1", "regr2"}
+	shortcut, err := store.Create(ctx, regrIds)
+	require.NoError(t, err)
+
+	fetchedIds, err := store.Get(ctx, shortcut)
+	require.NoError(t, err)
+	assert.ElementsMatch(t, regrIds, fetchedIds)
+}
+
+func TestGet_NotFound(t *testing.T) {
+	db := sqltest.NewSpannerDBForTests(t, "regrshortcuts")
+	store := New(db)
+	ctx := context.Background()
+
+	_, err := store.Get(ctx, "nonexistent")
+	require.Error(t, err)
+}
+
 func TestCreate_EmptyListFails(t *testing.T) {
 	db := sqltest.NewSpannerDBForTests(t, "regrshortcuts")
 	store := New(db)

@@ -114,16 +114,14 @@ func (api anomaliesApi) getGroupReportByRevision(ctx context.Context, groupRepor
 // GetGroupReport for regressions that match GetGroupReportRequest.Sid
 func (api anomaliesApi) getGroupReportBySid(ctx context.Context, groupReportRequest GetGroupReportRequest) (*GetGroupReportResponse, error) {
 	sid := groupReportRequest.Sid
-	regressions, err := api.regStore.GetByRegressionShortcut(ctx, sid)
-	if err != nil {
-		return nil, skerr.Fmt("failed to get anomalyIds from Regressions Store by Sid (regression shortcut id): %s", err)
+	if !strings.HasPrefix(sid, "\\x") {
+		sid = "\\x" + sid
 	}
-	regressionsWithAllBugs, err := api.regStore.GetBugIdsForRegressions(ctx, regressions)
+	anomalyIds, err := api.regrShortcutStore.Get(ctx, sid)
 	if err != nil {
-		return nil, skerr.Fmt("failed to add bug ids to %d regressions", len(regressions))
+		return nil, skerr.Fmt("failed to get anomalyIds from Regressions Shortcut Store by Sid: %s", err)
 	}
-
-	return api.prepareResponseFromRegressions(ctx, regressionsWithAllBugs)
+	return api.getGroupReportByAnomalyIdList(ctx, &anomalyIds)
 }
 
 // Given a list of anomaly IDs, fill GetGroupReportResponse Anomalies list.

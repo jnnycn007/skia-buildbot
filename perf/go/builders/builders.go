@@ -230,7 +230,14 @@ func NewRegressionStoreFromConfig(ctx context.Context, instanceConfig *config.In
 
 // NewRegressionsShortcutStoreFromConfig creates a new regrShortcutStore.RegressionsShortcutStore from
 // the InstanceConfig.
-func NewRegressionsShortcutStoreFromConfig(ctx context.Context, instanceConfig *config.InstanceConfig) (regrshortcut.Store, error) {
+func NewRegressionsShortcutStoreFromConfig(ctx context.Context, localToProd bool, instanceConfig *config.InstanceConfig) (regrshortcut.Store, error) {
+	if localToProd {
+		cacheClient, err := local.New(100)
+		if err != nil {
+			return nil, err
+		}
+		return regrshortcutstore.NewCacheRegressionsShortcutStore(cacheClient), nil
+	}
 	db, err := getDBPool(ctx, instanceConfig)
 	if err != nil {
 		return nil, err
