@@ -234,18 +234,23 @@ func TestGetByRegressionShortcut_Success(t *testing.T) {
 	r := generateAndStoreNewRegression(ctx, t, store, subName)
 
 	// Manually insert into RegressionsShortcuts
-	sid := "test-sid-123"
+	sidInDb := "\\xtest-sid-123"
+	sidQuery := "test-sid-123" // without \x
 	absentSid := "other-sid"
-	_, err := store.db.Exec(ctx, "INSERT INTO RegressionsShortcuts (sid, anomaly_ids) VALUES ($1, $2)", sid, []string{r.Id})
+	_, err := store.db.Exec(ctx, "INSERT INTO RegressionsShortcuts (sid, anomaly_ids) VALUES ($1, $2)", sidInDb, []string{r.Id})
 	if skipTestIfSpannerEmulatorNotSupported(t, err) {
 		return
 	}
 	require.NoError(t, err)
 
-	regressions, err := store.GetByRegressionShortcut(ctx, sid)
+	regressions, err := store.GetByRegressionShortcut(ctx, sidQuery)
 	assert.NoError(t, err)
 	assert.Len(t, regressions, 1)
 	assert.Equal(t, r.Id, regressions[0].Id)
+
+	regressionsWithX, err := store.GetByRegressionShortcut(ctx, sidInDb)
+	assert.NoError(t, err)
+	assert.Len(t, regressionsWithX, 1)
 
 	regressions1, err := store.GetByRegressionShortcut(ctx, absentSid)
 	assert.NoError(t, err)

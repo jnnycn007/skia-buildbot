@@ -184,7 +184,7 @@ func (api anomaliesApi) CalculateRegrShortcutHandler(w http.ResponseWriter, r *h
 	}
 
 	response := CalculateRegrShortcutResponse{
-		Sid: sid,
+		Sid: strings.TrimPrefix(sid, "\\x"),
 	}
 
 	if err := json.NewEncoder(w).Encode(response); err != nil {

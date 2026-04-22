@@ -601,6 +601,9 @@ func (s *SQLRegression2Store) GetIdsByManualTriageBugID(ctx context.Context, bug
 
 // Get a list of regressions matching a regression shortcut.
 func (s *SQLRegression2Store) GetByRegressionShortcut(ctx context.Context, sid string) ([]*regression.Regression, error) {
+	if !strings.HasPrefix(sid, "\\x") {
+		sid = "\\x" + sid
+	}
 	statement := s.statements[readBySid]
 	rows, err := s.db.Query(ctx, statement, sid)
 	if err != nil {

@@ -453,7 +453,7 @@ func (s *issueTrackerImpl) generateLinkToGraph(ctx context.Context, keys []strin
 		return "", skerr.Wrapf(err, "failed to generate link to graph")
 	}
 
-	return link + sid, nil
+	return link + strings.TrimPrefix(sid, "\\x"), nil
 }
 
 func (s *issueTrackerImpl) intersectionFooter(ctx context.Context, regData []*regression.Regression) string {
