@@ -41,13 +41,13 @@ func (c *TaskSchedulerClient) SearchTasksHandler(ctx context.Context, req mcp.Ca
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
-	startTime, err := time.Parse(st, time.RFC3339)
+	startTime, err := time.Parse(time.RFC3339, st)
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 	var endTime *time.Time
 	if et := req.GetString(argEndTime, ""); et != "" {
-		endTimeParsed, err := time.Parse(et, time.RFC3339)
+		endTimeParsed, err := time.Parse(time.RFC3339, et)
 		if err != nil {
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
