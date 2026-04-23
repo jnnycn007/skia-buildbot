@@ -336,6 +336,25 @@ describe('regressions-page-sk', () => {
 
       assert.strictEqual(element.state.selectedSubscription, 'Sheriff Config 2');
     });
+
+    it('should decode + as space in query parameter and fetch anomaly list', async () => {
+      const testSearch = '?selectedSubscription=V8+JavaScript+Perf';
+
+      fetchMock.get('/_/anomalies/anomaly_list?sheriff=V8%20JavaScript%20Perf', {
+        body: anomalyListResponse,
+      });
+
+      // Change the URL search part
+      window.history.pushState({}, '', window.location.pathname + testSearch);
+
+      element = newInstance();
+      await fetchMock.flush(true);
+      await element.updateComplete;
+
+      assert.strictEqual(element.state.selectedSubscription, 'V8 JavaScript Perf');
+      // Verify that space instead of + is sent over the wire
+      assert.equal(fetchMock.lastUrl(), '/_/anomalies/anomaly_list?sheriff=V8%20JavaScript%20Perf');
+    });
   });
 
   describe('Page Title', () => {

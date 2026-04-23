@@ -122,7 +122,7 @@ export class RegressionsPageSk extends LitElement {
     };
 
     const delta = toObject(
-      window.location.search.slice(1),
+      window.location.search.slice(1).replace(/\+/g, ' '),
       defaultState as unknown as HintableObject
     );
     const newState = { ...defaultState, ...delta } as unknown as State;
