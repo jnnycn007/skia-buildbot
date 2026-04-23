@@ -197,7 +197,7 @@ var statementFormats = map[statementFormat]string{
 		bug_id=EXCLUDED.bug_id, cluster_summary=EXCLUDED.cluster_summary, cluster_type=EXCLUDED.cluster_type,
 		commit_number=EXCLUDED.commit_number, creation_time=EXCLUDED.creation_time, id=EXCLUDED.id,
 		is_improvement=EXCLUDED.is_improvement, prev_commit_number=EXCLUDED.prev_commit_number,
-		sub_name=EXCLUDED.sub_name, trace_id=EXCLUDED.trace_id
+		sub_name=EXCLUDED.sub_name, trace_id=EXCLUDED.trace_id, display_commit_number=EXCLUDED.display_commit_number
 		`,
 	readByIDs: `
 		SELECT
@@ -625,7 +625,8 @@ func (s *SQLRegression2Store) convertRowToRegression(rows pgx.Row) (*regression.
 	var bugId sql.NullInt64
 	var subName sql.NullString
 	var traceIdAsBytes []byte
-	err := rows.Scan(&r.Id, &r.CommitNumber, &r.PrevCommitNumber, &r.AlertId, &subName, &bugId, &r.CreationTime, &r.MedianBefore, &r.MedianAfter, &r.IsImprovement, &clusterType, &clusterSummary, &r.Frame, &traceIdAsBytes, &triageStatus, &triageMessage)
+	var dummyDisplayCommitNumber sql.NullInt64
+	err := rows.Scan(&r.Id, &r.CommitNumber, &r.PrevCommitNumber, &dummyDisplayCommitNumber, &r.AlertId, &subName, &bugId, &r.CreationTime, &r.MedianBefore, &r.MedianAfter, &r.IsImprovement, &clusterType, &clusterSummary, &r.Frame, &traceIdAsBytes, &triageStatus, &triageMessage)
 	if err != nil {
 		return nil, err
 	}
@@ -825,9 +826,9 @@ func (s *SQLRegression2Store) writeSingleRegression(ctx context.Context, r *regr
 		return skerr.Wrap(err)
 	}
 	if tx == nil {
-		_, err = s.db.Exec(ctx, s.statements[write], r.Id, r.CommitNumber, r.PrevCommitNumber, r.AlertId, r.SubscriptionName, manualTriageBugId, r.CreationTime, r.MedianBefore, r.MedianAfter, r.IsImprovement, clusterType, clusterSummary, r.Frame, r.TraceID, triage.Status, triage.Message)
+		_, err = s.db.Exec(ctx, s.statements[write], r.Id, r.CommitNumber, r.PrevCommitNumber, sql.NullInt64{}, r.AlertId, r.SubscriptionName, manualTriageBugId, r.CreationTime, r.MedianBefore, r.MedianAfter, r.IsImprovement, clusterType, clusterSummary, r.Frame, r.TraceID, triage.Status, triage.Message)
 	} else {
-		_, err = tx.Exec(ctx, s.statements[write], r.Id, r.CommitNumber, r.PrevCommitNumber, r.AlertId, r.SubscriptionName, manualTriageBugId, r.CreationTime, r.MedianBefore, r.MedianAfter, r.IsImprovement, clusterType, clusterSummary, r.Frame, r.TraceID, triage.Status, triage.Message)
+		_, err = tx.Exec(ctx, s.statements[write], r.Id, r.CommitNumber, r.PrevCommitNumber, sql.NullInt64{}, r.AlertId, r.SubscriptionName, manualTriageBugId, r.CreationTime, r.MedianBefore, r.MedianAfter, r.IsImprovement, clusterType, clusterSummary, r.Frame, r.TraceID, triage.Status, triage.Message)
 	}
 	if err != nil {
 		return skerr.Wrapf(err, "Failed to write single regression with id %s", r.Id)

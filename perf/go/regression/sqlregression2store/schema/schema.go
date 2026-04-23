@@ -18,6 +18,14 @@ type Regression2Schema struct {
 	// The commit_number before the commit where the regression occurred.
 	PrevCommitNumber types.CommitNumber `sql:"prev_commit_number INT"`
 
+	// The commit_number to be displayed for the regression in the graph.
+	// This point will always be within the range (PrevCommitNumber, CommitNumber].
+	// In case of using anomaly localization, it will be the point with the biggest
+	// regression in the range. If not, it will be equal to CommitNumber.
+	// The nudging process will allow to move this point, but only within the
+	// (PrevCommitNumber, CommitNumber] range.
+	DisplayCommitNumber types.CommitNumber `sql:"display_commit_number INT"`
+
 	// The id of an Alert, i.e. the id from the Alerts table.
 	AlertID int `sql:"alert_id INT"`
 

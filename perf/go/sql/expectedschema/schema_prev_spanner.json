@@ -149,6 +149,7 @@
     "postings.PRIMARY_KEY",
     "regressions.PRIMARY_KEY",
     "regressions2.by_trace_id_and_commit",
+    "regressions2.by_sub_name_triage_status_creation_time_asc",
     "regressions2.by_sub_name_creation_time",
     "regressions2.by_commit_and_prev_commit",
     "regressions2.by_commit_alert",

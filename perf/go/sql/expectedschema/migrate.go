@@ -41,13 +41,13 @@ import (
 // DO NOT DROP TABLES IN VAR BELOW.
 // FOR MODIFYING COLUMNS USE ADD/DROP COLUMN INSTEAD.
 var FromLiveToNextSpanner = `
-	CREATE INDEX by_sub_name_triage_status_creation_time_asc ON Regressions2(sub_name, triage_status, creation_time ASC)
+	ALTER TABLE Regressions2 ADD COLUMN display_commit_number bigint;
 `
 
 // ONLY DROP TABLE IF YOU JUST CREATED A NEW TABLE.
 // FOR MODIFYING COLUMNS USE ADD/DROP COLUMN INSTEAD.
 var FromNextToLiveSpanner = `
-	DROP INDEX by_sub_name_triage_status_creation_time_asc;
+	ALTER TABLE Regressions2 DROP COLUMN display_commit_number;
 `
 
 // This function will check whether there's a new schema checked-in,
