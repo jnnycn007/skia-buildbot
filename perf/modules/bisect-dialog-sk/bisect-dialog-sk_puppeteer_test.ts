@@ -72,6 +72,15 @@ describe('bisect-dialog-sk', () => {
       assert.isTrue(await bisectDialogSkPO.isDialogOpen());
     });
 
+    it('closes the dialog when the close icon is clicked', async () => {
+      assert.isTrue(await bisectDialogSkPO.isDialogOpen(), 'Dialog should be open initially.');
+      await bisectDialogSkPO.closeIcon.click();
+      assert.isFalse(
+        await bisectDialogSkPO.isDialogOpen(),
+        'Dialog should be closed after clicking close.'
+      );
+    });
+
     it('fills out the form', async () => {
       await bisectDialogSkPO.setTestPath(anomalies[0].test_path);
       await bisectDialogSkPO.setBugId('12345');
@@ -100,6 +109,23 @@ describe('bisect-dialog-sk', () => {
       await bisectDialogSkPO.clickBisectBtn();
       assert.isTrue(await bisectDialogSkPO.isDialogOpen());
       await takeScreenshot(testBed.page, 'perf', 'bisect-dialog-sk-open');
+    });
+
+    it('prevents form submission on enter', async () => {
+      assert.isTrue(await bisectDialogSkPO.isDialogOpen());
+      await bisectDialogSkPO.setTestPath(anomalies[0].test_path);
+      await bisectDialogSkPO.setBugId('12345');
+      await bisectDialogSkPO.setStartCommit(anomalies[0].start_revision.toString());
+      await bisectDialogSkPO.setEndCommit(anomalies[0].end_revision.toString());
+
+      // Pressing enter on an input should trigger form submission.
+      await bisectDialogSkPO.endCommitInput.press('Enter');
+
+      // The dialog should still be open because the form submission is prevented.
+      assert.isTrue(
+        await bisectDialogSkPO.isDialogOpen(),
+        'Dialog should remain open after form submission is prevented.'
+      );
     });
   });
 
