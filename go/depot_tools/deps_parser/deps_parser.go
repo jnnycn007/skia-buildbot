@@ -233,6 +233,23 @@ func exprToString(expr ast.Expr) (string, *ast.Pos, error) {
 	} else if t == ast.NumType.Name {
 		num := expr.(*ast.Num)
 		return fmt.Sprintf("%d", num.N), &num.Pos, nil
+	} else if t == ast.CallType.Name {
+		call, ok := expr.(*ast.Call)
+		if !ok {
+			return "", nil, skerr.Fmt("invalid value type %q", t)
+		}
+		name, ok := call.Func.(*ast.Name)
+		if !ok || name.Id != "Str" {
+			return "", nil, skerr.Fmt("Unsupported call %q", t)
+		}
+		if len(call.Args) != 1 {
+			return "", nil, skerr.Fmt("calls to Str() must have a single argument")
+		}
+		s, pos, err := exprToString(call.Args[0])
+		if err != nil {
+			return "", nil, skerr.Wrap(err)
+		}
+		return s, pos, nil
 	} else {
 		return "", nil, skerr.Fmt("Invalid value type %q", t)
 	}

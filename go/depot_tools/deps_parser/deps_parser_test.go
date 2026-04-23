@@ -21,6 +21,7 @@ vars = {
   'format_revision': 'format-revision',
   'dict_revision': 'dict-revision',
   'expr_prefix': 'expr/',
+	'str_var': Str('str.value'),
 }
 
 deps = {
@@ -44,6 +45,10 @@ deps = {
       {
         'package': 'package3/' + Var('host_os') + '-' + Var('host_cpu'),
         'version': 'pkg3-version',
+      },
+			{
+        'package': 'package4',
+        'version': Var('str_var'),
       },
 	  {
 		'package': 'chromium/chrome/android/orderfiles/arm64',
@@ -122,6 +127,12 @@ func TestParseDeps(t *testing.T) {
 		"package3/linux-x64": {
 			Id:      "package3/linux-x64",
 			Version: "pkg3-version",
+			Path:    "cipd/deps",
+			Type:    DepType_Cipd,
+		},
+		"package4": {
+			Id:      "package4",
+			Version: "str.value",
 			Path:    "cipd/deps",
 			Type:    DepType_Cipd,
 		},
