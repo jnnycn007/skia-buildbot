@@ -262,7 +262,7 @@ func createArgsForReportRegressions(t *testing.T) (*Continuous, *regression.Regr
 func TestReportRegressions_EmptyRegressionDetectionResponse_NoRegressionsReported(t *testing.T) {
 	c, req, resp, cfg, _ := createArgsForReportRegressions(t)
 	// We know this works since we didn't need to supply any implementations for any of the mocks.
-	err := c.reportRegressions(context.Background(), req, resp, cfg)
+	err := c.reportRegressions(context.Background(), req, resp, cfg, false)
 	require.NoError(t, err)
 }
 
@@ -330,10 +330,71 @@ func TestReportRegressions_OneNewStepDownRegressionFound_OneRegressionStoredAndN
 	allMocks.regressionStore.On("SetLow", testutils.AnyContext, regressionCommitNumber, types.CommitNumber(1), cfg.IDAsString, resp[0].Frame, resp[0].Summary.Clusters[0]).Return(true, "", nil).Twice()
 	allMocks.notifier.On("RegressionFound", testutils.AnyContext, commitAtStep, previousCommit, cfg, resp[0].Summary.Clusters[0], resp[0].Frame, mock.Anything).Return(notificationID, nil)
 
-	err := c.reportRegressions(ctx, req, resp, cfg)
+	err := c.reportRegressions(ctx, req, resp, cfg, false)
 	require.NoError(t, err)
 
 	require.Equal(t, notificationID, resp[0].Summary.Clusters[0].NotificationID)
+}
+
+func TestReportRegressions_SkipNotifications_NoNotification(t *testing.T) {
+	ctx := context.Background()
+	c, req, resp, cfg, allMocks := createArgsForReportRegressions(t)
+
+	const regressionCommitNumber = types.CommitNumber(2)
+	resp = append(resp, &regression.ConfirmedRegression{
+		Frame: &frame.FrameResponse{
+			DataFrame: &dataframe.DataFrame{
+				Header: []*dataframe.ColumnHeader{
+					{Offset: 1},
+					{Offset: regressionCommitNumber},
+				},
+				ParamSet: paramtools.ReadOnlyParamSet{
+					"device_name": []string{"sailfish", "sargo", "wembley"},
+				},
+			},
+		},
+		Summary: &clustering2.ClusterSummaries{
+			Clusters: []*clustering2.ClusterSummary{
+				{
+					Keys: []string{
+						",device_name=sailfish",
+						",device_name=sargo",
+						",device_name=wembley",
+					},
+					Shortcut: "some-shortcut-id",
+					StepFit: &stepfit.StepFit{
+						Status: stepfit.LOW,
+					},
+					StepPoint: &dataframe.ColumnHeader{
+						Offset: regressionCommitNumber,
+					},
+				},
+			},
+		},
+		CommitNumber:     regressionCommitNumber,
+		PrevCommitNumber: types.CommitNumber(1),
+	})
+
+	commitAtStep := provider.Commit{
+		Subject:      "The subject of the commit where a regression occurred.",
+		CommitNumber: regressionCommitNumber,
+	}
+	previousCommit := provider.Commit{
+		Subject:      "The subject of the commit right before where a regression occurred.",
+		CommitNumber: types.CommitNumber(1),
+	}
+
+	allMocks.perfGit.On("CommitFromCommitNumber", testutils.AnyContext, types.CommitNumber(2)).Return(commitAtStep, nil)
+	allMocks.perfGit.On("CommitFromCommitNumber", testutils.AnyContext, types.CommitNumber(1)).Return(previousCommit, nil)
+	cfg.DirectionAsString = alerts.DOWN
+
+	allMocks.regressionStore.On("GetRegression", testutils.AnyContext, regressionCommitNumber, cfg.IDAsString).Return(nil, nil)
+	allMocks.regressionStore.On("SetLow", testutils.AnyContext, regressionCommitNumber, types.CommitNumber(1), cfg.IDAsString, resp[0].Frame, resp[0].Summary.Clusters[0]).Return(true, "", nil).Once()
+
+	err := c.reportRegressions(ctx, req, resp, cfg, true) // true means skip notifications
+	require.NoError(t, err)
+
+	allMocks.notifier.AssertNotCalled(t, "RegressionFound", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestTraceIdForIngestEvent_Matching(t *testing.T) {
@@ -490,7 +551,7 @@ func TestReportRegressions_OneNewStepDownRegressionFound_OneHighRegressionFoundA
 	allMocks.regressionStore.On("SetHigh", testutils.AnyContext, regressionCommitNumber, types.CommitNumber(1), cfg.IDAsString, resp[1].Frame, resp[1].Summary.Clusters[0]).Return(false, "", nil)
 	allMocks.notifier.On("RegressionFound", testutils.AnyContext, commitAtStep, previousCommit, cfg, resp[0].Summary.Clusters[0], resp[0].Frame, mock.Anything).Return(notificationID, nil)
 
-	err := c.reportRegressions(ctx, req, resp, cfg)
+	err := c.reportRegressions(ctx, req, resp, cfg, false)
 	require.NoError(t, err)
 
 	require.Equal(t, notificationID, resp[0].Summary.Clusters[0].NotificationID)

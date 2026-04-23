@@ -13,6 +13,12 @@
         },
         "process_alert_configs_worker_count": {
           "type": "integer"
+        },
+        "backfill_topic_name": {
+          "type": "string"
+        },
+        "backfill_concurrency": {
+          "type": "integer"
         }
       },
       "additionalProperties": false,

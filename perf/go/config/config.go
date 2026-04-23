@@ -439,6 +439,12 @@ type AnomalyConfig struct {
 
 	// ProcessAlertConfigsWorkerCount is the number of parallel goroutines that will process alert configs for the incoming event.
 	ProcessAlertConfigsWorkerCount int `json:"process_alert_configs_worker_count,omitempty"`
+
+	// BackfillTopicName is the PubSub topic name we should use for backfill requests.
+	BackfillTopicName string `json:"backfill_topic_name,omitempty"`
+
+	// BackfillConcurrency is the number of concurrent backfill requests to process.
+	BackfillConcurrency int `json:"backfill_concurrency,omitempty"`
 }
 
 // BackendFlags provide commandline flags for the Backend Service.

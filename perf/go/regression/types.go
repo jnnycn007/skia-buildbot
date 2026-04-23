@@ -100,6 +100,27 @@ type GetAnomalyListRequest struct {
 	PaginationOffset    int    `json:"pagination_offset,omitempty"`
 }
 
+// BackfillRequest is the request for the backfill endpoint or topic.
+type BackfillRequest struct {
+	// Unique ID for tracking the request in logs.
+	RequestID string `json:"request_id"`
+
+	// ID of the alert configuration to use.
+	AlertID int64 `json:"alert_id"`
+
+	// The end timestamp (Unix seconds). We load the latest N commits (e.g., 50)
+	// ending at or before this timestamp and run anomaly detection. This acts
+	// as the "processing date". We don't need a start timestamp because commit
+	// density varies and we just load the last N commits relative to this end date.
+	End int64 `json:"end"`
+
+	// Whether to send notifications if regressions are found.
+	SendNotifications bool `json:"send_notifications"`
+
+	// Whether to load all traces in a single data frame (true) or in chunks (false).
+	LoadAllTracesTogether bool `json:"load_all_traces_together"`
+}
+
 // RegressionDetectionRequest is all the info needed to start a clustering run,
 // an Alert and the Domain over which to run that Alert.
 type RegressionDetectionRequest struct {

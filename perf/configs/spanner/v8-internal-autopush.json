@@ -57,7 +57,8 @@
   },
   "anomaly_config": {
     "use_anomaly_localization": true,
-    "process_alert_configs_worker_count": 10
+    "process_alert_configs_worker_count": 10,
+    "backfill_topic_name": "perf-anomaly-backfill-v8-perf-autopush"
   },
   "query_config": {
     "include_params": [

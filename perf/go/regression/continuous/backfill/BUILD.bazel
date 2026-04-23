@@ -1,0 +1,38 @@
+load("@rules_go//go:def.bzl", "go_library")
+load("//bazel/go:go_test.bzl", "go_test")
+
+go_library(
+    name = "backfill",
+    srcs = ["anomaly_backfill.go"],
+    importpath = "go.skia.org/infra/perf/go/regression/continuous/backfill",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//go/metrics2",
+        "//go/pubsub/sub",
+        "//go/query",
+        "//go/skerr",
+        "//go/sklog",
+        "//perf/go/alerts",
+        "//perf/go/config",
+        "//perf/go/dataframe",
+        "//perf/go/dfiter",
+        "//perf/go/progress",
+        "//perf/go/regression",
+        "//perf/go/types",
+        "@com_google_cloud_go_pubsub//:pubsub",
+    ],
+)
+
+go_test(
+    name = "backfill_test",
+    srcs = ["anomaly_backfill_test.go"],
+    embed = [":backfill"],
+    deps = [
+        "//go/skerr",
+        "//perf/go/alerts/mock",
+        "//perf/go/regression",
+        "@com_github_stretchr_testify//assert",
+        "@com_github_stretchr_testify//require",
+        "@com_google_cloud_go_pubsub//:pubsub",
+    ],
+)

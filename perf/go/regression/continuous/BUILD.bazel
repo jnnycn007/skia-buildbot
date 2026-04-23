@@ -26,6 +26,7 @@ go_library(
         "//perf/go/ingestevents",
         "//perf/go/notify",
         "//perf/go/regression",
+        "//perf/go/regression/continuous/backfill",
         "//perf/go/shortcut",
         "//perf/go/stepfit",
         "//perf/go/types",

@@ -10,7 +10,7 @@ import (
 	"math/rand"
 	"net/url"
 	"sync"
-	"sync/atomic"
+
 	"time"
 
 	"cloud.google.com/go/pubsub"
@@ -35,6 +35,7 @@ import (
 	"go.skia.org/infra/perf/go/ingestevents"
 	"go.skia.org/infra/perf/go/notify"
 	"go.skia.org/infra/perf/go/regression"
+	"go.skia.org/infra/perf/go/regression/continuous/backfill"
 	"go.skia.org/infra/perf/go/shortcut"
 	"go.skia.org/infra/perf/go/stepfit"
 	"go.skia.org/infra/perf/go/types"
@@ -123,7 +124,7 @@ func New(
 	}
 }
 
-func (c *Continuous) reportRegressions(ctx context.Context, req *regression.RegressionDetectionRequest, resps []*regression.ConfirmedRegression, cfg *alerts.Alert) error {
+func (c *Continuous) reportRegressions(ctx context.Context, req *regression.RegressionDetectionRequest, resps []*regression.ConfirmedRegression, cfg *alerts.Alert, skipNotifications bool) error {
 	ctx, span := trace.StartSpan(ctx, "regression.continuous.reportRegressions")
 	defer span.End()
 
@@ -162,7 +163,7 @@ func (c *Continuous) reportRegressions(ctx context.Context, req *regression.Regr
 
 			isLow := cl.StepFit.Status == stepfit.LOW
 			sklog.Infof("Found regression at %s. StepFit: %v Shortcut: %s AlertID: %s req: %#v", details.Subject, *cl.StepFit, cl.Shortcut, c.current.IDAsString, *req)
-			if err := c.updateStoreAndNotification(ctx, resp, cfg, cl, details, previousCommitDetails, key, isLow); err != nil {
+			if err := c.updateStoreAndNotification(ctx, resp, cfg, cl, details, previousCommitDetails, key, isLow, skipNotifications); err != nil {
 				errs = append(errs, skerr.Wrapf(err, "failed reporting regression for alert %s at commit %d", key, commitNumber))
 			}
 		}
@@ -324,7 +325,7 @@ func (c *Continuous) buildConfigAndParamsetChannel(ctx context.Context) <-chan c
 	return ret
 }
 
-func (c *Continuous) updateStoreAndNotification(ctx context.Context, resp *regression.ConfirmedRegression, cfg *alerts.Alert, cl *clustering2.ClusterSummary, details provider.Commit, previousCommitDetails provider.Commit, key string, isLow bool) error {
+func (c *Continuous) updateStoreAndNotification(ctx context.Context, resp *regression.ConfirmedRegression, cfg *alerts.Alert, cl *clustering2.ClusterSummary, details provider.Commit, previousCommitDetails provider.Commit, key string, isLow bool, skipNotifications bool) error {
 	ctx, span := trace.StartSpan(ctx, "regression.continuous.updateStoreAndNotification")
 	defer span.End()
 
@@ -353,12 +354,14 @@ func (c *Continuous) updateStoreAndNotification(ctx context.Context, resp *regre
 		}
 		if isNew {
 			c.regressionCounter.Inc(1)
-			notificationID, err = c.notifier.RegressionFound(ctx, details, previousCommitDetails, cfg, cl, resp.Frame, regressionID)
-			if err != nil {
-				return skerr.Wrapf(err, "Failed to send notification")
+			if !skipNotifications {
+				notificationID, err = c.notifier.RegressionFound(ctx, details, previousCommitDetails, cfg, cl, resp.Frame, regressionID)
+				if err != nil {
+					return skerr.Wrapf(err, "Failed to send notification")
+				}
+				cl.NotificationID = notificationID
+				updateNotification = false
 			}
-			cl.NotificationID = notificationID
-			updateNotification = false
 		}
 	}
 	if notificationID != "" {
@@ -502,6 +505,10 @@ func getConfigQueryForTrace(config *alerts.Alert, traceID string) (string, error
 //
 // Note that it never returns so it should be called as a Go routine.
 func (c *Continuous) Run(ctx context.Context) {
+	if c.instanceConfig.AnomalyConfig.BackfillTopicName != "" {
+		listener := backfill.NewListener(c.instanceConfig, c.provider, c.dfBuilder, c, c.flags.NumContinuous)
+		go listener.Run(ctx)
+	}
 	if c.flags.EventDrivenRegressionDetection {
 		c.RunEventDrivenClustering(ctx)
 	} else {
@@ -548,21 +555,26 @@ func (c *Continuous) RunEventDrivenClustering(parentCtx context.Context) {
 					// If the alert specifies StepFitGrouping (i.e Individual instead of KMeans)
 					// we need to only query the paramset of the incoming data point instead of
 					// the entire query in the alert.
-					if config.Algo == types.StepFitGrouping {
-						c.ProcessAlertConfigForTraces(ctx, config, traces, dfProvider)
-					} else {
-						tags := map[string]string{"alert": config.DisplayName, "alert_id": config.IDAsString}
-						runsTotal := metrics2.GetCounter("perf_clustering_runs_total", tags)
-						errorsTotal := metrics2.GetCounter("perf_clustering_errors_total", tags)
-						runsWithErrorsTotal := metrics2.GetCounter("perf_clustering_runs_with_errors_total", tags)
+					tags := map[string]string{"alert": config.DisplayName, "alert_id": config.IDAsString}
+					runsTotal := metrics2.GetCounter("perf_clustering_runs_total", tags)
+					errorsTotal := metrics2.GetCounter("perf_clustering_errors_total", tags)
+					runsWithErrorsTotal := metrics2.GetCounter("perf_clustering_runs_with_errors_total", tags)
 
-						runsTotal.Inc(1)
-						if err := c.ProcessAlertConfig(ctx, &config, doNotOverrideQuery, nil); err != nil {
-							sklog.Errorf("[ID: %s] ProcessAlertConfig: Failed to process alert config %q (alert_id: %s): %v", correlationIdFromContext(ctx), config.DisplayName, config.IDAsString, err)
-							errCount := int64(regression.CountErrors([]error{err}))
-							errorsTotal.Inc(errCount)
-							runsWithErrorsTotal.Inc(1)
-						}
+					runsTotal.Inc(1)
+					var err error
+					funcName := "ProcessAlertConfig"
+					if config.Algo == types.StepFitGrouping {
+						funcName = "ProcessAlertConfigForTraces"
+						err = c.ProcessAlertConfigForTraces(ctx, config, traces, dfProvider, nil, false, false)
+					} else {
+						err = c.ProcessAlertConfig(ctx, &config, doNotOverrideQuery, nil, nil, false)
+					}
+
+					if err != nil {
+						sklog.Errorf("[ID: %s] %s: Failed to process alert config %q (alert_id: %s): %v", correlationIdFromContext(ctx), funcName, config.DisplayName, config.IDAsString, err)
+						errCount := int64(regression.CountErrors([]error{err}))
+						errorsTotal.Inc(errCount)
+						runsWithErrorsTotal.Inc(1)
 					}
 					return nil
 				} else {
@@ -577,32 +589,26 @@ func (c *Continuous) RunEventDrivenClustering(parentCtx context.Context) {
 }
 
 // ProcessAlertConfigForTrace runs the alert config on a specific trace id
-func (c *Continuous) ProcessAlertConfigForTraces(ctx context.Context, alertConfig alerts.Alert, traceIds []string, dfProvider *dfiter.DfProvider) {
+func (c *Continuous) ProcessAlertConfigForTraces(ctx context.Context, alertConfig alerts.Alert, traceIds []string, dfProvider *dfiter.DfProvider, domain *types.Domain, skipNotifications bool, failFast bool) error {
 	ctx, span := trace.StartSpan(ctx, "regression.continuous.ProcessAlertConfigForTraces")
 	defer span.End()
 	span.AddAttributes(
 		trace.StringAttribute("alert_id", alertConfig.IDAsString),
 		trace.Int64Attribute("trace_count", int64(len(traceIds))))
 
-	tags := map[string]string{"alert": alertConfig.DisplayName, "alert_id": alertConfig.IDAsString}
-	runsTotal := metrics2.GetCounter("perf_clustering_runs_total", tags)
-	errorsTotal := metrics2.GetCounter("perf_clustering_errors_total", tags)
-	runsWithErrorsTotal := metrics2.GetCounter("perf_clustering_runs_with_errors_total", tags)
 	tracesProcessedCounter := metrics2.GetCounter("perf_continuous_traces_processed", map[string]string{"alert": alertConfig.DisplayName})
-
-	runsTotal.Inc(1)
 
 	processAlertConfigForTracesChunkSize := 1
 	if config.Config.Experiments.DfIterTraceSlicer {
 		processAlertConfigForTracesChunkSize = 50
 	}
 
-	var hasError atomic.Bool
+	var mu sync.Mutex
+	var accumulatedErrors []error
 	handleError := func(ctx context.Context, err error) {
-		sklog.Errorf("[ID: %s] processAlertConfigForTraces: Failed to process alert config %q (alert_id: %s): %v", correlationIdFromContext(ctx), alertConfig.DisplayName, alertConfig.IDAsString, err)
-		errCount := int64(regression.CountErrors([]error{err}))
-		errorsTotal.Inc(errCount)
-		hasError.Store(true)
+		mu.Lock()
+		accumulatedErrors = append(accumulatedErrors, err)
+		mu.Unlock()
 	}
 	// Let's process the traces in parallel. Provide one trace per worker in parallel.
 	// TODO(ashwinpv): It may be more deterministic to have the ability to query by
@@ -616,7 +622,10 @@ func (c *Continuous) ProcessAlertConfigForTraces(ctx context.Context, alertConfi
 				paramset.AddParamsFromKey(traceId)
 			}
 			queryOverride := c.urlProvider.GetQueryStringFromParameters(paramset)
-			if err := c.ProcessAlertConfig(ctx, &alertConfig, queryOverride, dfProvider); err != nil {
+			if err := c.ProcessAlertConfig(ctx, &alertConfig, queryOverride, dfProvider, domain, skipNotifications); err != nil {
+				if failFast {
+					return err
+				}
 				handleError(ctx, err)
 			}
 		} else {
@@ -625,7 +634,10 @@ func (c *Continuous) ProcessAlertConfigForTraces(ctx context.Context, alertConfi
 				paramset := paramtools.NewParamSet()
 				paramset.AddParamsFromKey(traceId)
 				queryOverride := c.urlProvider.GetQueryStringFromParameters(paramset)
-				if err := c.ProcessAlertConfig(ctx, &alertConfig, queryOverride, nil); err != nil {
+				if err := c.ProcessAlertConfig(ctx, &alertConfig, queryOverride, nil, domain, skipNotifications); err != nil {
+					if failFast {
+						return err
+					}
 					handleError(ctx, err)
 				}
 			}
@@ -635,11 +647,12 @@ func (c *Continuous) ProcessAlertConfigForTraces(ctx context.Context, alertConfi
 		return nil
 	})
 	if err != nil {
-		sklog.Errorf("[ID: %s] Error processing alert config for traces: %v", correlationIdFromContext(ctx), err)
+		return skerr.Wrapf(err, "Error processing alert config for traces")
 	}
-	if hasError.Load() {
-		runsWithErrorsTotal.Inc(1)
+	if len(accumulatedErrors) > 0 {
+		return errors.Join(accumulatedErrors...)
 	}
+	return nil
 }
 
 // RunContinuousClustering runs the regression detection on a continuous basis.
@@ -661,7 +674,7 @@ func (c *Continuous) RunContinuousClustering(ctx context.Context) {
 			runsWithErrorsTotal := metrics2.GetCounter("perf_clustering_runs_with_errors_total", tags)
 
 			runsTotal.Inc(1)
-			if err := c.ProcessAlertConfig(ctx, cfg, doNotOverrideQuery, nil); err != nil {
+			if err := c.ProcessAlertConfig(ctx, cfg, doNotOverrideQuery, nil, nil, false); err != nil {
 				sklog.Errorf("RunContinuousClustering: Failed to process alert config %q (alert_id: %s): %v", cfg.DisplayName, cfg.IDAsString, err)
 				errCount := int64(regression.CountErrors([]error{err}))
 				errorsTotal.Inc(errCount)
@@ -676,7 +689,7 @@ func (c *Continuous) RunContinuousClustering(ctx context.Context) {
 }
 
 // ProcessAlertConfig processes the supplied alert config to detect regressions
-func (c *Continuous) ProcessAlertConfig(ctx context.Context, cfg *alerts.Alert, queryOverride string, dfProvider *dfiter.DfProvider) error {
+func (c *Continuous) ProcessAlertConfig(ctx context.Context, cfg *alerts.Alert, queryOverride string, dfProvider *dfiter.DfProvider, domain *types.Domain, skipNotifications bool) error {
 	ctx, cancel := context.WithTimeout(ctx, timeoutForProcessAlertConfigPerTrace)
 	defer cancel()
 
@@ -716,18 +729,20 @@ func (c *Continuous) ProcessAlertConfig(ctx context.Context, cfg *alerts.Alert, 
 	}
 
 	confirmedRegressionHandler := func(ctx context.Context, req *regression.RegressionDetectionRequest, resps []*regression.ConfirmedRegression, message string) error {
-		return c.reportRegressions(ctx, req, resps, cfg)
+		return c.reportRegressions(ctx, req, resps, cfg, skipNotifications)
 	}
 	if cfg.Radius == 0 {
 		cfg.Radius = c.flags.Radius
 	}
-	domain := types.Domain{
-		N:   int32(c.flags.NumContinuous),
-		End: time.Time{},
+	if domain == nil {
+		domain = &types.Domain{
+			N:   int32(c.flags.NumContinuous),
+			End: time.Time{},
+		}
 	}
 	req := regression.NewRegressionDetectionRequest()
 	req.Alert = cfg
-	req.Domain = domain
+	req.Domain = *domain
 
 	expandBaseRequest := regression.ExpandBaseAlertByGroupBy
 	if c.flags.EventDrivenRegressionDetection {
