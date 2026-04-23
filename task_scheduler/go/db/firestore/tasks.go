@@ -281,6 +281,11 @@ func (d *firestoreDB) SearchTasks(ctx context.Context, params *db.TaskSearchPara
 			term += fmt.Sprintf(" and Repo == %s", *params.Repo)
 		}
 	}
+	limit := db.SearchResultLimit
+	if params.Limit != nil {
+		limit = *params.Limit
+	}
+
 	results := []*types.Task{}
 	err := d.client.IterDocs(ctx, "SearchTasks", term, q, DEFAULT_ATTEMPTS, GET_MULTI_TIMEOUT, func(doc *fs.DocumentSnapshot) error {
 		var task types.Task
@@ -290,7 +295,7 @@ func (d *firestoreDB) SearchTasks(ctx context.Context, params *db.TaskSearchPara
 		if db.MatchTask(&task, params) {
 			results = append(results, &task)
 		}
-		if len(results) >= db.SearchResultLimit {
+		if len(results) >= limit {
 			return db.ErrDoneSearching
 		}
 		return nil

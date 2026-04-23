@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"go.skia.org/infra/mcp/common"
+	"go.skia.org/infra/task_scheduler/go/db"
 	"go.skia.org/infra/task_scheduler/go/types"
 )
 
@@ -16,6 +17,7 @@ const (
 	argRepo       = "repo"
 	argRevision   = "revision"
 	argTaskName   = "name"
+	argLimit      = "limit"
 
 	taskStatusPending = "PENDING"
 )
@@ -72,6 +74,10 @@ If not provided, the current time is used.`,
 				{
 					Name:        argTaskName,
 					Description: `[Optional] Name of the task.`,
+				},
+				{
+					Name:        argLimit,
+					Description: fmt.Sprintf(`[Optional] Maximum number of tasks to return. Default %d`, db.SearchResultLimit),
 				},
 			},
 			Handler: c.SearchTasksHandler,

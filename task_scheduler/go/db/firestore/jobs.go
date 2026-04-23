@@ -300,6 +300,10 @@ func (d *firestoreDB) SearchJobs(ctx context.Context, params *db.JobSearchParams
 			term += fmt.Sprintf(" and Repo == %s", *params.Repo)
 		}
 	}
+	limit := db.SearchResultLimit
+	if params.Limit != nil {
+		limit = *params.Limit
+	}
 
 	// Search the DB.
 	results := []*types.Job{}
@@ -311,7 +315,7 @@ func (d *firestoreDB) SearchJobs(ctx context.Context, params *db.JobSearchParams
 		if db.MatchJob(&job, params) {
 			results = append(results, &job)
 		}
-		if len(results) >= db.SearchResultLimit {
+		if len(results) >= limit {
 			return db.ErrDoneSearching
 		}
 		return nil

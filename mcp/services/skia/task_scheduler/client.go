@@ -65,6 +65,8 @@ func (c *TaskSchedulerClient) SearchTasksHandler(ctx context.Context, req mcp.Ca
 		*status = string(types.TASK_STATUS_PENDING)
 	}
 
+	limit := req.GetInt(argLimit, db.SearchResultLimit)
+
 	searchParams := &db.TaskSearchParams{
 		Status:    (*types.TaskStatus)(status),
 		Issue:     &issue,
@@ -74,6 +76,7 @@ func (c *TaskSchedulerClient) SearchTasksHandler(ctx context.Context, req mcp.Ca
 		Revision:  getStringOrNil(req, argRevision),
 		TimeStart: &startTime,
 		TimeEnd:   endTime,
+		Limit:     &limit,
 	}
 	tasks, err := c.db.SearchTasks(ctx, searchParams)
 	if err != nil {

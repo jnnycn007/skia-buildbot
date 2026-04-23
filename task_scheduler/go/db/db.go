@@ -20,9 +20,9 @@ const (
 	// Retries attempted by UpdateTasksWithRetries.
 	NUM_RETRIES = 5
 
-	// SearchResultLimit is the maximum number of results returned by SearchJobs
-	// or SearchTasks.
-	SearchResultLimit = 500
+	// SearchResultLimit is the default maximum number of results returned by
+	// SearchJobs or SearchTasks.
+	SearchResultLimit = 100
 )
 
 var (
@@ -231,6 +231,7 @@ type JobSearchParams struct {
 	Status             *types.JobStatus `json:"status"`
 	TimeStart          *time.Time       `json:"time_start"`
 	TimeEnd            *time.Time       `json:"time_end"`
+	Limit              *int             `json:"limit"`
 }
 
 // SearchBoolEqual compares the two bools and returns true if the first is
@@ -343,6 +344,7 @@ type TaskSearchParams struct {
 	Revision    *string           `json:"revision,omitempty"`
 	TimeStart   *time.Time        `json:"time_start"`
 	TimeEnd     *time.Time        `json:"time_end"`
+	Limit       *int              `json:"limit"`
 }
 
 // RemoteDB allows retrieving tasks and jobs and full access to comments.
