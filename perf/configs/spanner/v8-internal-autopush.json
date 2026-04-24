@@ -23,7 +23,8 @@
     "datastore_type": "spanner",
     "connection_string": "postgresql://root@localhost:5432/v8_int_autopush?sslmode=disable",
     "tile_size": 256,
-    "min_db_connections": 5
+    "min_db_connections": 5,
+    "query_traces_chunk_size": 500
   },
   "experiments": {
     "regressions_trace_id_field": true
