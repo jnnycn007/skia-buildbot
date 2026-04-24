@@ -13,6 +13,7 @@ import (
 	"go.skia.org/infra/go/depot_tools/deps_parser"
 	"go.skia.org/infra/go/readme_chromium"
 	"go.skia.org/infra/go/skerr"
+	"go.skia.org/infra/go/sklog"
 	"go.skia.org/infra/go/util"
 )
 
@@ -220,6 +221,8 @@ func updateSingleDep(ctx context.Context, dep *config.VersionFileConfig, newRev 
 			primaryOldVersion = oldVersion
 		}
 
+		sklog.Debugf("Updating %s in %s; currently has revision %s, new rev is %s", dep.Id, file.Path, oldVersion, newRev.Id)
+
 		// Create the new file content.
 		if newRev.Id != oldVersion {
 			newContents, err := setPinnedRevInFile(dep.Id, file, newRev, oldContents)
@@ -247,12 +250,12 @@ func updateSingleDep(ctx context.Context, dep *config.VersionFileConfig, newRev 
 						// Path found
 						newContents = strings.ReplaceAll(oldContents, oldVersion, newRev.Id)
 						if oldContents != newContents {
+							sklog.Debugf("automatically updating submodule %s", depsEntry.Path)
 							changes[depsEntry.Path] = newContents
 						}
 					}
 				}
 			}
-
 		}
 	}
 	return primaryOldVersion, nil
