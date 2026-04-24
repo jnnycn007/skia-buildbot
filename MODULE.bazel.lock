@@ -1775,7 +1775,7 @@
     "@@rules_oci+//oci:extensions.bzl%oci": {
       "general": {
         "bzlTransitiveDigest": "48mBsGmRAc9avLzUVYibjYzgMDj5MPLQjRGJUm1fvjA=",
-        "usagesDigest": "6hKpWWjPN+eX2zyvVrWxzJh0O6OMZjollq1QT812oCM=",
+        "usagesDigest": "4dwiSvIbIkvNG1avQSFhk7xF53nV+EkVBENjfDvKwGs=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -1787,7 +1787,7 @@
               "scheme": "https",
               "registry": "gcr.io",
               "repository": "skia-public/jsfiddle-final",
-              "identifier": "sha256:4d6a423bbec726a71f381af4ea5cffef8b0fa11010808f4d380fc888ab99fe06",
+              "identifier": "sha256:96e57ad559316f8b0e6588375fe498ad9b7f3280ea80c63239c0812fb7a65a49",
               "target_name": "pinned_jsfiddle_single",
               "bazel_tags": []
             }
@@ -1800,7 +1800,7 @@
               "scheme": "https",
               "registry": "gcr.io",
               "repository": "skia-public/jsfiddle-final",
-              "identifier": "sha256:4d6a423bbec726a71f381af4ea5cffef8b0fa11010808f4d380fc888ab99fe06",
+              "identifier": "sha256:96e57ad559316f8b0e6588375fe498ad9b7f3280ea80c63239c0812fb7a65a49",
               "platforms": {},
               "platform": "@@rules_oci+//oci:pinned_jsfiddle_single",
               "bzlmod_repository": "pinned_jsfiddle",
