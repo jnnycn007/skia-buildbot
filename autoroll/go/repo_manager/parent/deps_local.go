@@ -16,7 +16,6 @@ import (
 	"go.skia.org/infra/autoroll/go/repo_manager/common/github_common"
 	"go.skia.org/infra/autoroll/go/revision"
 	"go.skia.org/infra/go/depot_tools"
-	"go.skia.org/infra/go/depot_tools/deps_parser"
 	"go.skia.org/infra/go/exec"
 	"go.skia.org/infra/go/gerrit"
 	"go.skia.org/infra/go/git"
@@ -120,15 +119,7 @@ func NewDEPSLocal(ctx context.Context, c *config.DEPSLocalParentConfig, client *
 	}
 
 	// See documentation for GitCheckoutCreateRollFunc.
-	createRollHelper := gitCheckoutFileCreateRollFunc(&config.DependencyConfig{
-		Primary: &config.VersionFileConfig{
-			Id: c.GitCheckout.Dep.Primary.Id,
-			File: []*config.VersionFileConfig_File{
-				{Path: deps_parser.DepsFileName},
-			},
-		},
-		Transitive: c.GitCheckout.Dep.Transitive,
-	})
+	createRollHelper := gitCheckoutFileCreateRollFunc(c.GitCheckout.Dep)
 	createRoll := func(ctx context.Context, co git.Checkout, from *revision.Revision, to *revision.Revision, rolling []*revision.Revision, commitMsg string) (string, error) {
 		// Run the helper to set the new dependency version(s).
 		if _, err := createRollHelper(ctx, co, from, to, rolling, commitMsg); err != nil {

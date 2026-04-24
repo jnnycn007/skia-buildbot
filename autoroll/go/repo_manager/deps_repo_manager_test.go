@@ -192,7 +192,6 @@ git interpret-trailers --trailer "Change-Id: %s" >> $1
 
 // TestRepoManager tests all aspects of the DEPSRepoManager except for CreateNewRoll.
 func TestDEPSRepoManager(t *testing.T) {
-
 	cfg := depsCfg(t)
 	ctx, rm, _, _, childCommits, _, _, _, _, _, cleanup := setupDEPSRepoManager(t, cfg)
 	defer cleanup()
@@ -250,7 +249,6 @@ func mockGerritGetAndPublishChange(t *testing.T, urlmock *mockhttpclient.URLMock
 }
 
 func TestDEPSRepoManagerCreateNewRoll(t *testing.T) {
-
 	cfg := depsCfg(t)
 	ctx, rm, _, _, _, _, _, _, urlmock, _, cleanup := setupDEPSRepoManager(t, cfg)
 	defer cleanup()
@@ -268,7 +266,6 @@ func TestDEPSRepoManagerCreateNewRoll(t *testing.T) {
 }
 
 func TestDEPSRepoManagerCreateNewRollWithPatchRef(t *testing.T) {
-
 	cfg := depsCfg(t)
 	ctx, rm, _, _, _, _, _, _, urlmock, patchRefInSyncCmd, cleanup := setupDEPSRepoManager(t, cfg)
 	defer cleanup()
@@ -295,7 +292,6 @@ func TestDEPSRepoManagerCreateNewRollWithPatchRef(t *testing.T) {
 
 // Verify that we properly utilize a gclient spec.
 func TestDEPSRepoManagerGClientSpec(t *testing.T) {
-
 	gclientSpec := `
 solutions=[{
   "name": "alternate/location/{{.ParentBase}}",
@@ -342,4 +338,45 @@ cache_dir=None
 		}
 	}
 	require.True(t, found)
+}
+
+func TestDEPSRepoManagerCreateNewRoll_MultipleFiles(t *testing.T) {
+	cfg := depsCfg(t)
+	secondaryPath := "other_file.txt"
+	cfg.GetDepsLocalGerritParent().DepsLocal.GitCheckout.Dep.Primary.File = append(
+		cfg.GetDepsLocalGerritParent().DepsLocal.GitCheckout.Dep.Primary.File,
+		&config.VersionFileConfig_File{Path: secondaryPath},
+	)
+	ctx, rm, wd, _, childCommits, parentRepo, _, _, urlmock, _, cleanup := setupDEPSRepoManager(t, cfg)
+	defer cleanup()
+
+	// Add the secondary file to the parent repo.
+	parentRepo.Add(ctx, secondaryPath, childCommits[0]+"\n")
+	parentRepo.Commit(ctx)
+
+	lastRollRev, tipRev, notRolledRevs, err := rm.Update(ctx)
+	require.NoError(t, err)
+
+	// Mock the request to load the change.
+	mockGerritGetAndPublishChange(t, urlmock, cfg)
+
+	// Create a roll.
+	issue, err := rm.CreateNewRoll(ctx, lastRollRev, tipRev, notRolledRevs, fakeReviewers, false, false, fakeCommitMsg)
+	require.NoError(t, err)
+	require.Equal(t, int64(123), issue)
+
+	// Verify that both files were updated in the uploaded commit.
+	parentCfg := cfg.GetDepsLocalGerritParent().DepsLocal
+	checkoutPath, err := parent.GetDEPSCheckoutPath(parentCfg, wd)
+	require.NoError(t, err)
+
+	// Read DEPS
+	depsContents, err := os.ReadFile(filepath.Join(checkoutPath, deps_parser.DepsFileName))
+	require.NoError(t, err)
+	require.Contains(t, string(depsContents), tipRev.Id)
+
+	// Read secondaryPath
+	secContents, err := os.ReadFile(filepath.Join(checkoutPath, secondaryPath))
+	require.NoError(t, err)
+	require.Contains(t, string(secContents), tipRev.Id)
 }

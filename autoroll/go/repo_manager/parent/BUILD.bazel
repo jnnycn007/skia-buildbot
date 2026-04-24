@@ -32,7 +32,6 @@ go_library(
         "//autoroll/go/revision",
         "//go/cipd",
         "//go/depot_tools",
-        "//go/depot_tools/deps_parser",
         "//go/exec",
         "//go/gerrit",
         "//go/gerrit/mocks",
