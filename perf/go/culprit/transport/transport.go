@@ -71,14 +71,7 @@ func (t *IssueTrackerTransport) SendNewNotification(ctx context.Context,
 	if err != nil {
 		return "", skerr.Wrapf(err, "failed to convert bug component %s to int", subscription.BugComponent)
 	}
-	hotlists := []int64{}
-	for _, i := range subscription.Hotlists {
-		j, err := strconv.ParseInt(i, 10, 64)
-		if err != nil {
-			panic(err)
-		}
-		hotlists = append(hotlists, j)
-	}
+
 	ccs := []*issuetracker.User{}
 	for _, email := range subscription.BugCcEmails {
 		if trimmedEmail := strings.TrimSpace(email); trimmedEmail != "" {
@@ -104,7 +97,6 @@ func (t *IssueTrackerTransport) SendNewNotification(ctx context.Context,
 			Severity:    fmt.Sprintf("S%d", subscription.BugSeverity),
 			Reporter:    reporter,
 			Ccs:         ccs,
-			HotlistIds:  hotlists,
 			AccessLimit: &issuetracker.IssueAccessLimit{AccessLevel: "LIMIT_VIEW_TRUSTED"},
 			// TODO(pasthana): Set Assignee to the culprit cl author and set status to ASSIGNED
 			Status: "NEW",
