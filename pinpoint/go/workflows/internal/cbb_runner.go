@@ -5,6 +5,7 @@ package internal
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"path"
@@ -279,6 +280,7 @@ func CbbRunnerWorkflow(ctx workflow.Context, cbb *CbbRunnerParams) (*map[string]
 
 	results := map[string]*format.Format{}
 
+	var errs []error
 	for _, b := range benchmarks {
 		p := &SingleCommitRunnerParams{
 			PinpointJobID:  genJobId(bi, cbb, b.Benchmark),
@@ -296,7 +298,8 @@ func CbbRunnerWorkflow(ctx workflow.Context, cbb *CbbRunnerParams) (*map[string]
 
 		var cr *CommitRun
 		if err := workflow.ExecuteChildWorkflow(ctx, workflows.SingleCommitRunner, p).Get(ctx, &cr); err != nil {
-			return nil, skerr.Wrap(err)
+			errs = append(errs, skerr.Wrap(err))
+			continue
 		}
 
 		// Check the success rate of swarming tasks. We require at least 80% of
@@ -310,9 +313,10 @@ func CbbRunnerWorkflow(ctx workflow.Context, cbb *CbbRunnerParams) (*map[string]
 		successRate := float64(numSuccess) / float64(b.Iterations)
 		requiredSuccessRate := 0.8
 		if successRate < requiredSuccessRate {
-			return nil, skerr.Fmt(
+			errs = append(errs, skerr.Fmt(
 				"Benchmark %s on %s only had success rate of %.0f%%, rejecting the results",
-				b.Benchmark, cbb.BotConfig, successRate*100)
+				b.Benchmark, cbb.BotConfig, successRate*100))
+			continue
 		}
 
 		r := formatResult(ctx, cr, cbb.BotConfig, p.Benchmark, bi, cbb.SkipFinch, startTime, p.PinpointJobID)
@@ -322,21 +326,25 @@ func CbbRunnerWorkflow(ctx workflow.Context, cbb *CbbRunnerParams) (*map[string]
 			var swc StringWriterCloser = StringWriterCloser{
 				builder: new(strings.Builder),
 			}
-			err = r.Write(swc)
-			if err != nil {
-				return nil, skerr.Wrap(err)
+			if err := r.Write(swc); err != nil {
+				errs = append(errs, skerr.Wrap(err))
+				continue
 			}
 
 			var gsPath string
-			err = workflow.ExecuteActivity(
-				ctx, UploadCbbResultsActivity, startTime, cbb, p.Benchmark, swc.builder.String()).Get(ctx, &gsPath)
-			if err != nil {
-				return nil, skerr.Wrap(err)
+			if err := workflow.ExecuteActivity(
+				ctx, UploadCbbResultsActivity, startTime, cbb, p.Benchmark, swc.builder.String()).Get(ctx, &gsPath); err != nil {
+				errs = append(errs, skerr.Wrap(err))
+				continue
 			}
 			sklog.Infof("Uploaded results to %s", gsPath)
 		} else {
 			sklog.Warning("No GS bucket provided to upload results")
 		}
+	}
+
+	if len(errs) > 0 {
+		return nil, skerr.Wrap(errors.Join(errs...))
 	}
 
 	return &results, nil
