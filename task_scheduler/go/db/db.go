@@ -12,6 +12,7 @@ import (
 	"go.skia.org/infra/go/now"
 	"go.skia.org/infra/go/skerr"
 	"go.skia.org/infra/go/sklog"
+	"go.skia.org/infra/go/util"
 	"go.skia.org/infra/task_scheduler/go/types"
 	"go.skia.org/infra/task_scheduler/go/window"
 )
@@ -270,6 +271,15 @@ func SearchStatusEqual(search *string, test string) bool {
 	return *search == test
 }
 
+// SearchStringContains returns true if the string is contained within the given
+// slice or is not provided.
+func SearchStringContains(search *string, test []string) bool {
+	if search == nil {
+		return true
+	}
+	return util.In(*search, test)
+}
+
 // MatchJob returns true if the given Job matches the given search parameters.
 func MatchJob(j *types.Job, p *JobSearchParams) bool {
 	// Compare all attributes which are provided.
@@ -312,7 +322,8 @@ func MatchTask(t *types.Task, p *TaskSearchParams) bool {
 		SearchStringEqual(p.Revision, t.Revision) &&
 		SearchStringEqual(p.Name, t.Name) &&
 		SearchStatusEqual((*string)(p.Status), string(t.Status)) &&
-		SearchStringEqual(p.ForcedJobId, t.ForcedJobId)
+		SearchStringEqual(p.ForcedJobId, t.ForcedJobId) &&
+		SearchStringContains(p.BlamelistContains, t.Commits)
 }
 
 // FilterTasks filters the given slice of Tasks to those which match the given
@@ -334,17 +345,18 @@ func FilterTasks(tasks []*types.Task, p *TaskSearchParams) []*types.Task {
 // the current time. If TimeStart is not provided the search begins 24 hours
 // before TimeEnd.
 type TaskSearchParams struct {
-	Attempt     *int64            `json:"attempt,string,omitempty"`
-	Status      *types.TaskStatus `json:"status"`
-	ForcedJobId *string           `json:"forcedJobId,omitempty"`
-	Issue       *string           `json:"issue,omitempty"`
-	Name        *string           `json:"name"`
-	Patchset    *string           `json:"patchset,omitempty"`
-	Repo        *string           `json:"repo,omitempty"`
-	Revision    *string           `json:"revision,omitempty"`
-	TimeStart   *time.Time        `json:"time_start"`
-	TimeEnd     *time.Time        `json:"time_end"`
-	Limit       *int              `json:"limit"`
+	Attempt           *int64            `json:"attempt,string,omitempty"`
+	BlamelistContains *string           `json:"blamelistc_contains,omitempty"`
+	Status            *types.TaskStatus `json:"status"`
+	ForcedJobId       *string           `json:"forcedJobId,omitempty"`
+	Issue             *string           `json:"issue,omitempty"`
+	Name              *string           `json:"name"`
+	Patchset          *string           `json:"patchset,omitempty"`
+	Repo              *string           `json:"repo,omitempty"`
+	Revision          *string           `json:"revision,omitempty"`
+	TimeStart         *time.Time        `json:"time_start"`
+	TimeEnd           *time.Time        `json:"time_end"`
+	Limit             *int              `json:"limit"`
 }
 
 // RemoteDB allows retrieving tasks and jobs and full access to comments.

@@ -861,6 +861,11 @@ func TestTaskDBSearch(t sktest.TestingT, db TaskDB) {
 	test(&TaskSearchParams{
 		Name: s("my-task"),
 	}, t1, t2, t3, t4, t6)
+	test(&TaskSearchParams{
+		BlamelistContains: s("abc123"),
+		TimeStart:         &tStart,
+		TimeEnd:           &tCurrent,
+	}, t1, t2, t3, t4, t5, t6)
 }
 
 // TestJobDB performs basic tests on an implementation of JobDB.

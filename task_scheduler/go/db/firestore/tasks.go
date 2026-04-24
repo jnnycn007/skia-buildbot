@@ -258,6 +258,9 @@ func (d *firestoreDB) SearchTasks(ctx context.Context, params *db.TaskSearchPara
 	} else if params.Issue != nil && *params.Issue != "" {
 		q = q.Where("Issue", "==", *params.Issue)
 		term = fmt.Sprintf("Issue == %s", *params.Issue)
+	} else if params.BlamelistContains != nil {
+		q = q.Where("Commits", "array-contains", params.BlamelistContains)
+		term = fmt.Sprintf("Commits contains %s", *params.BlamelistContains)
 	} else if params.Revision != nil {
 		q = q.Where("Revision", "==", *params.Revision)
 		term = fmt.Sprintf("Revision == %s", *params.Revision)
