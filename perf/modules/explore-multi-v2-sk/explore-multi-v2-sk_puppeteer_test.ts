@@ -1,8 +1,12 @@
 import { expect } from 'chai';
 import { loadCachedTestBed, TestBed } from '../../../puppeteer-tests/util';
+import { poll } from '../common/puppeteer-test-util';
+import { ExploreMultiV2SkPO } from './explore-multi-v2-sk_po';
+import { ElementHandle } from 'puppeteer';
 
 describe('explore-multi-v2-sk', () => {
   let testBed: TestBed;
+  let exploreMultiV2SkPO: ExploreMultiV2SkPO;
 
   before(async () => {
     testBed = await loadCachedTestBed();
@@ -39,14 +43,33 @@ describe('explore-multi-v2-sk', () => {
           fm.get('glob:*/dist/explore-multi-v2-sk/filter.wasm*', new ArrayBuffer(0), {
             overwriteRoutes: true,
           });
-          fm.get('glob:*/_/wasm/traces.bin*', new ArrayBuffer(0), { overwriteRoutes: true });
+          fm.get('/_/initpage/', {
+            dataframe: {
+              paramset: { arch: ['arm', 'x86'], os: ['windows', 'linux'] },
+            },
+          });
         },
         configurable: true,
       });
     });
 
     await page.goto(testBed.baseUrl);
-    await page.waitForSelector('explore-multi-v2-sk');
+    const exploreMultiV2Sk = (await page.waitForSelector(
+      'explore-multi-v2-sk'
+    )) as ElementHandle<HTMLElement>;
+    exploreMultiV2SkPO = new ExploreMultiV2SkPO(exploreMultiV2Sk);
+  });
+
+  it('should display the correct static content', async () => {
+    const staticContent = await exploreMultiV2SkPO.staticContent;
+
+    expect(staticContent).to.not.be.null;
+    expect(staticContent!.title).to.equal('Explore Multi V2');
+    expect(staticContent!.subtitle).to.equal(
+      'High-performance custom dimension analysis (Work in Progress)'
+    );
+    expect(staticContent!.facetedSearchBarTitle).to.equal('Faceted Search Bar');
+    expect(staticContent!.visualizationsTitle).to.equal('Visualizations');
   });
 
   it('should trigger fetch when panning in Date Mode', async () => {
@@ -126,35 +149,18 @@ describe('explore-multi-v2-sk', () => {
     });
 
     // Wait for the count to be updated to (42)
-    await page.waitForFunction(() => {
-      const explore = document.querySelector('explore-multi-v2-sk') as any;
-      const queryBar = explore.shadowRoot.querySelector('query-bar-sk') as any;
-      const countEl = queryBar.shadowRoot.querySelector('.s-count.right');
-      return countEl && countEl.textContent === '(42)';
-    });
+    await poll(
+      async () => (await exploreMultiV2SkPO.getSuggestionCountText()) === '(42)',
+      'Suggestion count did not update to (42)'
+    );
 
-    const countText = await page.evaluate(() => {
-      const explore = document.querySelector('explore-multi-v2-sk') as any;
-      const queryBar = explore.shadowRoot.querySelector('query-bar-sk') as any;
-      const countEl = queryBar.shadowRoot.querySelector('.s-count.right');
-      return countEl ? countEl.textContent : '';
-    });
+    const countText = await exploreMultiV2SkPO.getSuggestionCountText();
 
     expect(countText).to.equal('(42)');
   });
 
   it('should load worker and become ready', async () => {
-    const page = testBed.page;
-
-    const workerReady = await page.evaluate(async () => {
-      const explore = document.querySelector('explore-multi-v2-sk') as any;
-      // Wait up to 1 second for worker to initialize
-      for (let i = 0; i < 20; i++) {
-        if (explore._workerController && explore._workerController.isReady()) return true;
-        await new Promise((resolve) => setTimeout(resolve, 50));
-      }
-      return false;
-    });
+    const workerReady = await exploreMultiV2SkPO.isWorkerReady();
 
     expect(workerReady).to.be.true;
   });
@@ -171,30 +177,10 @@ describe('explore-multi-v2-sk', () => {
       queryBar.query = { test: ['Score'] }; // So it appears as a pill
     });
 
-    // Open the multi-select-sk dropdown
-    await page.evaluate(async () => {
-      const explore = document.querySelector('explore-multi-v2-sk') as any;
-      const queryBar = explore.shadowRoot.querySelector('query-bar-sk') as any;
-      const multiSelect = queryBar.shadowRoot.querySelector('multi-select-sk') as any;
-      multiSelect._isOpen = true;
-      await multiSelect.updateComplete;
-    });
-
-    // Click the Diff button
-    await page.evaluate(async () => {
-      const explore = document.querySelector('explore-multi-v2-sk') as any;
-      const queryBar = explore.shadowRoot.querySelector('query-bar-sk') as any;
-      const multiSelect = queryBar.shadowRoot.querySelector('multi-select-sk') as any;
-      const diffBtn = multiSelect.shadowRoot.querySelector('.ms-diff-btn') as HTMLElement;
-      diffBtn.click();
-      await explore.updateComplete;
-    });
+    await exploreMultiV2SkPO.clickDiffButtonOnFirstQueryBarPill();
 
     // Verify _diffBase is set
-    const diffBase = await page.evaluate(() => {
-      const explore = document.querySelector('explore-multi-v2-sk') as any;
-      return explore._diffBase;
-    });
+    const diffBase = await exploreMultiV2SkPO.getDiffBase();
 
     expect(diffBase).to.deep.equal({ key: 'test', value: 'Score' });
   });
@@ -209,12 +195,7 @@ describe('explore-multi-v2-sk', () => {
       explore.requestUpdate();
     });
 
-    // Wait for the chip to appear
-    await page.waitForFunction(() => {
-      const explore = document.querySelector('explore-multi-v2-sk');
-      const chip = explore?.shadowRoot?.querySelector('.config-pill');
-      return chip && chip.textContent?.includes('Diff Base:');
-    });
+    exploreMultiV2SkPO.waitForDiffBaseChip();
 
     const chipText = await page.evaluate(() => {
       const explore = document.querySelector('explore-multi-v2-sk');
@@ -224,5 +205,29 @@ describe('explore-multi-v2-sk', () => {
 
     expect(chipText).to.include('Diff Base:');
     expect(chipText).to.include('Score');
+  });
+
+  it('should add a new query bar when the add button is clicked', async () => {
+    const page = testBed.page;
+
+    // Initially, there should be one query bar.
+    let queryBarCount = await exploreMultiV2SkPO.getQueryBarCount();
+    expect(queryBarCount).to.equal(1);
+
+    // Find and click the add button.
+    await page.evaluate(() => {
+      const explore = document.querySelector('explore-multi-v2-sk');
+      const addButton = explore?.shadowRoot?.querySelector('.add-query-circle-btn') as HTMLElement;
+      addButton?.click();
+    });
+
+    // Wait for the new query bar to appear.
+    await poll(
+      async () => (await exploreMultiV2SkPO.getQueryBarCount()) === 2,
+      'Query bar count did not become 2'
+    );
+
+    queryBarCount = await exploreMultiV2SkPO.getQueryBarCount();
+    expect(queryBarCount).to.equal(2);
   });
 });

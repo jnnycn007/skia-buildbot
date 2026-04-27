@@ -194,13 +194,27 @@ sk_page(
     ts_entry_point = "explore-multi-v2-sk-demo.ts",
 )
 
+ts_library(
+    name = "explore-multi-v2-sk_po_ts_lib",
+    srcs = ["explore-multi-v2-sk_po.ts"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//infra-sk/modules/page_object:page_object_element_ts_lib",
+        "//infra-sk/modules/page_object:page_object_ts_lib",
+        "//perf/modules/common:puppeteer-test-util_ts_lib",
+    ],
+)
+
 sk_element_puppeteer_test(
     name = "explore-multi-v2-sk_puppeteer_test",
     src = "explore-multi-v2-sk_puppeteer_test.ts",
     sk_demo_page_server = ":demo_page_server",
     deps = [
+        ":explore-multi-v2-sk_po_ts_lib",
         "//:node_modules/@types/chai",
         "//:node_modules/chai",
+        "//:node_modules/puppeteer",
+        "//perf/modules/common:puppeteer-test-util_ts_lib",
         "//puppeteer-tests:util_ts_lib",
     ],
 )
