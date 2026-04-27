@@ -118,7 +118,7 @@ func getFile(ctx context.Context, co git.Checkout, path string) (string, error) 
 func writeFile(ctx context.Context, co git.Checkout, path, contents string) error {
 	if ok, _ := co.IsSubmodule(ctx, path, gitHeadRef); ok {
 		sklog.Infof("Writing to submodule \"%s\".", path)
-		return co.UpdateSubmodule(ctx, path, contents)
+		return co.UpdateSubmodule(ctx, path, strings.TrimSpace(contents))
 	}
 	sklog.Infof("Writing to file \"%s\".", path)
 
