@@ -6,7 +6,6 @@ go_library(
     importpath = "go.skia.org/infra/perf/go/maintenance",
     visibility = ["//visibility:public"],
     deps = [
-        "//go/luciconfig",
         "//go/skerr",
         "//go/sklog",
         "//perf/go/builders",

@@ -5,7 +5,6 @@ import (
 	"context"
 	"time"
 
-	"go.skia.org/infra/go/luciconfig"
 	"go.skia.org/infra/go/skerr"
 	"go.skia.org/infra/go/sklog"
 	"go.skia.org/infra/perf/go/builders"
@@ -99,13 +98,19 @@ func Start(ctx context.Context, flags config.MaintenanceFlags, instanceConfig *c
 		if err != nil {
 			return skerr.Wrapf(err, "Failed to build SubscriptionStore.")
 		}
-		luciConfig, err := luciconfig.NewApiClient(ctx, false)
+
+		configProvider, err := sheriffconfig.CreateConfigProvider(
+			ctx,
+			flags.Local,
+			instanceConfig.MaintenanceConfig.GitilesRepoUrl,
+			instanceConfig.MaintenanceConfig.SheriffConfigPath,
+			instanceConfig.MaintenanceConfig.FallbackToLucicfg,
+		)
+
 		if err != nil {
-			sklog.Errorf("Failed to build LUCI Config client: %s", err)
-			// TODO(eduardoyap): Move this out of the else block. For now it's just to prevent the
-			// service from crashing if we're unable to connect.
-		} else {
-			sheriffConfig, err := sheriffconfig.New(ctx, db, subscriptionStore, alertStore, luciConfig, instanceConfig.InstanceName)
+			sklog.Errorf("No valid config provider could be initialized for Sheriff Configs: %s", err)
+		} else if configProvider != nil {
+			sheriffConfig, err := sheriffconfig.New(ctx, db, subscriptionStore, alertStore, configProvider, instanceConfig.InstanceName)
 			if err != nil {
 				return skerr.Wrapf(err, "Error starting sheriff config service.")
 			}

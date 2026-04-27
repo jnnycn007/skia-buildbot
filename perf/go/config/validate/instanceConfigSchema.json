@@ -457,6 +457,9 @@
           },
           "type": "array"
         },
+        "maintenance_config": {
+          "$ref": "#/$defs/MaintenanceConfig"
+        },
         "ga_measurement_id": {
           "type": "string"
         },
@@ -533,6 +536,24 @@
       "type": "object",
       "required": [
         "notification_type"
+      ]
+    },
+    "MaintenanceConfig": {
+      "properties": {
+        "gitiles_repo_url": {
+          "type": "string"
+        },
+        "sheriff_config_path": {
+          "type": "string"
+        },
+        "fallback_to_lucicfg": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "fallback_to_lucicfg"
       ]
     },
     "NotifyConfig": {

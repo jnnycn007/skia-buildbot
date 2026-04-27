@@ -174,7 +174,7 @@ run-demo-instance-db-persist: initdemo run_frontend
 
 run_maintenance:
 	../_bazel_bin/perf/go/perfserver/perfserver_/perfserver maintenance \
-		--dev_mode \
+		--local \
 		--config_filename=./configs/demo_spanner.json \
 		--connection_string=postgresql://root@127.0.0.1:5432/demo?sslmode=disable \
 		--migrate_regressions \

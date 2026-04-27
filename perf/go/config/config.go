@@ -876,6 +876,14 @@ type ExtraLinks struct {
 	Links []FavoritesSectionLinkConfig `json:"links"`
 }
 
+// MaintenanceConfig contains configuration for the maintenance service.
+type MaintenanceConfig struct {
+	GitilesRepoUrl    string `json:"gitiles_repo_url,omitempty"`
+	SheriffConfigPath string `json:"sheriff_config_path,omitempty"`
+	// This is a temporary flag to allow for a gradual rollout of the Gitiles config.
+	FallbackToLucicfg bool `json:"fallback_to_lucicfg"`
+}
+
 // TemporalConfig contains properties of the temporal instance used by the client in the backend.
 type TemporalConfig struct {
 	// The host and port of the temporal instance.
@@ -1117,8 +1125,9 @@ type InstanceConfig struct {
 	TemporalConfig     TemporalConfig     `json:"temporal_config,omitempty"`
 	DataPointConfig    DataPointConfig    `json:"data_point_config,omitempty"`
 
-	EnableSheriffConfig    bool     `json:"enable_sheriff_config,omitempty"`
-	SheriffConfigsToNotify []string `json:"sheriff_configs_to_notify,omitempty"`
+	EnableSheriffConfig    bool              `json:"enable_sheriff_config,omitempty"`
+	SheriffConfigsToNotify []string          `json:"sheriff_configs_to_notify,omitempty"`
+	MaintenanceConfig      MaintenanceConfig `json:"maintenance_config,omitempty"`
 
 	// Measurement ID to use when tracking user metrics with Google Analytics.
 	GoogleAnalyticsMeasurementID string `json:"ga_measurement_id,omitempty"`

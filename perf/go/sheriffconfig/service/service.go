@@ -8,6 +8,10 @@ import (
 	"strings"
 	"time"
 
+	"go.skia.org/infra/go/auth"
+	"go.skia.org/infra/go/git"
+	"go.skia.org/infra/go/gitiles"
+	"go.skia.org/infra/go/httputils"
 	"go.skia.org/infra/go/luciconfig"
 	"go.skia.org/infra/go/skerr"
 	"go.skia.org/infra/go/sklog"
@@ -18,6 +22,7 @@ import (
 	"go.skia.org/infra/perf/go/subscription"
 	subscription_pb "go.skia.org/infra/perf/go/subscription/proto/v1"
 	"go.skia.org/infra/perf/go/types"
+	"golang.org/x/oauth2/google"
 	"google.golang.org/protobuf/encoding/prototext"
 )
 
@@ -74,12 +79,147 @@ func ValidateContent(content string) error {
 	return nil
 }
 
+// ConfigProvider fetches project configurations from a backing store (e.g., Gitiles or LUCI Config).
+type ConfigProvider interface {
+	// Given a config path, retrieve all matching configs to that path.
+	GetProjectConfigs(ctx context.Context, path string) ([]*luciconfig.ProjectConfig, error)
+}
+
+type gitilesConfigProvider struct {
+	repo              gitiles.GitilesRepo
+	sheriffConfigPath string
+}
+
+func NewGitilesConfigProvider(repo gitiles.GitilesRepo, sheriffConfigPath string) ConfigProvider {
+	return &gitilesConfigProvider{
+		repo:              repo,
+		sheriffConfigPath: sheriffConfigPath,
+	}
+}
+
+func (c *gitilesConfigProvider) GetProjectConfigs(ctx context.Context, path string) ([]*luciconfig.ProjectConfig, error) {
+	if path != "skia-sheriff-configs.cfg" {
+		sklog.Infof("Unsupported path for gitilesConfigProvider: %s", path)
+		return nil, skerr.Fmt("Unsupported path for gitilesConfigProvider: %s", path)
+	}
+
+	repoPath := c.sheriffConfigPath
+	sklog.Debugf("Fetching sheriff config from gitiles repo path: %s", repoPath)
+
+	commits, err := c.repo.Log(ctx, git.MainBranch, gitiles.LogPath(repoPath), gitiles.LogLimit(1))
+	if err != nil {
+		sklog.Warningf("Failed to get gitiles log for %s: %s", repoPath, err)
+		return nil, skerr.Wrap(err)
+	}
+	if len(commits) == 0 {
+		err := skerr.Fmt("No commit history found for %s", repoPath)
+		sklog.Warningf(err.Error())
+		return nil, err
+	}
+	revision := commits[0].Hash
+
+	b, err := c.repo.ReadFileAtRef(ctx, repoPath, revision)
+	if err != nil {
+		// Gitiles can return a massive stack trace on 404s. Truncate it if it's too long.
+		errMsg := err.Error()
+		if len(errMsg) > 400 {
+			errMsg = errMsg[:400] + "... (truncated)"
+		}
+		sklog.Warningf("Failed to read file %s from gitiles at revision %s: %s", repoPath, revision, errMsg)
+		// Return a new error with the truncated message so callers don't log the massive stack trace
+		return nil, skerr.Fmt("gitiles fetch failed: %s", errMsg)
+	}
+
+	content := string(b)
+	if err := ValidateContent(content); err != nil {
+		sklog.Warningf("Invalid sheriff config from gitiles: %s", err)
+		return nil, skerr.Wrapf(err, "invalid sheriff config from gitiles")
+	}
+
+	sklog.Infof("Successfully fetched and validated sheriff config from gitiles at revision: %s", revision)
+
+	return []*luciconfig.ProjectConfig{
+		{
+			Content:  content,
+			Revision: revision,
+		},
+	}, nil
+}
+
+type migrationConfigProvider struct {
+	primary  ConfigProvider
+	fallback ConfigProvider
+}
+
+func NewMigrationConfigProvider(primary, fallback ConfigProvider) ConfigProvider {
+	return &migrationConfigProvider{
+		primary:  primary,
+		fallback: fallback,
+	}
+}
+
+func (m *migrationConfigProvider) GetProjectConfigs(ctx context.Context, path string) ([]*luciconfig.ProjectConfig, error) {
+	configs, err := m.primary.GetProjectConfigs(ctx, path)
+	if err != nil {
+		sklog.Warningf("Primary config provider failed (path: %s): %s. Falling back to secondary.", path, err)
+		return m.fallback.GetProjectConfigs(ctx, path)
+	}
+	return configs, nil
+}
+
+// CreateConfigProvider creates a ConfigProvider based on the given configuration.
+func CreateConfigProvider(ctx context.Context, isLocal bool, gitilesRepoUrl string, sheriffConfigPath string, fallbackToLucicfg bool) (ConfigProvider, error) {
+	var primaryClient ConfigProvider
+	var fallbackClient ConfigProvider
+	var primaryErr error
+	var fallbackErr error
+
+	if gitilesRepoUrl != "" && sheriffConfigPath != "" {
+		// Setup primary Gitiles client
+		ts, err := google.DefaultTokenSource(ctx, auth.ScopeGerrit)
+		if err != nil {
+			primaryErr = skerr.Wrapf(err, "Failed to create token source for gitiles")
+		} else {
+			client := httputils.DefaultClientConfig().WithTokenSource(ts).With2xxOnly().Client()
+			repo := gitiles.NewRepo(gitilesRepoUrl, client)
+			primaryClient = NewGitilesConfigProvider(repo, sheriffConfigPath)
+		}
+	} else {
+		primaryErr = skerr.Fmt("gitilesRepoUrl or sheriffConfigPath is empty")
+	}
+
+	if fallbackToLucicfg {
+		// Setup fallback LUCI Config client
+		var err error
+		fallbackClient, err = luciconfig.NewApiClient(ctx, isLocal)
+		if err != nil {
+			fallbackErr = skerr.Wrapf(err, "Failed to build LUCI Config fallback client")
+		}
+	} else {
+		fallbackErr = skerr.Fmt("fallbackToLucicfg is false")
+	}
+
+	// Determine the final config provider structure
+	if primaryClient != nil && fallbackClient != nil {
+		sklog.Infof("Using Gitiles Config with LUCI Config fallback for Sheriff Configs (Migration Mode)")
+		return NewMigrationConfigProvider(primaryClient, fallbackClient), nil
+	} else if primaryClient != nil {
+		sklog.Infof("Using Gitiles Config for Sheriff Configs")
+		return primaryClient, nil
+	} else if fallbackClient != nil {
+		sklog.Infof("Using LUCI Config for Sheriff Configs")
+		return fallbackClient, nil
+	}
+
+	return nil, skerr.Fmt("Failed to create config provider: primary error: %v, fallback error: %v", primaryErr, fallbackErr)
+}
+
 type sheriffconfigService struct {
-	db                  pool.Pool
-	subscriptionStore   subscription.Store
-	alertStore          alerts.Store
-	luciconfigApiClient luciconfig.ApiClient
-	instance            string
+	db                pool.Pool
+	subscriptionStore subscription.Store
+	alertStore        alerts.Store
+	configProvider    ConfigProvider
+	instance          string
 }
 
 // Create new SheriffConfig service.
@@ -87,23 +227,23 @@ func New(ctx context.Context,
 	db pool.Pool,
 	subscriptionStore subscription.Store,
 	alertStore alerts.Store,
-	luciconfigApiClient luciconfig.ApiClient,
+	configProvider ConfigProvider,
 	instance string) (*sheriffconfigService, error) {
 
-	if luciconfigApiClient == nil {
+	if configProvider == nil {
 		var err error
-		luciconfigApiClient, err = luciconfig.NewApiClient(ctx, false)
+		configProvider, err = luciconfig.NewApiClient(ctx, false)
 		if err != nil {
 			return nil, skerr.Fmt("Failed to create new LUCI Config client: %s.", err)
 		}
 	}
 
 	return &sheriffconfigService{
-		db:                  db,
-		subscriptionStore:   subscriptionStore,
-		alertStore:          alertStore,
-		luciconfigApiClient: luciconfigApiClient,
-		instance:            instance,
+		db:                db,
+		subscriptionStore: subscriptionStore,
+		alertStore:        alertStore,
+		configProvider:    configProvider,
+		instance:          instance,
 	}, nil
 }
 
@@ -111,7 +251,7 @@ func New(ctx context.Context,
 // in Subscription and Alert tables.
 func (s *sheriffconfigService) ImportSheriffConfig(ctx context.Context, path string) error {
 
-	configs, err := s.luciconfigApiClient.GetProjectConfigs(ctx, path)
+	configs, err := s.configProvider.GetProjectConfigs(ctx, path)
 	if err != nil {
 		return skerr.Wrap(err)
 	}
@@ -180,11 +320,14 @@ func (s *sheriffconfigService) processConfig(ctx context.Context, config *lucico
 	subscriptionEntities := []*subscription_pb.Subscription{}
 	saveRequests := []*alerts.SaveRequest{}
 
+	instanceSubCount := 0
+
 	// Prepare subscription and alert data
 	for _, subscription := range sheriffconfig.Subscriptions {
 		if subscription.Instance != s.instance {
 			continue
 		}
+		instanceSubCount++
 
 		subscriptionEntity := makeSubscriptionEntity(subscription, config.Revision)
 
@@ -204,6 +347,8 @@ func (s *sheriffconfigService) processConfig(ctx context.Context, config *lucico
 			saveRequests = append(saveRequests, subSaveRequests...)
 		}
 	}
+
+	sklog.Infof("Found %d subs for this instance (%s)", instanceSubCount, s.instance)
 
 	return subscriptionEntities, saveRequests, nil
 }
@@ -348,7 +493,10 @@ func getSeverityFromProto(sev pb.Subscription_Severity) int32 {
 
 func (s *sheriffconfigService) StartImportRoutine(period time.Duration) {
 	go func() {
-		for range time.Tick(period) {
+		s.ImportSheriffConfigOnce()
+		ticker := time.NewTicker(period)
+		defer ticker.Stop()
+		for range ticker.C {
 			s.ImportSheriffConfigOnce()
 		}
 	}()

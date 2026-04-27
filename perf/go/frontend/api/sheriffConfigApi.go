@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 
@@ -114,7 +115,13 @@ func (api sheriffConfigApi) validateConfigHandler(w http.ResponseWriter, r *http
 		return
 	}
 
-	err := sheriffconfig.ValidateContent(vcr.Content)
+	decoded, err := base64.StdEncoding.DecodeString(vcr.Content)
+	if err != nil {
+		httputils.ReportError(w, err, "Failed to decode Base64 string.", http.StatusBadRequest)
+		return
+	}
+
+	err = sheriffconfig.ValidateContent(string(decoded))
 	if err != nil {
 		ret := ValidateConfigResponse{
 			Messages: []Message{

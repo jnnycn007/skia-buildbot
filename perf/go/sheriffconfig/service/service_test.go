@@ -9,9 +9,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.skia.org/infra/go/git"
+	gitiles_mocks "go.skia.org/infra/go/gitiles/mocks"
 	"go.skia.org/infra/go/luciconfig"
 	luciconfig_mocks "go.skia.org/infra/go/luciconfig/mocks"
+	"go.skia.org/infra/go/skerr"
 	"go.skia.org/infra/go/testutils"
+	"go.skia.org/infra/go/vcsinfo"
 	"go.skia.org/infra/perf/go/alerts"
 	alert_mocks "go.skia.org/infra/perf/go/alerts/mock"
 	"go.skia.org/infra/perf/go/sql/sqltest"
@@ -655,4 +659,134 @@ func TestImportSheriffConfig_MultipleSubsMultipleInstances(t *testing.T) {
 	err = service.ImportSheriffConfig(ctx, "dummy.path")
 
 	require.NoError(t, err)
+}
+
+func TestGitilesConfigProvider_GetProjectConfigs_Success(t *testing.T) {
+	ctx := context.Background()
+
+	mockRepo := new(gitiles_mocks.GitilesRepo)
+	configPath := "skia-sheriff-configs.cfg"
+
+	// A basic valid config
+	configContent := "subscriptions { name: \"test\" contact_email: \"test@google.com\" bug_component: \"A>B\" anomaly_configs { rules { match: \"master=ChromiumPerf\" } } instance: \"chrome-internal\" }"
+
+	mockLog := []*vcsinfo.LongCommit{
+		{
+			ShortCommit: &vcsinfo.ShortCommit{
+				Hash: "fakehash123",
+			},
+		},
+	}
+	mockRepo.On("Log", testutils.AnyContext, git.MainBranch, mock.Anything, mock.Anything).Return(mockLog, nil)
+	mockRepo.On("ReadFileAtRef", testutils.AnyContext, configPath, "fakehash123").Return([]byte(configContent), nil)
+
+	provider := NewGitilesConfigProvider(mockRepo, configPath)
+	configs, err := provider.GetProjectConfigs(ctx, configPath)
+
+	require.NoError(t, err)
+	require.Len(t, configs, 1)
+	assert.Equal(t, configContent, configs[0].Content)
+	assert.Equal(t, "fakehash123", configs[0].Revision)
+}
+
+func TestGitilesConfigProvider_GetProjectConfigs_WrongPath(t *testing.T) {
+	ctx := context.Background()
+	mockRepo := new(gitiles_mocks.GitilesRepo)
+
+	provider := NewGitilesConfigProvider(mockRepo, "skia-sheriff-configs.cfg")
+	configs, err := provider.GetProjectConfigs(ctx, "wrong-path.cfg")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Unsupported path for gitilesConfigProvider")
+	assert.Nil(t, configs)
+}
+
+func TestGitilesConfigProvider_GetProjectConfigs_ReadFileError(t *testing.T) {
+	ctx := context.Background()
+	mockRepo := new(gitiles_mocks.GitilesRepo)
+	configPath := "skia-sheriff-configs.cfg"
+
+	mockLog := []*vcsinfo.LongCommit{
+		{
+			ShortCommit: &vcsinfo.ShortCommit{
+				Hash: "fakehash123",
+			},
+		},
+	}
+	mockRepo.On("Log", testutils.AnyContext, git.MainBranch, mock.Anything, mock.Anything).Return(mockLog, nil)
+	mockRepo.On("ReadFileAtRef", testutils.AnyContext, configPath, "fakehash123").Return(nil, skerr.Fmt("read error"))
+
+	provider := NewGitilesConfigProvider(mockRepo, configPath)
+	configs, err := provider.GetProjectConfigs(ctx, configPath)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "gitiles fetch failed")
+	assert.Nil(t, configs)
+}
+
+func TestGitilesConfigProvider_GetProjectConfigs_LogError(t *testing.T) {
+	ctx := context.Background()
+	mockRepo := new(gitiles_mocks.GitilesRepo)
+	configPath := "skia-sheriff-configs.cfg"
+
+	mockRepo.On("Log", testutils.AnyContext, git.MainBranch, mock.Anything, mock.Anything).Return(nil, skerr.Fmt("log error"))
+
+	provider := NewGitilesConfigProvider(mockRepo, configPath)
+	configs, err := provider.GetProjectConfigs(ctx, configPath)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "log error")
+	assert.Nil(t, configs)
+}
+
+// simpleMockProvider is a simple mock that implements ConfigProvider.
+// We don't use luciconfig_mocks.ApiClient here because the method signatures
+// are slightly different depending on if it's the interface or the ApiClient struct.
+type simpleMockProvider struct {
+	mock.Mock
+}
+
+func (m *simpleMockProvider) GetProjectConfigs(ctx context.Context, path string) ([]*luciconfig.ProjectConfig, error) {
+	args := m.Called(ctx, path)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*luciconfig.ProjectConfig), args.Error(1)
+}
+
+func TestMigrationConfigProvider_GetProjectConfigs_PrimarySuccess(t *testing.T) {
+	ctx := context.Background()
+	primary := new(simpleMockProvider)
+	fallback := new(simpleMockProvider)
+
+	expectedConfigs := []*luciconfig.ProjectConfig{{Content: "primary", Revision: "123"}}
+
+	primary.On("GetProjectConfigs", testutils.AnyContext, "path").Return(expectedConfigs, nil)
+
+	provider := NewMigrationConfigProvider(primary, fallback)
+	configs, err := provider.GetProjectConfigs(ctx, "path")
+
+	require.NoError(t, err)
+	assert.Equal(t, expectedConfigs, configs)
+	primary.AssertExpectations(t)
+	fallback.AssertNotCalled(t, "GetProjectConfigs")
+}
+
+func TestMigrationConfigProvider_GetProjectConfigs_PrimaryFailsFallbackSuccess(t *testing.T) {
+	ctx := context.Background()
+	primary := new(simpleMockProvider)
+	fallback := new(simpleMockProvider)
+
+	expectedConfigs := []*luciconfig.ProjectConfig{{Content: "fallback", Revision: "456"}}
+
+	primary.On("GetProjectConfigs", testutils.AnyContext, "path").Return(nil, skerr.Fmt("primary died"))
+	fallback.On("GetProjectConfigs", testutils.AnyContext, "path").Return(expectedConfigs, nil)
+
+	provider := NewMigrationConfigProvider(primary, fallback)
+	configs, err := provider.GetProjectConfigs(ctx, "path")
+
+	require.NoError(t, err)
+	assert.Equal(t, expectedConfigs, configs)
+	primary.AssertExpectations(t)
+	fallback.AssertExpectations(t)
 }

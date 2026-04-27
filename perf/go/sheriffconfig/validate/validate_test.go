@@ -304,22 +304,12 @@ func TestValidateConfig_NoDuplicateNames(t *testing.T) {
 	assert.Contains(t, err.Error(), "Found duplicated subscription name: Sub Test. Names must be unique.")
 }
 
-func TestDeerializeProto_BadEncoding(t *testing.T) {
-	// Pass non-encoded string
-	content := "abcdef1234"
-	_, err := DeserializeProto(content)
-
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "Failed to decode Base64 string")
-
-}
-
 func TestDeserializeProto_InvalidPrototext(t *testing.T) {
-	// Decoded translates to invalid sheriff config:
+	// Invalid sheriff config:
 	// 	subscriptions {
 	// 		invalidfield: "a"
 	//	}
-	content := "c3Vic2NyaXB0aW9ucyB7CglpbnZhbGlkZmllbGQ6ICJhIgp9"
+	content := "subscriptions {\n\tinvalidfield: \"a\"\n}"
 	_, err := DeserializeProto(content)
 
 	require.Error(t, err)
@@ -327,11 +317,11 @@ func TestDeserializeProto_InvalidPrototext(t *testing.T) {
 }
 
 func TestDeserializeProto_ValidPrototext(t *testing.T) {
-	// Decoded translates to invalid sheriff config:
+	// Valid sheriff config:
 	//  subscriptions {
 	//      name: "a"
 	//  }
-	content := "c3Vic2NyaXB0aW9ucyB7CgluYW1lOiAiYSIKfQ=="
+	content := "subscriptions {\n\tname: \"a\"\n}"
 	config, err := DeserializeProto(content)
 
 	require.NoError(t, err)

@@ -1,7 +1,6 @@
 package validate
 
 import (
-	"encoding/base64"
 	"net/url"
 	"regexp"
 
@@ -139,17 +138,11 @@ func ValidateConfig(config *sheriff_configpb.SheriffConfig) error {
 	return nil
 }
 
-// Transform Base64 encoded data into SheriffConfig proto.
-// LUCI Config returns content encoded in base64. It then needs to be
-// Unmarshaled into Sheriff Config proto.
-func DeserializeProto(encoded string) (*sheriff_configpb.SheriffConfig, error) {
-	decoded, err := base64.StdEncoding.DecodeString(encoded)
-	if err != nil {
-		return nil, skerr.Fmt("Failed to decode Base64 string: %s", err)
-	}
+// Transform plain string data into SheriffConfig proto.
+func DeserializeProto(content string) (*sheriff_configpb.SheriffConfig, error) {
 	config := &sheriff_configpb.SheriffConfig{}
 
-	err = prototext.Unmarshal(decoded, config)
+	err := prototext.Unmarshal([]byte(content), config)
 	if err != nil {
 		return nil, skerr.Fmt("Failed to unmarshal prototext: %s", err)
 	}

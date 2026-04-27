@@ -40,7 +40,8 @@ func NewApiClient(ctx context.Context, local bool) (*apiClient, error) {
 	if local {
 		ts, err = google.DefaultTokenSource(ctx, auth.ScopeUserinfoEmail)
 	} else {
-		credentials, err := google.FindDefaultCredentials(ctx)
+		var credentials *google.Credentials
+		credentials, err = google.FindDefaultCredentials(ctx)
 		if err != nil {
 			return nil, skerr.Fmt("Failed to generate default credentials: %w", err)
 		}

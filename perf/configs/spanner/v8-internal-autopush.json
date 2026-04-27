@@ -42,6 +42,11 @@
     "branches": [],
     "file_ingestion_pubsub_topic_name": "perf-cluster-v8-non-public-autopush"
   },
+  "maintenance_config": {
+    "gitiles_repo_url": "https://chrome-internal.googlesource.com/infra/infra_internal",
+    "sheriff_config_path": "infra/config/generated/skia-sheriff-configs.cfg",
+    "fallback_to_lucicfg": true
+  },
   "git_repo_config": {
     "provider": "gitiles",
     "url": "https://chromium.googlesource.com/v8/v8.git",
@@ -51,6 +56,7 @@
     "start_commit": "6ddb8445a89409bcbec87bf84e9caade9bf9088a",
     "commit_number_regex": "Cr-Commit-Position: refs/heads/(main|master)@\\{#(.*)\\}"
   },
+
   "issue_tracker_config": {
     "notification_type": "issuetracker",
     "issue_tracker_api_key_secret_project": "skia-infra-public",
