@@ -455,6 +455,14 @@ func (q *Query) Matches(s string) bool {
 		//  First find the key.
 		keyIndex := strings.Index(s, part.KeyMatch)
 		if keyIndex == -1 {
+			// If there is no key, check if there are any positive constraints.
+			// If there are none, then this key is not required and the query
+			// still matches. Otherwise, it doesn't match (note: it means missing key
+			// does NOT match the wildcard '*').
+			hasPositiveConstraints := len(part.Values) > 0 || part.Reg != nil || part.MatchAny
+			if !hasPositiveConstraints {
+				continue
+			}
 			return false
 		}
 		// Truncate to the key.

@@ -306,6 +306,18 @@ func TestMatches(t *testing.T) {
 		},
 		{
 			key:     ",arch=x86,config=565,debug=true,",
+			query:   url.Values{"foo": []string{"!~.*bar"}},
+			matches: true,
+			reason:  "Unknown param + negative regex = match",
+		},
+		{
+			key:     ",arch=x86,config=565,debug=true,",
+			query:   url.Values{"foo": []string{"!bar"}},
+			matches: true,
+			reason:  "Unknown param + negative value = match",
+		},
+		{
+			key:     ",arch=x86,config=565,debug=true,",
 			query:   url.Values{"arch": []string{"*"}},
 			matches: true,
 			reason:  "Wildcard param value match",
