@@ -41,7 +41,7 @@ var (
 
 	tmplNameSubjectDefault = "defaultSubject"
 	tmplSubjectDefault     = template.Must(parseCommitMsgTemplate(tmplSkeleton, tmplNameSubjectDefault,
-		`{{ if .ManualRollRequester }}Manual r{{ else }}R{{ end }}oll {{ .ChildName }} from {{ .RollingFrom }} to {{ .RollingTo }}{{ if .IncludeRevisionCount}} ({{ len .Revisions }} revision{{ if gt (len .Revisions) 1 }}s{{ end }}){{ end }}`))
+		`{{ if .ManualRollRequester }}Manual r{{ else }}R{{ end }}oll {{ .ChildName }} from {{ .RollingFrom.StringForLog }} to {{ .RollingTo.StringForLog }}{{ if .IncludeRevisionCount}} ({{ len .Revisions }} revision{{ if gt (len .Revisions) 1 }}s{{ end }}){{ end }}`))
 
 	tmplNameManualDefault = "defaultManualMessage"
 	tmplManualDefault     = template.Must(parseCommitMsgTemplate(tmplSubjectDefault, tmplNameManualDefault,

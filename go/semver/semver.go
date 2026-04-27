@@ -15,6 +15,7 @@ var ErrNoMatch = errors.New("version string does not match regular expression")
 type Version struct {
 	asString string
 	version  []int
+	Original string
 }
 
 // Compare returns 1 if this Version comes before the other, -1 if this Version
@@ -116,6 +117,7 @@ func (p *Parser) Parse(version string) (*Version, error) {
 	return &Version{
 		asString: parsedVersion,
 		version:  ints,
+		Original: version,
 	}, nil
 }
 

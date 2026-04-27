@@ -85,6 +85,9 @@ type Revision struct {
 	// dependencies sharing the same tagged versions. Their actual revsion IDs
 	// may differ. This maps concrete dependency IDs to actual revision IDs.
 	Meta map[string]string
+
+	// StringForLogOverride overrides StringForLog().
+	StringForLogOverride string `json:"stringForLogOverride"`
 }
 
 // Copy the Revision.
@@ -97,21 +100,22 @@ func (r *Revision) Copy() *Revision {
 		}
 	}
 	return &Revision{
-		Id:               r.Id,
-		Checksum:         r.Checksum,
-		ExternalChangeId: r.ExternalChangeId,
-		Author:           r.Author,
-		Bugs:             bugs,
-		Description:      r.Description,
-		Details:          r.Details,
-		Display:          r.Display,
-		Dependencies:     util.CopyStringMap(r.Dependencies),
-		InvalidReason:    r.InvalidReason,
-		Tests:            util.CopyStringSlice(r.Tests),
-		Timestamp:        r.Timestamp,
-		URL:              r.URL,
-		Release:          r.Release,
-		Meta:             util.CopyStringMap(r.Meta),
+		Id:                   r.Id,
+		Checksum:             r.Checksum,
+		ExternalChangeId:     r.ExternalChangeId,
+		Author:               r.Author,
+		Bugs:                 bugs,
+		Description:          r.Description,
+		Details:              r.Details,
+		Display:              r.Display,
+		Dependencies:         util.CopyStringMap(r.Dependencies),
+		InvalidReason:        r.InvalidReason,
+		Tests:                util.CopyStringSlice(r.Tests),
+		Timestamp:            r.Timestamp,
+		URL:                  r.URL,
+		Release:              r.Release,
+		Meta:                 util.CopyStringMap(r.Meta),
+		StringForLogOverride: r.StringForLogOverride,
 	}
 }
 
@@ -121,6 +125,15 @@ func (r *Revision) String() string {
 		return r.Display
 	}
 	return r.Id
+}
+
+// StringForLog returns a string suitable for use in log URLs. It prefers the
+// StringForLogOverride if one is present, falling back to String() otherwise.
+func (r *Revision) StringForLog() string {
+	if r.StringForLogOverride != "" {
+		return r.StringForLogOverride
+	}
+	return r.String()
 }
 
 // FromLongCommit converts a vcsinfo.LongCommit to a Revision. If revLinkTmpl is

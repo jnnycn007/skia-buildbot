@@ -18,7 +18,7 @@ const (
 func fakeCommitMsgConfig(t *testing.T) *config.CommitMsgConfig {
 	c := &config.CommitMsgConfig{
 		BugProject:           fakeBugProject,
-		ChildLogUrlTmpl:      "https://fake-child-log/{{.RollingFrom}}..{{.RollingTo}}",
+		ChildLogUrlTmpl:      "https://fake-child-log/{{.RollingFrom.StringForLog}}..{{.RollingTo.StringForLog}}",
 		CqExtraTrybots:       []string{"luci.fakeproject.try:some-trybot"},
 		CqDoNotCancelTrybots: true,
 		ExtraFooters:         []string{"My-Footer: BlahBlah", "My-Other-Footer: Blah"},

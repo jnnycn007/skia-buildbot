@@ -12,7 +12,7 @@ var (
 	// TmplCanary is the commit message template used by canary rolls.
 	// It can be referenced in config files using TmplNameCanary.
 	tmplCanary = template.Must(parseCommitMsgTemplate(tmplCommitMsg, TmplNameCanary,
-		`{{- define "subject" }}Canary roll {{ .ChildName }} to {{ .RollingTo }}{{ end -}}
+		`{{- define "subject" }}Canary roll {{ .ChildName }} to {{ .RollingTo.StringForLog }}{{ end -}}
 {{- define "revisions" }}{{ if .ChildLogURL }}{{ .ChildLogURL }}{{ end -}}{{end -}}
 {{- define "boilerplate" }}
 {{ if .ExternalChangeId -}}

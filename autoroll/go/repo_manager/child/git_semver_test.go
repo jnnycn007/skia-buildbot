@@ -43,10 +43,10 @@ func TestGitSemVerChild_getVersions(t *testing.T) {
 		return ver
 	}
 
-	expectVersions := []*semver.Version{v(ver1150), v(ver120), v(ver100)}
+	expectVersions := []*semver.Version{v(ver1150Tag), v(ver120), v(ver100)}
 	expectHashToVersions := map[string][]*semver.Version{
 		hashA: {v(ver100)},
-		hashB: {v(ver1150), v(ver120)},
+		hashB: {v(ver1150Tag), v(ver120)},
 	}
 	expectVersionToHash := map[string]string{
 		ver100:  hashA,
@@ -322,6 +322,7 @@ func TestGitSemVerChild_Update_MultipleTags(t *testing.T) {
 	rev110 := tip.Copy()
 	rev110.Release = ver110
 	rev110.Display = ver110
+	rev110.StringForLogOverride = ver110
 	require.Equal(t, []*revision.Revision{tip, rev110}, notRolled)
 }
 

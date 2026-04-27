@@ -113,6 +113,7 @@ func (c *gitSemVerChild) fixupRevision(rev *revision.Revision, hashToVersions ma
 		rev.Release = versions[0].String()
 		// Make the commit message show the version instead of the commit hash.
 		rev.Display = rev.Release
+		rev.StringForLogOverride = versions[0].Original
 		sklog.Infof("fixupRevision(%s): Chose version %s from %v", rev.Id, versions[0], versions)
 	} else {
 		rev.InvalidReason = "No associated tag matching the configured regex."
@@ -231,6 +232,7 @@ func (c *gitSemVerChild) logRevisions(ctx context.Context, from, to *revision.Re
 			// TODO(borenet): This duplicates the contents of fixupRevision.
 			rev.Release = version.String()
 			rev.Display = rev.Release
+			rev.StringForLogOverride = version.Original
 
 			revs = append(revs, rev)
 		}
