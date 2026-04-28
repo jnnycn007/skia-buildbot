@@ -42,6 +42,9 @@ export class NudgeEntry {
   // an anomaly to.
   display_index: number = 0;
 
+  // The specific commit position where the anomaly should be anchored.
+  display_commit_number: number = 0;
+
   // x value to update AnomalyData if user clicks on this entry.
   x: number = 0;
 
@@ -256,6 +259,7 @@ export class TriageMenuSk extends LitElement {
       action: 'NUDGE',
       start_revision: entry.start_revision,
       end_revision: entry.end_revision,
+      display_commit_number: entry.display_commit_number,
     };
     fetch('/_/triage/edit_anomalies', {
       method: 'POST',
@@ -269,6 +273,7 @@ export class TriageMenuSk extends LitElement {
         for (let i = 0; i < anomalies.length; i++) {
           anomalies[i].start_revision = entry.start_revision;
           anomalies[i].end_revision = entry.end_revision;
+          anomalies[i].display_commit_number = entry.display_commit_number;
         }
 
         this.nudgeList!.forEach((entry) => {

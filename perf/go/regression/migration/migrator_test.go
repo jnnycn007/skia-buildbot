@@ -50,7 +50,7 @@ func createLegacyRegressions(ctx context.Context, count int, commitNumber types.
 		Centroid:  []float32{1.0, 5.0, 5.0},
 	}
 	for i := 0; i < count; i++ {
-		_, _, _ = legacyStore.SetHigh(ctx, commitNumber, types.BadCommitNumber, alertID, df, clusterSummary)
+		_, _, _ = legacyStore.SetHigh(ctx, regression.AnomalyCommitRange{CommitNumber: commitNumber, PrevCommitNumber: types.BadCommitNumber, DisplayCommitNumber: commitNumber}, alertID, df, clusterSummary)
 	}
 }
 
@@ -265,8 +265,13 @@ func Test_Migrate_Mixed_Regression(t *testing.T) {
 	}
 
 	// Set both high and low values to create a mixed regression
-	_, _, _ = legacyStore.SetHigh(ctx, commitNumber, types.BadCommitNumber, alertID, df, clusterSummary)
-	_, _, _ = legacyStore.SetLow(ctx, commitNumber, types.BadCommitNumber, alertID, df, clusterSummary)
+	commitRange := regression.AnomalyCommitRange{
+		CommitNumber:        commitNumber,
+		PrevCommitNumber:    types.BadCommitNumber,
+		DisplayCommitNumber: commitNumber,
+	}
+	_, _, _ = legacyStore.SetHigh(ctx, commitRange, alertID, df, clusterSummary)
+	_, _, _ = legacyStore.SetLow(ctx, commitRange, alertID, df, clusterSummary)
 
 	err := migrator.migrateRegressions(ctx, 1)
 	assert.Nil(t, err)

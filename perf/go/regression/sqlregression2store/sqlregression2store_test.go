@@ -498,7 +498,12 @@ func TestRangeFiltered_Overlap(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// readModifyWriteCompat exercises the query with the specific traceName.
 			found := false
-			_, err := store.readModifyWriteCompat(ctx, tc.queryCommit, tc.queryPrev, alerts.IDToString(alertId), "", traceKey1, false, func(r *regression.Regression) (bool, error) {
+			commitRange := regression.AnomalyCommitRange{
+				CommitNumber:        tc.queryCommit,
+				PrevCommitNumber:    tc.queryPrev,
+				DisplayCommitNumber: tc.queryCommit,
+			}
+			_, err := store.readModifyWriteCompat(ctx, commitRange, alerts.IDToString(alertId), "", traceKey1, false, func(r *regression.Regression) (bool, error) {
 				// If cb is called with an existing regression (PrevCommitNumber = 2, CommitNumber = 10), then it found it.
 				// If cb is called with a NewRegression (PrevCommitNumber = 0, CommitNumber = queryCommit), then it wasn't found.
 				if r.PrevCommitNumber == 2 && r.CommitNumber == 10 {
@@ -559,12 +564,17 @@ func runClusterSummaryAndTriageTest(t *testing.T, isHighRegression bool, alertsP
 			TraceSet: types.TraceSet{"test_trace_id": {}},
 		},
 	}
+	commitRange := regression.AnomalyCommitRange{
+		CommitNumber:        r.CommitNumber,
+		PrevCommitNumber:    r.PrevCommitNumber,
+		DisplayCommitNumber: r.CommitNumber,
+	}
 	if isHighRegression {
 		// Set a high regression.
-		success, _, err = store.SetHigh(ctx, r.CommitNumber, r.PrevCommitNumber, alertIdStr, frameResponse, clusterSummary)
+		success, _, err = store.SetHigh(ctx, commitRange, alertIdStr, frameResponse, clusterSummary)
 	} else {
 		// Set a low regression.
-		success, _, err = store.SetLow(ctx, r.CommitNumber, r.PrevCommitNumber, alertIdStr, frameResponse, clusterSummary)
+		success, _, err = store.SetLow(ctx, commitRange, alertIdStr, frameResponse, clusterSummary)
 	}
 	if skipTestIfSpannerEmulatorNotSupported(t, err) {
 		return
@@ -1024,10 +1034,9 @@ func TestNudgeAndResetAnomalies_ResetsStatus(t *testing.T) {
 	require.NoError(t, err)
 
 	idsToUpdate := []string{regIDs[0], regIDs[1]}
-	newCommitNumber := types.CommitNumber(100)
-	newPrevCommitNumber := types.CommitNumber(90)
+	validDisplayCommitNumber := types.CommitNumber(12342)
 
-	err = store.NudgeAndResetAnomalies(ctx, idsToUpdate, newCommitNumber, newPrevCommitNumber)
+	err = store.NudgeAndResetAnomalies(ctx, idsToUpdate, validDisplayCommitNumber)
 	require.NoError(t, err)
 
 	// Verify that the bug_id and triage status were updated for reg1 and reg2.
@@ -1036,8 +1045,11 @@ func TestNudgeAndResetAnomalies_ResetsStatus(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, regs, 1)
 		assert.Equal(t, 0, len(regs[0].Bugs))
-		assert.Equal(t, newCommitNumber, regs[0].CommitNumber)
-		assert.Equal(t, newPrevCommitNumber, regs[0].PrevCommitNumber)
+		// CommitNumber and PrevCommitNumber should NOT change.
+		assert.Equal(t, types.CommitNumber(12345), regs[0].CommitNumber)
+		assert.Equal(t, types.CommitNumber(12340), regs[0].PrevCommitNumber)
+		// DisplayCommitNumber should be updated.
+		assert.Equal(t, validDisplayCommitNumber, regs[0].DisplayCommitNumber)
 		// generateNewRegression sets High, so we expect HighStatus to be updated.
 		assert.Equal(t, regression.Untriaged, regs[0].HighStatus.Status)
 		assert.Equal(t, regression.NudgedMessage, regs[0].HighStatus.Message)
@@ -1050,6 +1062,27 @@ func TestNudgeAndResetAnomalies_ResetsStatus(t *testing.T) {
 	assert.Equal(t, fmt.Sprint(bugIdDefault), regs[0].Bugs[0].BugId)
 	assert.Equal(t, statusDefault, regs[0].HighStatus.Status)
 	assert.Equal(t, messageDefault, regs[0].HighStatus.Message)
+}
+
+func TestNudgeAndResetAnomalies_OutOfRange(t *testing.T) {
+	alertsProvider := alerts_mock.NewConfigProvider(t)
+	store := setupStore(t, alertsProvider)
+	ctx := context.Background()
+
+	r := generateNewRegression(subName)
+	_, err := store.WriteRegression(ctx, r, nil)
+	require.NoError(t, err)
+
+	// Range is (12340, 12345]
+	// Try to nudge to 12346 (above range)
+	err = store.NudgeAndResetAnomalies(ctx, []string{r.Id}, 12346)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "out of range")
+
+	// Try to nudge to 12340 (equal to prev, exclusive)
+	err = store.NudgeAndResetAnomalies(ctx, []string{r.Id}, 12340)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "out of range")
 }
 
 func TestGetSubscriptionsForRegressions(t *testing.T) {
@@ -1600,7 +1633,7 @@ func TestAllowMultipleRegressionsPerAlertId(t *testing.T) {
 		require.NoError(t, err)
 
 		// Set first regression.
-		success, _, err := store.SetHigh(ctx, commitNumber, commitNumber-1, alertIdStr, frameResponse1, clusterSummary1)
+		success, _, err := store.SetHigh(ctx, regression.AnomalyCommitRange{CommitNumber: commitNumber, PrevCommitNumber: commitNumber - 1, DisplayCommitNumber: commitNumber}, alertIdStr, frameResponse1, clusterSummary1)
 		if skipTestIfSpannerEmulatorNotSupported(t, err) {
 			return
 		}
@@ -1608,7 +1641,7 @@ func TestAllowMultipleRegressionsPerAlertId(t *testing.T) {
 		assert.True(t, success)
 
 		// Set second regression for the same alert id but different trace.
-		success, _, err = store.SetHigh(ctx, commitNumber, commitNumber-1, alertIdStr, frameResponse2, clusterSummary2)
+		success, _, err = store.SetHigh(ctx, regression.AnomalyCommitRange{CommitNumber: commitNumber, PrevCommitNumber: commitNumber - 1, DisplayCommitNumber: commitNumber}, alertIdStr, frameResponse2, clusterSummary2)
 		assert.NoError(t, err)
 		assert.True(t, success)
 
@@ -1643,7 +1676,7 @@ func TestAllowMultipleRegressionsPerAlertId(t *testing.T) {
 		require.NoError(t, err)
 
 		// Set first regression.
-		success, _, err := store.SetHigh(ctx, commitNumber, commitNumber-1, alertIdStr, frameResponse1, clusterSummary1)
+		success, _, err := store.SetHigh(ctx, regression.AnomalyCommitRange{CommitNumber: commitNumber, PrevCommitNumber: commitNumber - 1, DisplayCommitNumber: commitNumber}, alertIdStr, frameResponse1, clusterSummary1)
 		if skipTestIfSpannerEmulatorNotSupported(t, err) {
 			return
 		}
@@ -1651,7 +1684,7 @@ func TestAllowMultipleRegressionsPerAlertId(t *testing.T) {
 		assert.True(t, success)
 
 		// Set second regression for the same alert id should fail to add a new one.
-		success, _, err = store.SetHigh(ctx, commitNumber, commitNumber-1, alertIdStr, frameResponse2, clusterSummary2)
+		success, _, err = store.SetHigh(ctx, regression.AnomalyCommitRange{CommitNumber: commitNumber, PrevCommitNumber: commitNumber - 1, DisplayCommitNumber: commitNumber}, alertIdStr, frameResponse2, clusterSummary2)
 		assert.NoError(t, err)
 		assert.False(t, success, "A new regression should not have been created.")
 
@@ -1705,7 +1738,7 @@ func TestUpdateBasedOnAlertAlgo_WithSubscriptionName(t *testing.T) {
 	}
 
 	// Set a high regression.
-	success, _, err := store.SetHigh(ctx, r.CommitNumber, r.PrevCommitNumber, alertIdStr, frameResponse, clusterSummary)
+	success, _, err := store.SetHigh(ctx, regression.AnomalyCommitRange{CommitNumber: r.CommitNumber, PrevCommitNumber: r.PrevCommitNumber, DisplayCommitNumber: r.CommitNumber}, alertIdStr, frameResponse, clusterSummary)
 	if skipTestIfSpannerEmulatorNotSupported(t, err) {
 		return
 	}

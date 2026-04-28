@@ -48,13 +48,18 @@ func SetLowAndTriage(t *testing.T, store regression.Store) {
 	// TODO(jcgregorio) Break up into finer grained tests and add more tests.
 
 	// Create a new regression.
-	isNew, _, err := store.SetLow(ctx, c, types.BadCommitNumber, "1", df, cl)
+	commitRange := regression.AnomalyCommitRange{
+		CommitNumber:        c,
+		PrevCommitNumber:    types.BadCommitNumber,
+		DisplayCommitNumber: c,
+	}
+	isNew, _, err := store.SetLow(ctx, commitRange, "1", df, cl)
 	assert.True(t, isNew)
 	require.NoError(t, err)
 
 	// Overwrite a regression, which is allowed, and that it changes the
 	// returned 'isNew' value.
-	isNew, _, err = store.SetLow(ctx, c, types.BadCommitNumber, "1", df, cl)
+	isNew, _, err = store.SetLow(ctx, commitRange, "1", df, cl)
 	assert.False(t, isNew)
 	require.NoError(t, err)
 
@@ -99,7 +104,7 @@ func Range_Exact(t *testing.T, store regression.Store) {
 	}
 
 	// Create a new regression.
-	isNew, _, err := store.SetLow(ctx, c, types.BadCommitNumber, "1", df, cl)
+	isNew, _, err := store.SetLow(ctx, regression.AnomalyCommitRange{CommitNumber: c, PrevCommitNumber: types.BadCommitNumber, DisplayCommitNumber: c}, "1", df, cl)
 	assert.True(t, isNew)
 	require.NoError(t, err)
 

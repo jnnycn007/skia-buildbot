@@ -22,11 +22,12 @@ func (p *DefaultRegressionRefiner) Process(ctx context.Context, cfg *alerts.Aler
 		commitNumber := resp.Frame.DataFrame.Header[midPoint].Offset
 
 		ret = append(ret, &regression.ConfirmedRegression{
-			Summary:          resp.Summary,
-			Frame:            resp.Frame,
-			Message:          resp.Message,
-			PrevCommitNumber: resp.Frame.DataFrame.Header[midPoint-1].Offset,
-			CommitNumber:     commitNumber,
+			Summary:             resp.Summary,
+			Frame:               resp.Frame,
+			Message:             resp.Message,
+			PrevCommitNumber:    resp.Frame.DataFrame.Header[midPoint-1].Offset,
+			CommitNumber:        commitNumber,
+			DisplayCommitNumber: commitNumber,
 		})
 	}
 	return ret, nil

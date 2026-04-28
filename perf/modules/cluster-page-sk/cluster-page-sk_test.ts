@@ -136,6 +136,7 @@ describe('cluster-page-sk', () => {
       },
       prev_commit_number: 99 as CommitNumber,
       commit_number: 100 as CommitNumber,
+      display_commit_number: 100 as CommitNumber,
     };
 
     fetchMock.post('/_/cluster/start', {

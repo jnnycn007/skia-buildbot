@@ -35,22 +35,38 @@ function createNudgeEntry(
   displayIndex: number,
   targetIndex: number,
   prevValidIndex: number | null,
-  xOffset: number
+  xOffset: number,
+  isLegacy: boolean
 ): NudgeEntry {
-  // If there's a previous valid point in the trace, start_revision is the commit after it.
-  // Otherwise, fallback to the target index's own offset (e.g., the very first point in the trace).
-  const start_revision =
-    prevValidIndex !== null ? header[prevValidIndex]!.offset + 1 : header[targetIndex]!.offset;
+  if (isLegacy) {
+    // If there's a previous valid point in the trace, start_revision is the commit after it.
+    // Otherwise, fallback to the target index's own offset
+    // (e.g., the very first point in the trace).
+    const start_revision =
+      prevValidIndex !== null ? header[prevValidIndex]!.offset + 1 : header[targetIndex]!.offset;
 
-  return {
-    display_index: displayIndex,
-    anomaly_data: anomalyData,
-    selected: displayIndex === 0,
-    start_revision: start_revision,
-    end_revision: header[targetIndex]!.offset,
-    x: targetIndex - xOffset,
-    y: trace[targetIndex],
-  };
+    return {
+      display_index: displayIndex,
+      anomaly_data: anomalyData,
+      selected: displayIndex === 0,
+      start_revision: start_revision,
+      end_revision: header[targetIndex]!.offset,
+      display_commit_number: header[targetIndex]!.offset,
+      x: targetIndex - xOffset,
+      y: trace[targetIndex],
+    };
+  } else {
+    return {
+      display_index: displayIndex,
+      anomaly_data: anomalyData,
+      selected: displayIndex === 0,
+      start_revision: anomalyData.anomaly.start_revision,
+      end_revision: anomalyData.anomaly.end_revision,
+      display_commit_number: header[targetIndex]!.offset,
+      x: targetIndex - xOffset,
+      y: trace[targetIndex],
+    };
+  }
 }
 
 /**
@@ -74,7 +90,8 @@ export function calculateNudgeList(
   currentIndex: number,
   anomalyData: AnomalyData,
   nudgeRange: number = 2,
-  xOffset: number = 0
+  xOffset: number = 0,
+  isLegacy: boolean = true
 ): NudgeEntry[] {
   const nudgeList: NudgeEntry[] = [];
   const headerLength = header.length;
@@ -95,13 +112,31 @@ export function calculateNudgeList(
         const targetIndex = leftIndices[leftPos];
         const prevValidIndex = leftPos + 1 < leftIndices.length ? leftIndices[leftPos + 1] : null;
         nudgeList.push(
-          createNudgeEntry(header, trace, anomalyData, i, targetIndex, prevValidIndex, xOffset)
+          createNudgeEntry(
+            header,
+            trace,
+            anomalyData,
+            i,
+            targetIndex,
+            prevValidIndex,
+            xOffset,
+            isLegacy
+          )
         );
       }
     } else if (i === 0) {
       const prevValidIndex = leftIndices.length > 0 ? leftIndices[0] : null;
       nudgeList.push(
-        createNudgeEntry(header, trace, anomalyData, 0, currentIndex, prevValidIndex, xOffset)
+        createNudgeEntry(
+          header,
+          trace,
+          anomalyData,
+          0,
+          currentIndex,
+          prevValidIndex,
+          xOffset,
+          isLegacy
+        )
       );
     } else if (i > 0) {
       const rightPos = i - 1; // i = 1 -> index 0
@@ -121,7 +156,16 @@ export function calculateNudgeList(
           prevValidIndex = rightIndices[rightPos - 1];
         }
         nudgeList.push(
-          createNudgeEntry(header, trace, anomalyData, i, targetIndex, prevValidIndex, xOffset)
+          createNudgeEntry(
+            header,
+            trace,
+            anomalyData,
+            i,
+            targetIndex,
+            prevValidIndex,
+            xOffset,
+            isLegacy
+          )
         );
       }
     }

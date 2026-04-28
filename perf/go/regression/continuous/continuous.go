@@ -330,6 +330,11 @@ func (c *Continuous) updateStoreAndNotification(ctx context.Context, resp *regre
 	defer span.End()
 
 	updateNotification := true
+	commitRange := regression.AnomalyCommitRange{
+		CommitNumber:        details.CommitNumber,
+		PrevCommitNumber:    previousCommitDetails.CommitNumber,
+		DisplayCommitNumber: resp.DisplayCommitNumber,
+	}
 	regression, err := c.store.GetRegression(ctx, details.CommitNumber, key)
 	if err != nil {
 		sklog.Warningf("Regression not found or failed to retrieve! commitNumber=%s, key=%s, err=%s", details.CommitNumber, key, err)
@@ -345,9 +350,9 @@ func (c *Continuous) updateStoreAndNotification(ctx context.Context, resp *regre
 		var isNew bool
 		var regressionID string
 		if isLow {
-			isNew, regressionID, err = c.store.SetLow(ctx, details.CommitNumber, previousCommitDetails.CommitNumber, key, resp.Frame, cl)
+			isNew, regressionID, err = c.store.SetLow(ctx, commitRange, key, resp.Frame, cl)
 		} else {
-			isNew, regressionID, err = c.store.SetHigh(ctx, details.CommitNumber, previousCommitDetails.CommitNumber, key, resp.Frame, cl)
+			isNew, regressionID, err = c.store.SetHigh(ctx, commitRange, key, resp.Frame, cl)
 		}
 		if err != nil {
 			return skerr.Wrapf(err, "Failed to save newly found cluster")
@@ -366,9 +371,9 @@ func (c *Continuous) updateStoreAndNotification(ctx context.Context, resp *regre
 	}
 	if notificationID != "" {
 		if isLow {
-			_, _, err = c.store.SetLow(ctx, details.CommitNumber, previousCommitDetails.CommitNumber, key, resp.Frame, cl)
+			_, _, err = c.store.SetLow(ctx, commitRange, key, resp.Frame, cl)
 		} else {
-			_, _, err = c.store.SetHigh(ctx, details.CommitNumber, previousCommitDetails.CommitNumber, key, resp.Frame, cl)
+			_, _, err = c.store.SetHigh(ctx, commitRange, key, resp.Frame, cl)
 		}
 		if err != nil {
 			return skerr.Wrapf(err, "Failed to save cluster with notification")

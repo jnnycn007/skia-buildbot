@@ -97,6 +97,7 @@ describe('ExploreMultiSk', () => {
       bug_id: 123,
       start_revision: 101,
       end_revision: 101,
+      display_commit_number: 101,
       is_improvement: false,
       recovered: false,
       state: 'regression',
@@ -1143,7 +1144,7 @@ describe('ExploreMultiSk', () => {
     it('initializes new graphs with the current enableDiscrete state', () => {
       element.state.evenXAxisSpacing = 'true';
       const newGraph = element['addEmptyGraph']()!;
-      element['addStateToExplore'](newGraph, new GraphConfig(), false);
+      element['addStateToExplore'](newGraph, new GraphConfig(), false, 0);
       assert.isTrue(newGraph.state.evenXAxisSpacing);
     });
   });

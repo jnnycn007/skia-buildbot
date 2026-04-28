@@ -313,6 +313,7 @@ func runAnomalyTest(t *testing.T, fullTrace []float32, windowSize int, inputDefs
 		assert.Equal(t, expectedTrace, res[i].Summary.Clusters[0].Centroid, "Result %d: Trace mismatch", i)
 		assert.Equal(t, types.CommitNumber(expectation.prevCommitNumber), res[i].PrevCommitNumber, "Result %d: PrevCommitNumber mismatch", i)
 		assert.Equal(t, types.CommitNumber(expectation.commitNumber), res[i].CommitNumber, "Result %d: CommitNumber mismatch", i)
+		assert.Equal(t, types.CommitNumber(expectation.peakOffset), res[i].DisplayCommitNumber, "Result %d: DisplayCommitNumber mismatch", i)
 	}
 }
 

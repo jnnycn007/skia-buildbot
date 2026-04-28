@@ -148,11 +148,12 @@ func (r *AnomalyBoundsRefiner) refineGroup(group []*regression.RegressionDetecti
 	leftTp := group[regressionStartIndex].Summary.Clusters[0].StepFit.TurningPoint
 
 	cr := &regression.ConfirmedRegression{
-		Summary:          peak.Summary,
-		Frame:            peak.Frame,
-		Message:          peak.Message,
-		PrevCommitNumber: group[regressionStartIndex].Frame.DataFrame.Header[leftTp-1].Offset,
-		CommitNumber:     group[regressionEndIndex].Summary.Clusters[0].StepPoint.Offset,
+		Summary:             peak.Summary,
+		Frame:               peak.Frame,
+		Message:             peak.Message,
+		PrevCommitNumber:    group[regressionStartIndex].Frame.DataFrame.Header[leftTp-1].Offset,
+		CommitNumber:        group[regressionEndIndex].Summary.Clusters[0].StepPoint.Offset,
+		DisplayCommitNumber: peak.Summary.Clusters[0].StepPoint.Offset,
 	}
 
 	return cr

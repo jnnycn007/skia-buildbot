@@ -69,6 +69,7 @@ describe('existing-bug-dialog-sk', () => {
     bug_id: bugId,
     start_revision: 1234,
     end_revision: 1239,
+    display_commit_number: 1239,
     is_improvement: false,
     recovered: true,
     state: '',

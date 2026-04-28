@@ -17,6 +17,7 @@ export const dummyAnomaly = (bugId: number): Anomaly => ({
   bug_id: bugId,
   start_revision: 12345,
   end_revision: 12347,
+  display_commit_number: 12347,
   is_improvement: false,
   recovered: true,
   state: '',

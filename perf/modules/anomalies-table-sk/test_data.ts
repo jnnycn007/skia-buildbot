@@ -8,6 +8,7 @@ export const anomaly_table = [
     bug_id: 12345,
     start_revision: 1729647389,
     end_revision: 1739647389,
+    display_commit_number: 1739647389,
     is_improvement: false,
     recovered: true,
     state: '',
@@ -33,6 +34,7 @@ export const anomaly_table = [
     bug_id: 23456,
     start_revision: 1749788389,
     end_revision: 1759747389,
+    display_commit_number: 1759747389,
     is_improvement: false,
     recovered: true,
     state: '',
@@ -58,6 +60,7 @@ export const anomaly_table = [
     bug_id: 34567,
     start_revision: 1749787389,
     end_revision: 1759777389,
+    display_commit_number: 1759777389,
     is_improvement: false,
     recovered: true,
     state: '',
@@ -83,6 +86,7 @@ export const anomaly_table = [
     bug_id: 12345,
     start_revision: 1749747389,
     end_revision: 1759747389,
+    display_commit_number: 1759747389,
     is_improvement: true,
     recovered: true,
     state: '',
@@ -108,6 +112,7 @@ export const anomaly_table = [
     bug_id: -1,
     start_revision: 1849647389,
     end_revision: 1850947244,
+    display_commit_number: 1850947244,
     is_improvement: false,
     recovered: true,
     state: '',
@@ -190,7 +195,8 @@ export const anomaly_table_for_grouping = [
     bug_id: 12345,
     test_path: 'Master/BotA/BenchX/Test1/Sub',
     start_revision: 100,
-    end_revision: 200, // Range doesn't matter
+    end_revision: 200,
+    display_commit_number: 200, // Range doesn't matter
   },
   {
     ...BASE_ANOMALY,
@@ -198,7 +204,8 @@ export const anomaly_table_for_grouping = [
     bug_id: 12345,
     test_path: 'Master/BotB/BenchY/Test2/Sub', // Different attributes
     start_revision: 800,
-    end_revision: 900, // Different range
+    end_revision: 900,
+    display_commit_number: 900, // Different range
   },
 
   // --- REVISION GROUP A: Exact Match (100-200) ---
@@ -209,6 +216,7 @@ export const anomaly_table_for_grouping = [
     test_path: 'Master/BotA/BenchX/Test1/Sub',
     start_revision: 100,
     end_revision: 200,
+    display_commit_number: 200,
   },
   {
     ...BASE_ANOMALY,
@@ -217,6 +225,7 @@ export const anomaly_table_for_grouping = [
     test_path: 'Master/BotA/BenchX/Test1/Sub',
     start_revision: 100,
     end_revision: 200,
+    display_commit_number: 200,
   },
   {
     ...BASE_ANOMALY,
@@ -225,6 +234,7 @@ export const anomaly_table_for_grouping = [
     test_path: 'Master/BotB/BenchX/Test1/Sub',
     start_revision: 100,
     end_revision: 200,
+    display_commit_number: 200,
   },
 
   // --- REVISION GROUP B: Overlapping with A (150-250) ---
@@ -235,6 +245,7 @@ export const anomaly_table_for_grouping = [
     test_path: 'Master/BotA/BenchX/Test1/Sub',
     start_revision: 150,
     end_revision: 250,
+    display_commit_number: 250,
   },
 
   // --- REVISION GROUP C: Disjoint / Singles (800-900) ---
@@ -245,6 +256,7 @@ export const anomaly_table_for_grouping = [
     test_path: 'Master/BotA/BenchZ/Test9/Sub',
     start_revision: 800,
     end_revision: 900,
+    display_commit_number: 900,
   },
   {
     ...BASE_ANOMALY,
@@ -252,7 +264,8 @@ export const anomaly_table_for_grouping = [
     bug_id: 0,
     test_path: 'Master/BotA/BenchZ/Test9/Sub',
     start_revision: 950,
-    end_revision: 1000, // Disjoint from single-1
+    end_revision: 1000,
+    display_commit_number: 1000, // Disjoint from single-1
   },
 ];
 
@@ -264,6 +277,7 @@ export const anomaly_table_for_tooltip: Anomaly[] = [
     test_path: 'Master/BotA/BenchX/Test1/Sub',
     start_revision: 100,
     end_revision: 200,
+    display_commit_number: 200,
     bugs: [
       {
         bug_id: '12345',
@@ -298,6 +312,7 @@ export const anomaly_table_for_tooltip: Anomaly[] = [
     test_path: 'Master/BotB/BenchY/Test2/Sub',
     start_revision: 800,
     end_revision: 900,
+    display_commit_number: 900,
     bugs: [
       {
         bug_id: '54321',
@@ -312,6 +327,7 @@ export const anomaly_table_for_tooltip: Anomaly[] = [
     test_path: 'Master/BotC/BenchZ/Test3/Sub',
     start_revision: 1000,
     end_revision: 1100,
+    display_commit_number: 1100,
   },
 ];
 

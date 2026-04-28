@@ -41,9 +41,6 @@ func (t *triageBackend) FileBug(ctx context.Context, req *perf_issuetracker.File
 	// bug not existing.
 	// Let's write straight to the DB.
 	if err := t.regStore.SetBugID(ctx, req.Keys, bugId); err != nil {
-		return nil, skerr.Wrapf(err, "failed to associate alerts with bug id %d", bugId)
-	}
-	if err != nil {
 		return &SkiaFileBugResponse{BugId: bugId}, skerr.Wrapf(err,
 			`Bug with id = %d has been filed. Failed to associate %d anomalies with this bug.
 			A sheriff must manually assign the newly filed bug to those anomalies, or close it.`,
@@ -107,8 +104,8 @@ func (t *triageBackend) resetAnomalies(ctx context.Context, req *EditAnomaliesRe
 }
 
 func (t *triageBackend) nudgeAnomalies(ctx context.Context, req *EditAnomaliesRequest) (*EditAnomaliesResponse, error) {
-	// Start revision means inclusive, previous_commit means exclusive. Thus, we subtract -1.
-	if err := t.regStore.NudgeAndResetAnomalies(ctx, req.Keys, types.CommitNumber(req.EndRevision), types.CommitNumber(req.StartRevision-1)); err != nil {
+	displayCommit := types.CommitNumber(req.DisplayCommitNumber)
+	if err := t.regStore.NudgeAndResetAnomalies(ctx, req.Keys, displayCommit); err != nil {
 		return nil, skerr.Wrapf(err, "failed to nudge anomalies and reset triage status")
 	}
 	return &EditAnomaliesResponse{}, nil

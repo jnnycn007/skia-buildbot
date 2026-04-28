@@ -34,6 +34,7 @@ describe('ReportPageSk', () => {
     bug_id: -1,
     start_revision: 0,
     end_revision: 3,
+    display_commit_number: 3,
     is_improvement: false,
     recovered: true,
     state: '',

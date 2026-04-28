@@ -97,6 +97,7 @@ describe('anomalies-table-sk', () => {
     bug_id: bugId,
     start_revision: start,
     end_revision: end,
+    display_commit_number: end,
     is_improvement: false,
     recovered: true,
     state: '',

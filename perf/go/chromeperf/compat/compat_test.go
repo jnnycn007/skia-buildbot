@@ -14,18 +14,27 @@ import (
 
 func TestConvertRegressionToAnomalies_Success(t *testing.T) {
 	reg := &regression.Regression{
-		Id:               "test_regression",
-		CommitNumber:     12345,
-		PrevCommitNumber: 12340,
-		IsImprovement:    false,
-		MedianBefore:     10.0,
-		MedianAfter:      20.0,
+		Id:                  "test_regression",
+		CommitNumber:        12345,
+		PrevCommitNumber:    12340,
+		DisplayCommitNumber: 12344,
+		IsImprovement:       false,
+		MedianBefore:        10.0,
+		MedianAfter:         20.0,
 		Frame: &frame.FrameResponse{
 			DataFrame: &dataframe.DataFrame{
 				TraceSet: map[string]types.Trace{
 					",master=ChromiumPerf,bot=mac-m1,benchmark=MyBench,test=MyTest,subtest_1=sub1,": {},
 				},
 			},
+		},
+		Low: &clustering2.ClusterSummary{
+			StepPoint: &dataframe.ColumnHeader{
+				Offset: 12344,
+			},
+		},
+		LowStatus: regression.TriageStatus{
+			Status: regression.Untriaged,
 		},
 	}
 
@@ -39,9 +48,9 @@ func TestConvertRegressionToAnomalies_Success(t *testing.T) {
 
 	commitMap := anomalies[key]
 	assert.Len(t, commitMap, 1)
-	assert.Contains(t, commitMap, types.CommitNumber(12345))
+	assert.Contains(t, commitMap, types.CommitNumber(12344))
 
-	anomaly := commitMap[types.CommitNumber(12345)]
+	anomaly := commitMap[types.CommitNumber(12344)]
 	assert.Equal(t, "test_regression", anomaly.Id)
 	assert.Equal(t, "ChromiumPerf/mac-m1/MyBench/MyTest/sub1", anomaly.TestPath)
 	assert.Equal(t, 12340+1, anomaly.StartRevision)
@@ -49,6 +58,75 @@ func TestConvertRegressionToAnomalies_Success(t *testing.T) {
 	assert.False(t, anomaly.IsImprovement)
 	assert.Equal(t, 10.0, anomaly.MedianBeforeAnomaly)
 	assert.Equal(t, 20.0, anomaly.MedianAfterAnomaly)
+}
+
+func TestConvertRegressionToAnomalies_Fallback_NilStepPoint(t *testing.T) {
+	reg := &regression.Regression{
+		Id:                  "test_regression",
+		CommitNumber:        12345,
+		PrevCommitNumber:    12340,
+		DisplayCommitNumber: 12345,
+		IsImprovement:       false,
+		MedianBefore:        10.0,
+		MedianAfter:         20.0,
+		Frame: &frame.FrameResponse{
+			DataFrame: &dataframe.DataFrame{
+				TraceSet: map[string]types.Trace{
+					",master=ChromiumPerf,bot=mac-m1,benchmark=MyBench,test=MyTest,subtest_1=sub1,": {},
+				},
+			},
+		},
+		LowStatus: regression.TriageStatus{
+			Status: regression.Untriaged,
+		},
+	}
+
+	anomalies, err := ConvertRegressionToAnomalies(reg)
+	assert.NoError(t, err)
+	assert.NotNil(t, anomalies)
+	assert.Len(t, anomalies, 1)
+
+	key := ",master=ChromiumPerf,bot=mac-m1,benchmark=MyBench,test=MyTest,subtest_1=sub1,"
+	commitMap := anomalies[key]
+	assert.NotNil(t, commitMap)
+	assert.Contains(t, commitMap, types.CommitNumber(12345))
+}
+
+func TestConvertRegressionToAnomalies_Fallback_ZeroOffset(t *testing.T) {
+	reg := &regression.Regression{
+		Id:                  "test_regression",
+		CommitNumber:        12345,
+		PrevCommitNumber:    12340,
+		DisplayCommitNumber: 12345,
+		IsImprovement:       false,
+		MedianBefore:        10.0,
+		MedianAfter:         20.0,
+		Frame: &frame.FrameResponse{
+			DataFrame: &dataframe.DataFrame{
+				TraceSet: map[string]types.Trace{
+					",master=ChromiumPerf,bot=mac-m1,benchmark=MyBench,test=MyTest,subtest_1=sub1,": {},
+				},
+			},
+		},
+		Low: &clustering2.ClusterSummary{
+			StepPoint: &dataframe.ColumnHeader{
+				Offset: 0,
+			},
+		},
+		LowStatus: regression.TriageStatus{
+			Status: regression.Untriaged,
+		},
+	}
+
+	anomalies, err := ConvertRegressionToAnomalies(reg)
+	assert.NoError(t, err)
+	assert.NotNil(t, anomalies)
+	assert.Len(t, anomalies, 1)
+
+	key := ",master=ChromiumPerf,bot=mac-m1,benchmark=MyBench,test=MyTest,subtest_1=sub1,"
+	commitMap := anomalies[key]
+	assert.NotNil(t, commitMap)
+	assert.Contains(t, commitMap, types.CommitNumber(12345))
 }
 
 func TestConvertRegressionToAnomalies_NilFrame(t *testing.T) {
@@ -123,12 +201,13 @@ func TestConvertRegressionToAnomalies_Status(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			reg := &regression.Regression{
-				Id:               "test_regression_" + tt.name,
-				CommitNumber:     12345,
-				PrevCommitNumber: 12340,
-				IsImprovement:    false,
-				MedianBefore:     10.0,
-				MedianAfter:      20.0,
+				Id:                  "test_regression_" + tt.name,
+				CommitNumber:        12345,
+				PrevCommitNumber:    12340,
+				DisplayCommitNumber: 12345,
+				IsImprovement:       false,
+				MedianBefore:        10.0,
+				MedianAfter:         20.0,
 				Frame: &frame.FrameResponse{
 					DataFrame: &dataframe.DataFrame{
 						TraceSet: map[string]types.Trace{

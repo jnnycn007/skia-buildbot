@@ -301,8 +301,9 @@ func TestReportRegressions_OneNewStepDownRegressionFound_OneRegressionStoredAndN
 				},
 			},
 		},
-		CommitNumber:     regressionCommitNumber,
-		PrevCommitNumber: types.CommitNumber(1),
+		CommitNumber:        regressionCommitNumber,
+		PrevCommitNumber:    types.CommitNumber(1),
+		DisplayCommitNumber: regressionCommitNumber,
 	})
 
 	commitAtStep := provider.Commit{
@@ -327,7 +328,7 @@ func TestReportRegressions_OneNewStepDownRegressionFound_OneRegressionStoredAndN
 	// this is called twice, first to store the regression since it's new, then
 	// called again to store the notification ID.
 	allMocks.regressionStore.On("GetRegression", testutils.AnyContext, regressionCommitNumber, cfg.IDAsString).Return(nil, nil)
-	allMocks.regressionStore.On("SetLow", testutils.AnyContext, regressionCommitNumber, types.CommitNumber(1), cfg.IDAsString, resp[0].Frame, resp[0].Summary.Clusters[0]).Return(true, "", nil).Twice()
+	allMocks.regressionStore.On("SetLow", testutils.AnyContext, regression.AnomalyCommitRange{CommitNumber: regressionCommitNumber, PrevCommitNumber: types.CommitNumber(1), DisplayCommitNumber: regressionCommitNumber}, cfg.IDAsString, resp[0].Frame, resp[0].Summary.Clusters[0]).Return(true, "", nil).Twice()
 	allMocks.notifier.On("RegressionFound", testutils.AnyContext, commitAtStep, previousCommit, cfg, resp[0].Summary.Clusters[0], resp[0].Frame, mock.Anything).Return(notificationID, nil)
 
 	err := c.reportRegressions(ctx, req, resp, cfg, false)
@@ -371,8 +372,9 @@ func TestReportRegressions_SkipNotifications_NoNotification(t *testing.T) {
 				},
 			},
 		},
-		CommitNumber:     regressionCommitNumber,
-		PrevCommitNumber: types.CommitNumber(1),
+		CommitNumber:        regressionCommitNumber,
+		PrevCommitNumber:    types.CommitNumber(1),
+		DisplayCommitNumber: regressionCommitNumber,
 	})
 
 	commitAtStep := provider.Commit{
@@ -389,7 +391,7 @@ func TestReportRegressions_SkipNotifications_NoNotification(t *testing.T) {
 	cfg.DirectionAsString = alerts.DOWN
 
 	allMocks.regressionStore.On("GetRegression", testutils.AnyContext, regressionCommitNumber, cfg.IDAsString).Return(nil, nil)
-	allMocks.regressionStore.On("SetLow", testutils.AnyContext, regressionCommitNumber, types.CommitNumber(1), cfg.IDAsString, resp[0].Frame, resp[0].Summary.Clusters[0]).Return(true, "", nil).Once()
+	allMocks.regressionStore.On("SetLow", testutils.AnyContext, regression.AnomalyCommitRange{CommitNumber: regressionCommitNumber, PrevCommitNumber: types.CommitNumber(1), DisplayCommitNumber: regressionCommitNumber}, cfg.IDAsString, resp[0].Frame, resp[0].Summary.Clusters[0]).Return(true, "", nil).Once()
 
 	err := c.reportRegressions(ctx, req, resp, cfg, true) // true means skip notifications
 	require.NoError(t, err)
@@ -486,8 +488,9 @@ func TestReportRegressions_OneNewStepDownRegressionFound_OneHighRegressionFoundA
 				},
 			},
 		},
-		CommitNumber:     regressionCommitNumber,
-		PrevCommitNumber: types.CommitNumber(1),
+		CommitNumber:        regressionCommitNumber,
+		PrevCommitNumber:    types.CommitNumber(1),
+		DisplayCommitNumber: regressionCommitNumber,
 	}, &regression.ConfirmedRegression{
 		Frame: &frame.FrameResponse{
 			DataFrame: &dataframe.DataFrame{
@@ -518,8 +521,9 @@ func TestReportRegressions_OneNewStepDownRegressionFound_OneHighRegressionFoundA
 				},
 			},
 		},
-		CommitNumber:     regressionCommitNumber,
-		PrevCommitNumber: types.CommitNumber(1),
+		CommitNumber:        regressionCommitNumber,
+		PrevCommitNumber:    types.CommitNumber(1),
+		DisplayCommitNumber: regressionCommitNumber,
 	})
 
 	commitAtStep := provider.Commit{
@@ -544,11 +548,11 @@ func TestReportRegressions_OneNewStepDownRegressionFound_OneHighRegressionFoundA
 	// this is called twice, first to store the regression since it's new, then
 	// called again to store the notification ID.
 	allMocks.regressionStore.On("GetRegression", testutils.AnyContext, regressionCommitNumber, cfg.IDAsString).Return(nil, nil).Once()
-	allMocks.regressionStore.On("SetLow", testutils.AnyContext, regressionCommitNumber, types.CommitNumber(1), cfg.IDAsString, resp[0].Frame, resp[0].Summary.Clusters[0]).Return(true, "", nil).Twice()
+	allMocks.regressionStore.On("SetLow", testutils.AnyContext, regression.AnomalyCommitRange{CommitNumber: regressionCommitNumber, PrevCommitNumber: types.CommitNumber(1), DisplayCommitNumber: regressionCommitNumber}, cfg.IDAsString, resp[0].Frame, resp[0].Summary.Clusters[0]).Return(true, "", nil).Twice()
 	allMocks.notifier.On("RegressionFound", testutils.AnyContext, commitAtStep, previousCommit, cfg, resp[0].Summary.Clusters[0], resp[0].Frame, mock.Anything).Return(notificationID, nil)
 
 	allMocks.regressionStore.On("GetRegression", testutils.AnyContext, regressionCommitNumber, cfg.IDAsString).Return(nil, nil).Once()
-	allMocks.regressionStore.On("SetHigh", testutils.AnyContext, regressionCommitNumber, types.CommitNumber(1), cfg.IDAsString, resp[1].Frame, resp[1].Summary.Clusters[0]).Return(false, "", nil)
+	allMocks.regressionStore.On("SetHigh", testutils.AnyContext, regression.AnomalyCommitRange{CommitNumber: regressionCommitNumber, PrevCommitNumber: types.CommitNumber(1), DisplayCommitNumber: regressionCommitNumber}, cfg.IDAsString, resp[1].Frame, resp[1].Summary.Clusters[0]).Return(false, "", nil)
 	allMocks.notifier.On("RegressionFound", testutils.AnyContext, commitAtStep, previousCommit, cfg, resp[0].Summary.Clusters[0], resp[0].Frame, mock.Anything).Return(notificationID, nil)
 
 	err := c.reportRegressions(ctx, req, resp, cfg, false)

@@ -18,6 +18,7 @@ const dummyAnomaly = (
     bug_id: bugId,
     start_revision: startRev,
     end_revision: endRev,
+    display_commit_number: endRev,
     test_path: testPath,
     is_improvement: false,
     recovered: false,

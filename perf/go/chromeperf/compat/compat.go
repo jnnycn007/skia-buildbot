@@ -27,6 +27,7 @@ func ConvertRegressionToAnomalies(reg *regression.Regression) (chromeperf.Anomal
 			TestPath:            testPath,
 			StartRevision:       int(reg.PrevCommitNumber) + 1,
 			EndRevision:         int(reg.CommitNumber),
+			DisplayCommitNumber: int(reg.DisplayCommitNumber),
 			IsImprovement:       reg.IsImprovement,
 			MedianBeforeAnomaly: float64(reg.MedianBefore),
 			MedianAfterAnomaly:  float64(reg.MedianAfter),
@@ -64,7 +65,8 @@ func ConvertRegressionToAnomalies(reg *regression.Regression) (chromeperf.Anomal
 		}
 
 		commitMap := chromeperf.CommitNumberAnomalyMap{
-			reg.CommitNumber: anomaly,
+			// If DisplayCommitNumber is empty in the database, it defaults to the end revision (CommitNumber) in the anomaly range.
+			reg.DisplayCommitNumber: anomaly,
 		}
 		anomalyMap[key] = commitMap
 	}

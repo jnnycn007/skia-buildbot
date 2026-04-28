@@ -41,10 +41,11 @@ func setupStore(t *testing.T) (*sqlAnomaliesStore, *regStoreMocks.Store, *gitMoc
 
 func newTestRegression(id string, prevCommitNum, commitNum types.CommitNumber, traceKey string, isImprovement bool, medianBefore, medianAfter float32) *regression.Regression {
 	return &regression.Regression{
-		Id:               id,
-		AlertId:          0,
-		CommitNumber:     commitNum,
-		PrevCommitNumber: prevCommitNum,
+		Id:                  id,
+		AlertId:             0,
+		CommitNumber:        commitNum,
+		PrevCommitNumber:    prevCommitNum,
+		DisplayCommitNumber: commitNum,
 		Frame: &frame.FrameResponse{
 			DataFrame: &dataframe.DataFrame{
 				TraceSet: types.TraceSet{traceKey: {}},

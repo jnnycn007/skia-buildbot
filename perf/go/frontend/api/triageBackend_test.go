@@ -181,13 +181,14 @@ func TestEditAnomalies_Nudge(t *testing.T) {
 	backend := NewTriageBackend(mockIssueTracker, mockStore)
 
 	req := &EditAnomaliesRequest{
-		Keys:          []string{"a1", "a2"},
-		Action:        "NUDGE",
-		StartRevision: 100,
-		EndRevision:   200,
+		Keys:                []string{"a1", "a2"},
+		Action:              "NUDGE",
+		StartRevision:       100,
+		EndRevision:         200,
+		DisplayCommitNumber: 200,
 	}
 
-	mockStore.On("NudgeAndResetAnomalies", mock.Anything, []string{"a1", "a2"}, types.CommitNumber(200), types.CommitNumber(100-1)).Return(nil)
+	mockStore.On("NudgeAndResetAnomalies", mock.Anything, []string{"a1", "a2"}, types.CommitNumber(200)).Return(nil)
 
 	_, err := backend.EditAnomalies(context.Background(), req)
 	require.NoError(t, err)

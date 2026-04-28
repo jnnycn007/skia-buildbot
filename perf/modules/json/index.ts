@@ -192,6 +192,7 @@ export interface Anomaly {
 	bugs?: RegressionBug[] | null;
 	start_revision: number;
 	end_revision: number;
+	display_commit_number: number;
 	start_revision_hash?: string;
 	end_revision_hash?: string;
 	is_improvement: boolean;
@@ -238,6 +239,7 @@ export interface Regression {
 	id: string;
 	commit_number: CommitNumber;
 	prev_commit_number: CommitNumber;
+	display_commit_number: CommitNumber;
 	alert_id: number;
 	bugs: RegressionBug[] | null;
 	all_bugs_fetched: boolean;
@@ -722,6 +724,7 @@ export interface ConfirmedRegression {
 	frame: FrameResponse | null;
 	prev_commit_number: CommitNumber;
 	commit_number: CommitNumber;
+	display_commit_number: CommitNumber;
 }
 
 export interface FullSummary {

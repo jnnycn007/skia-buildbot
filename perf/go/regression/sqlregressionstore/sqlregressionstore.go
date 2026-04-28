@@ -164,9 +164,9 @@ func (s *SQLRegressionStore) Range(ctx context.Context, begin, end types.CommitN
 }
 
 // SetHigh implements the regression.Store interface.
-func (s *SQLRegressionStore) SetHigh(ctx context.Context, commitNumber types.CommitNumber, prevCommitNumber types.CommitNumber, alertID string, df *frame.FrameResponse, high *clustering2.ClusterSummary) (bool, string, error) {
+func (s *SQLRegressionStore) SetHigh(ctx context.Context, commitRange regression.AnomalyCommitRange, alertID string, df *frame.FrameResponse, high *clustering2.ClusterSummary) (bool, string, error) {
 	ret := false
-	err := s.readModifyWrite(ctx, commitNumber, alertID, false /* mustExist*/, func(r *regression.Regression) {
+	err := s.readModifyWrite(ctx, commitRange.CommitNumber, alertID, false /* mustExist*/, func(r *regression.Regression) {
 		if r.Frame == nil {
 			r.Frame = df
 			ret = true
@@ -182,9 +182,9 @@ func (s *SQLRegressionStore) SetHigh(ctx context.Context, commitNumber types.Com
 }
 
 // SetLow implements the regression.Store interface.
-func (s *SQLRegressionStore) SetLow(ctx context.Context, commitNumber types.CommitNumber, prevCommitNumber types.CommitNumber, alertID string, df *frame.FrameResponse, low *clustering2.ClusterSummary) (bool, string, error) {
+func (s *SQLRegressionStore) SetLow(ctx context.Context, commitRange regression.AnomalyCommitRange, alertID string, df *frame.FrameResponse, low *clustering2.ClusterSummary) (bool, string, error) {
 	ret := false
-	err := s.readModifyWrite(ctx, commitNumber, alertID, false /* mustExist*/, func(r *regression.Regression) {
+	err := s.readModifyWrite(ctx, commitRange.CommitNumber, alertID, false /* mustExist*/, func(r *regression.Regression) {
 		if r.Frame == nil {
 			r.Frame = df
 			ret = true
@@ -351,6 +351,7 @@ func (s *SQLRegressionStore) GetRegressionsToMigrate(ctx context.Context, batchS
 		}
 		r.AlertId = alertID
 		r.CommitNumber = commitID
+		r.DisplayCommitNumber = r.CommitNumber
 		_, clusterSummary, _ := r.GetClusterTypeAndSummaryAndTriageStatus()
 		regressionPointIndex := clusterSummary.StepFit.TurningPoint
 		r.PrevCommitNumber = r.Frame.DataFrame.Header[regressionPointIndex-1].Offset
@@ -438,7 +439,7 @@ func (s *SQLRegressionStore) ResetAnomalies(ctx context.Context, regressionIDs [
 }
 
 // NudgeAndResetAnomalies implements the regression.Store interface.
-func (s *SQLRegressionStore) NudgeAndResetAnomalies(ctx context.Context, regressionIDs []string, commitNumber, prevCommitNumber types.CommitNumber) error {
+func (s *SQLRegressionStore) NudgeAndResetAnomalies(ctx context.Context, regressionIDs []string, displayCommitNumber types.CommitNumber) error {
 	return skerr.Fmt("NudgeAndResetAnomalies not implemented for SQLRegressionStore")
 }
 

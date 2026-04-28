@@ -1318,7 +1318,6 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
         // TraceName should be the same across all anomalies.
         const traceName = traceNames[i] || traceNames[0];
         const startRevision: number | null = anomalies[i].start_revision;
-        const endRevision: number | null = anomalies[i].end_revision;
 
         // Load all commits available on the plot.
         const data: (ColumnHeader | null)[] | null = this.dfRepo.value!.dataframe.header;
@@ -1327,14 +1326,10 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
           data.forEach((data) => commits.push(data!.offset));
         }
 
-        // Check for start or end commit and return first found.
+        // Find the commit corresponding to the anomaly's display commit.
         let anomalyCommit: number | undefined = 0;
-        anomalyCommit = commits.find((commit) => {
-          if (commit === startRevision || commit === endRevision) {
-            return commit;
-          }
-        });
-
+        const displayCommit = anomalies[i].display_commit_number;
+        anomalyCommit = commits.find((commit) => displayCommit && commit === displayCommit);
         if (anomalyCommit) {
           commitMap[anomalyCommit] = anomalies[i];
           anomalyMap[traceName] = commitMap;
@@ -2164,6 +2159,19 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
     }
   }
 
+  /**
+   * Determines whether the frontend should operate in Legacy Mode (ChromePerf)
+   * or Database Mode for anomaly operations.
+   *
+   * It replicates the backend's `preferLegacy` logic by checking the dual-mode
+   * flags and the `fetch_anomalies_from_sql` cookie.
+   *
+   * @returns true if Legacy Mode should be used, false for Database Mode.
+   */
+  private isLegacyMode(): boolean {
+    return !window.perf.fetch_anomalies_from_sql;
+  }
+
   enableTooltip(
     pointDetails: TraceEventDetails,
     commits: (ColumnHeader | null)[],
@@ -2243,7 +2251,16 @@ export class ExploreSimpleSk extends ElementSk implements KeyboardShortcutHandle
       const dfHeader = this.dfRepo.value!.dataframe.header!;
       const dfTrace = this.dfRepo.value!.dataframe.traceset![traceName];
       const xOffset = this.selectedRange?.begin || 0;
-      nudgeList = calculateNudgeList(dfTrace, dfHeader, x, anomalyData, NUDGE_RANGE, xOffset);
+      const isLegacy = this.isLegacyMode();
+      nudgeList = calculateNudgeList(
+        dfTrace,
+        dfHeader,
+        x,
+        anomalyData,
+        NUDGE_RANGE,
+        xOffset,
+        isLegacy
+      );
     }
     const closeBtnAction = fixTooltip
       ? () => {

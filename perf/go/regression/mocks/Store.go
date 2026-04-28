@@ -319,17 +319,17 @@ func (_m *Store) IgnoreAnomalies(ctx context.Context, regressionIDs []string) er
 	return r0
 }
 
-// NudgeAndResetAnomalies provides a mock function with given fields: ctx, regressionIDs, commitNumber, prevCommitNumber
-func (_m *Store) NudgeAndResetAnomalies(ctx context.Context, regressionIDs []string, commitNumber types.CommitNumber, prevCommitNumber types.CommitNumber) error {
-	ret := _m.Called(ctx, regressionIDs, commitNumber, prevCommitNumber)
+// NudgeAndResetAnomalies provides a mock function with given fields: ctx, regressionIDs, displayCommitNumber
+func (_m *Store) NudgeAndResetAnomalies(ctx context.Context, regressionIDs []string, displayCommitNumber types.CommitNumber) error {
+	ret := _m.Called(ctx, regressionIDs, displayCommitNumber)
 
 	if len(ret) == 0 {
 		panic("no return value specified for NudgeAndResetAnomalies")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, []string, types.CommitNumber, types.CommitNumber) error); ok {
-		r0 = rf(ctx, regressionIDs, commitNumber, prevCommitNumber)
+	if rf, ok := ret.Get(0).(func(context.Context, []string, types.CommitNumber) error); ok {
+		r0 = rf(ctx, regressionIDs, displayCommitNumber)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -433,9 +433,9 @@ func (_m *Store) SetBugID(ctx context.Context, regressionIDs []string, bugID int
 	return r0
 }
 
-// SetHigh provides a mock function with given fields: ctx, commitNumber, prevCommitNumber, alertID, df, high
-func (_m *Store) SetHigh(ctx context.Context, commitNumber types.CommitNumber, prevCommitNumber types.CommitNumber, alertID string, df *frame.FrameResponse, high *clustering2.ClusterSummary) (bool, string, error) {
-	ret := _m.Called(ctx, commitNumber, prevCommitNumber, alertID, df, high)
+// SetHigh provides a mock function with given fields: ctx, commitRange, alertID, df, high
+func (_m *Store) SetHigh(ctx context.Context, commitRange regression.AnomalyCommitRange, alertID string, df *frame.FrameResponse, high *clustering2.ClusterSummary) (bool, string, error) {
+	ret := _m.Called(ctx, commitRange, alertID, df, high)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SetHigh")
@@ -444,23 +444,23 @@ func (_m *Store) SetHigh(ctx context.Context, commitNumber types.CommitNumber, p
 	var r0 bool
 	var r1 string
 	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, types.CommitNumber, types.CommitNumber, string, *frame.FrameResponse, *clustering2.ClusterSummary) (bool, string, error)); ok {
-		return rf(ctx, commitNumber, prevCommitNumber, alertID, df, high)
+	if rf, ok := ret.Get(0).(func(context.Context, regression.AnomalyCommitRange, string, *frame.FrameResponse, *clustering2.ClusterSummary) (bool, string, error)); ok {
+		return rf(ctx, commitRange, alertID, df, high)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, types.CommitNumber, types.CommitNumber, string, *frame.FrameResponse, *clustering2.ClusterSummary) bool); ok {
-		r0 = rf(ctx, commitNumber, prevCommitNumber, alertID, df, high)
+	if rf, ok := ret.Get(0).(func(context.Context, regression.AnomalyCommitRange, string, *frame.FrameResponse, *clustering2.ClusterSummary) bool); ok {
+		r0 = rf(ctx, commitRange, alertID, df, high)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, types.CommitNumber, types.CommitNumber, string, *frame.FrameResponse, *clustering2.ClusterSummary) string); ok {
-		r1 = rf(ctx, commitNumber, prevCommitNumber, alertID, df, high)
+	if rf, ok := ret.Get(1).(func(context.Context, regression.AnomalyCommitRange, string, *frame.FrameResponse, *clustering2.ClusterSummary) string); ok {
+		r1 = rf(ctx, commitRange, alertID, df, high)
 	} else {
 		r1 = ret.Get(1).(string)
 	}
 
-	if rf, ok := ret.Get(2).(func(context.Context, types.CommitNumber, types.CommitNumber, string, *frame.FrameResponse, *clustering2.ClusterSummary) error); ok {
-		r2 = rf(ctx, commitNumber, prevCommitNumber, alertID, df, high)
+	if rf, ok := ret.Get(2).(func(context.Context, regression.AnomalyCommitRange, string, *frame.FrameResponse, *clustering2.ClusterSummary) error); ok {
+		r2 = rf(ctx, commitRange, alertID, df, high)
 	} else {
 		r2 = ret.Error(2)
 	}
@@ -468,9 +468,9 @@ func (_m *Store) SetHigh(ctx context.Context, commitNumber types.CommitNumber, p
 	return r0, r1, r2
 }
 
-// SetLow provides a mock function with given fields: ctx, commitNumber, prevCommitNumber, alertID, df, low
-func (_m *Store) SetLow(ctx context.Context, commitNumber types.CommitNumber, prevCommitNumber types.CommitNumber, alertID string, df *frame.FrameResponse, low *clustering2.ClusterSummary) (bool, string, error) {
-	ret := _m.Called(ctx, commitNumber, prevCommitNumber, alertID, df, low)
+// SetLow provides a mock function with given fields: ctx, commitRange, alertID, df, low
+func (_m *Store) SetLow(ctx context.Context, commitRange regression.AnomalyCommitRange, alertID string, df *frame.FrameResponse, low *clustering2.ClusterSummary) (bool, string, error) {
+	ret := _m.Called(ctx, commitRange, alertID, df, low)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SetLow")
@@ -479,23 +479,23 @@ func (_m *Store) SetLow(ctx context.Context, commitNumber types.CommitNumber, pr
 	var r0 bool
 	var r1 string
 	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, types.CommitNumber, types.CommitNumber, string, *frame.FrameResponse, *clustering2.ClusterSummary) (bool, string, error)); ok {
-		return rf(ctx, commitNumber, prevCommitNumber, alertID, df, low)
+	if rf, ok := ret.Get(0).(func(context.Context, regression.AnomalyCommitRange, string, *frame.FrameResponse, *clustering2.ClusterSummary) (bool, string, error)); ok {
+		return rf(ctx, commitRange, alertID, df, low)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, types.CommitNumber, types.CommitNumber, string, *frame.FrameResponse, *clustering2.ClusterSummary) bool); ok {
-		r0 = rf(ctx, commitNumber, prevCommitNumber, alertID, df, low)
+	if rf, ok := ret.Get(0).(func(context.Context, regression.AnomalyCommitRange, string, *frame.FrameResponse, *clustering2.ClusterSummary) bool); ok {
+		r0 = rf(ctx, commitRange, alertID, df, low)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, types.CommitNumber, types.CommitNumber, string, *frame.FrameResponse, *clustering2.ClusterSummary) string); ok {
-		r1 = rf(ctx, commitNumber, prevCommitNumber, alertID, df, low)
+	if rf, ok := ret.Get(1).(func(context.Context, regression.AnomalyCommitRange, string, *frame.FrameResponse, *clustering2.ClusterSummary) string); ok {
+		r1 = rf(ctx, commitRange, alertID, df, low)
 	} else {
 		r1 = ret.Get(1).(string)
 	}
 
-	if rf, ok := ret.Get(2).(func(context.Context, types.CommitNumber, types.CommitNumber, string, *frame.FrameResponse, *clustering2.ClusterSummary) error); ok {
-		r2 = rf(ctx, commitNumber, prevCommitNumber, alertID, df, low)
+	if rf, ok := ret.Get(2).(func(context.Context, regression.AnomalyCommitRange, string, *frame.FrameResponse, *clustering2.ClusterSummary) error); ok {
+		r2 = rf(ctx, commitRange, alertID, df, low)
 	} else {
 		r2 = ret.Error(2)
 	}

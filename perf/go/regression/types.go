@@ -12,6 +12,13 @@ import (
 	"go.skia.org/infra/perf/go/ui/frame"
 )
 
+// AnomalyCommitRange encapsulates the commit numbers associated with an anomaly.
+type AnomalyCommitRange struct {
+	CommitNumber        types.CommitNumber
+	PrevCommitNumber    types.CommitNumber
+	DisplayCommitNumber types.CommitNumber
+}
+
 // Store persists Regressions.
 type Store interface {
 	// Range returns a map from types.CommitNumber to *Regressions that exist in the
@@ -23,10 +30,10 @@ type Store interface {
 	RangeFiltered(ctx context.Context, begin, end types.CommitNumber, traceNames []string) ([]*Regression, error)
 
 	// SetHigh sets the ClusterSummary for a high regression at the given commit and alertID.
-	SetHigh(ctx context.Context, commitNumber types.CommitNumber, prevCommitNumber types.CommitNumber, alertID string, df *frame.FrameResponse, high *clustering2.ClusterSummary) (bool, string, error)
+	SetHigh(ctx context.Context, commitRange AnomalyCommitRange, alertID string, df *frame.FrameResponse, high *clustering2.ClusterSummary) (bool, string, error)
 
 	// SetLow sets the ClusterSummary for a low regression at the given commit and alertID.
-	SetLow(ctx context.Context, commitNumber types.CommitNumber, prevCommitNumber types.CommitNumber, alertID string, df *frame.FrameResponse, low *clustering2.ClusterSummary) (bool, string, error)
+	SetLow(ctx context.Context, commitRange AnomalyCommitRange, alertID string, df *frame.FrameResponse, low *clustering2.ClusterSummary) (bool, string, error)
 
 	// TriageLow sets the triage status for the low cluster at the given commit and alertID.
 	TriageLow(ctx context.Context, commitNumber types.CommitNumber, alertID string, tr TriageStatus) error
@@ -74,7 +81,7 @@ type Store interface {
 
 	// NudgeAndResetAnomalies updates the commit number and previous commit number for the given regressions,
 	// and also sets the triage status to Untriaged, message to NudgedMessage, and bugID to 0.
-	NudgeAndResetAnomalies(ctx context.Context, regressionIDs []string, commitNumber, prevCommitNumber types.CommitNumber) error
+	NudgeAndResetAnomalies(ctx context.Context, regressionIDs []string, displayCommitNumber types.CommitNumber) error
 
 	// GetBugIdsForRegressions queries all bugs from regressions2, culprits and anomalygroups for given regressions.
 	GetBugIdsForRegressions(ctx context.Context, regressions []*Regression) ([]*Regression, error)
@@ -183,11 +190,12 @@ type RegressionDetectionResponse struct {
 // ConfirmedRegression represents a regression that has been validated and approved
 // for saving or alerting. It includes the explicit commit boundary where it was found.
 type ConfirmedRegression struct {
-	Summary          *clustering2.ClusterSummaries `json:"summary"`
-	Frame            *frame.FrameResponse          `json:"frame"`
-	Message          string                        `json:"-"`
-	PrevCommitNumber types.CommitNumber            `json:"prev_commit_number"`
-	CommitNumber     types.CommitNumber            `json:"commit_number"`
+	Summary             *clustering2.ClusterSummaries `json:"summary"`
+	Frame               *frame.FrameResponse          `json:"frame"`
+	Message             string                        `json:"-"`
+	PrevCommitNumber    types.CommitNumber            `json:"prev_commit_number"`
+	CommitNumber        types.CommitNumber            `json:"commit_number"`
+	DisplayCommitNumber types.CommitNumber            `json:"display_commit_number"`
 }
 
 // RegressionRefiner defines an interface for modules that process a complete

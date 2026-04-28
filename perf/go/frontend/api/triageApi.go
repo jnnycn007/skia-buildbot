@@ -73,11 +73,12 @@ type ChromeperfFileBugResponse struct {
 //   - Reset - X button (untriage the anomaly)
 //   - Nudge (move the anomaly position to adjacent datapoints)
 type EditAnomaliesRequest struct {
-	Keys          []string `json:"keys"`
-	Action        string   `json:"action"`
-	StartRevision int      `json:"start_revision,omitempty"`
-	EndRevision   int      `json:"end_revision,omitempty"`
-	TraceNames    []string `json:"trace_names"`
+	Keys                []string `json:"keys"`
+	Action              string   `json:"action"`
+	StartRevision       int      `json:"start_revision,omitempty"`
+	EndRevision         int      `json:"end_revision,omitempty"`
+	DisplayCommitNumber int      `json:"display_commit_number,omitempty"`
+	TraceNames          []string `json:"trace_names"`
 }
 
 // ListIssuesResponse defines the response object for ListIssues.

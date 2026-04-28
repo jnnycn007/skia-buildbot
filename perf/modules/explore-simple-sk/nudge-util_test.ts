@@ -166,4 +166,53 @@ describe('calculateNudgeList', () => {
     expect(prevEntry!.end_revision).to.equal(6);
     expect(prevEntry!.y).to.equal(6);
   });
+
+  it('correctly calculates nudge list for database mode (fixed range)', () => {
+    const trace = [10, 20, 30, 40, 50] as unknown as Trace;
+    const header = mockHeader([1, 2, 3, 4, 5]);
+    const currentIndex = 2; // Value 30, Offset 3
+
+    const originalAnomalyData: AnomalyData = {
+      anomaly: {
+        start_revision: 2,
+        end_revision: 4,
+      } as Anomaly,
+      x: 2,
+      y: 30,
+      highlight: false,
+    };
+
+    const nudgeList = calculateNudgeList(
+      trace,
+      header,
+      currentIndex,
+      originalAnomalyData,
+      1,
+      0,
+      false
+    );
+
+    expect(nudgeList).to.have.length(3);
+
+    // Entry 0 (Current)
+    const currentEntry = nudgeList.find((n) => n.display_index === 0);
+    expect(currentEntry).to.exist;
+    expect(currentEntry!.start_revision).to.equal(2); // Remains unchanged
+    expect(currentEntry!.end_revision).to.equal(4); // Remains unchanged
+    expect(currentEntry!.display_commit_number).to.equal(3); // Target offset
+
+    // Entry -1 (Previous)
+    const prevEntry = nudgeList.find((n) => n.display_index === -1);
+    expect(prevEntry).to.exist;
+    expect(prevEntry!.start_revision).to.equal(2); // Remains unchanged
+    expect(prevEntry!.end_revision).to.equal(4); // Remains unchanged
+    expect(prevEntry!.display_commit_number).to.equal(2); // Target offset (index 1)
+
+    // Entry 1 (Next)
+    const nextEntry = nudgeList.find((n) => n.display_index === 1);
+    expect(nextEntry).to.exist;
+    expect(nextEntry!.start_revision).to.equal(2); // Remains unchanged
+    expect(nextEntry!.end_revision).to.equal(4); // Remains unchanged
+    expect(nextEntry!.display_commit_number).to.equal(4); // Target offset (index 3)
+  });
 });

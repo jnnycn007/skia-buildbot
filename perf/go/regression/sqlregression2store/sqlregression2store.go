@@ -278,8 +278,8 @@ var statementFormats = map[statementFormat]string{
 		`,
 	nudgeAndReset: `
 		UPDATE Regressions2
-		SET commit_number = $1, prev_commit_number = $2, triage_status = 'untriaged', triage_message = 'Nudged', bug_id = 0
-		WHERE id = ANY($3)
+		SET display_commit_number = $1, triage_status = 'untriaged', triage_message = 'Nudged', bug_id = 0
+		WHERE id = ANY($2)
 		`,
 	readBugsForRegressions: `
 		select
@@ -433,11 +433,11 @@ func (s *SQLRegression2Store) rangeFilteredByTraceId(ctx context.Context, begin,
 }
 
 // SetHigh implements the regression.Store interface.
-func (s *SQLRegression2Store) SetHigh(ctx context.Context, commitNumber types.CommitNumber, prevCommitNumber types.CommitNumber, alertID string, df *frame.FrameResponse, high *clustering2.ClusterSummary) (bool, string, error) {
+func (s *SQLRegression2Store) SetHigh(ctx context.Context, commitRange regression.AnomalyCommitRange, alertID string, df *frame.FrameResponse, high *clustering2.ClusterSummary) (bool, string, error) {
 	ctx, span := trace.StartSpan(ctx, "sqlregression2store.SetHigh")
 	defer span.End()
 	ret := false
-	regressionID, err := s.updateBasedOnAlertAlgo(ctx, commitNumber, prevCommitNumber, alertID, df, false, func(r *regression.Regression) error {
+	regressionID, err := s.updateBasedOnAlertAlgo(ctx, commitRange, alertID, df, false, func(r *regression.Regression) error {
 		if r.Frame == nil {
 			r.Frame = df
 			ret = true
@@ -453,12 +453,12 @@ func (s *SQLRegression2Store) SetHigh(ctx context.Context, commitNumber types.Co
 }
 
 // SetLow implements the regression.Store interface.
-func (s *SQLRegression2Store) SetLow(ctx context.Context, commitNumber types.CommitNumber, prevCommitNumber types.CommitNumber, alertID string, df *frame.FrameResponse, low *clustering2.ClusterSummary) (bool, string, error) {
+func (s *SQLRegression2Store) SetLow(ctx context.Context, commitRange regression.AnomalyCommitRange, alertID string, df *frame.FrameResponse, low *clustering2.ClusterSummary) (bool, string, error) {
 	ctx, span := trace.StartSpan(ctx, "sqlregression2store.SetLow")
 	defer span.End()
 
 	ret := false
-	regressionID, err := s.updateBasedOnAlertAlgo(ctx, commitNumber, prevCommitNumber, alertID, df, false /* mustExist*/, func(r *regression.Regression) error {
+	regressionID, err := s.updateBasedOnAlertAlgo(ctx, commitRange, alertID, df, false /* mustExist*/, func(r *regression.Regression) error {
 		if r.Frame == nil {
 			r.Frame = df
 			ret = true
@@ -478,7 +478,7 @@ func (s *SQLRegression2Store) TriageLow(ctx context.Context, commitNumber types.
 	// TODO(ashwinpv): This code will update all regressions with the <commit_id, alert_id> pair.
 	// Once we move all the data to the new db, this will need to be updated to take in a specific
 	// regression id and update only that.
-	_, err := s.readModifyWriteCompat(ctx, commitNumber, types.BadCommitNumber, alertID, "", "", true, func(r *regression.Regression) (bool, error) {
+	_, err := s.readModifyWriteCompat(ctx, regression.AnomalyCommitRange{CommitNumber: commitNumber, PrevCommitNumber: types.BadCommitNumber, DisplayCommitNumber: commitNumber}, alertID, "", "", true, func(r *regression.Regression) (bool, error) {
 		r.LowStatus = tr
 		return true, nil
 	})
@@ -490,7 +490,7 @@ func (s *SQLRegression2Store) TriageHigh(ctx context.Context, commitNumber types
 	// TODO(ashwinpv): This code will update all regressions with the <commit_id, alert_id> pair.
 	// Once we move all the data to the new db, this will need to be updated to take in a specific
 	// regression id and update only that.
-	_, err := s.readModifyWriteCompat(ctx, commitNumber, types.BadCommitNumber, alertID, "", "", true, func(r *regression.Regression) (bool, error) {
+	_, err := s.readModifyWriteCompat(ctx, regression.AnomalyCommitRange{CommitNumber: commitNumber, PrevCommitNumber: types.BadCommitNumber, DisplayCommitNumber: commitNumber}, alertID, "", "", true, func(r *regression.Regression) (bool, error) {
 		r.HighStatus = tr
 		return true, nil
 	})
@@ -625,10 +625,15 @@ func (s *SQLRegression2Store) convertRowToRegression(rows pgx.Row) (*regression.
 	var bugId sql.NullInt64
 	var subName sql.NullString
 	var traceIdAsBytes []byte
-	var dummyDisplayCommitNumber sql.NullInt64
-	err := rows.Scan(&r.Id, &r.CommitNumber, &r.PrevCommitNumber, &dummyDisplayCommitNumber, &r.AlertId, &subName, &bugId, &r.CreationTime, &r.MedianBefore, &r.MedianAfter, &r.IsImprovement, &clusterType, &clusterSummary, &r.Frame, &traceIdAsBytes, &triageStatus, &triageMessage)
+	var displayCommitNumber sql.NullInt64
+	err := rows.Scan(&r.Id, &r.CommitNumber, &r.PrevCommitNumber, &displayCommitNumber, &r.AlertId, &subName, &bugId, &r.CreationTime, &r.MedianBefore, &r.MedianAfter, &r.IsImprovement, &clusterType, &clusterSummary, &r.Frame, &traceIdAsBytes, &triageStatus, &triageMessage)
 	if err != nil {
 		return nil, err
+	}
+	if displayCommitNumber.Valid {
+		r.DisplayCommitNumber = types.CommitNumber(displayCommitNumber.Int64)
+	} else {
+		r.DisplayCommitNumber = r.CommitNumber
 	}
 
 	// We are not storing bugId = 0 (which means no bug assigned) to save up some space and avoid deduplication.
@@ -826,9 +831,9 @@ func (s *SQLRegression2Store) writeSingleRegression(ctx context.Context, r *regr
 		return skerr.Wrap(err)
 	}
 	if tx == nil {
-		_, err = s.db.Exec(ctx, s.statements[write], r.Id, r.CommitNumber, r.PrevCommitNumber, sql.NullInt64{}, r.AlertId, r.SubscriptionName, manualTriageBugId, r.CreationTime, r.MedianBefore, r.MedianAfter, r.IsImprovement, clusterType, clusterSummary, r.Frame, r.TraceID, triage.Status, triage.Message)
+		_, err = s.db.Exec(ctx, s.statements[write], r.Id, r.CommitNumber, r.PrevCommitNumber, r.DisplayCommitNumber, r.AlertId, r.SubscriptionName, manualTriageBugId, r.CreationTime, r.MedianBefore, r.MedianAfter, r.IsImprovement, clusterType, clusterSummary, r.Frame, r.TraceID, triage.Status, triage.Message)
 	} else {
-		_, err = tx.Exec(ctx, s.statements[write], r.Id, r.CommitNumber, r.PrevCommitNumber, sql.NullInt64{}, r.AlertId, r.SubscriptionName, manualTriageBugId, r.CreationTime, r.MedianBefore, r.MedianAfter, r.IsImprovement, clusterType, clusterSummary, r.Frame, r.TraceID, triage.Status, triage.Message)
+		_, err = tx.Exec(ctx, s.statements[write], r.Id, r.CommitNumber, r.PrevCommitNumber, r.DisplayCommitNumber, r.AlertId, r.SubscriptionName, manualTriageBugId, r.CreationTime, r.MedianBefore, r.MedianAfter, r.IsImprovement, clusterType, clusterSummary, r.Frame, r.TraceID, triage.Status, triage.Message)
 	}
 	if err != nil {
 		return skerr.Wrapf(err, "Failed to write single regression with id %s", r.Id)
@@ -863,7 +868,7 @@ func selectManualBugFromRegression(r *regression.Regression) (sql.NullInt64, err
 // TODO(ashwinpv): Once we are fully on to the regression2 schema, move this logic out
 // of the Store (since ideally store should only care about reading and writing data instead
 // of the feature semantics)
-func (s *SQLRegression2Store) updateBasedOnAlertAlgo(ctx context.Context, commitNumber types.CommitNumber, prevCommitNumber types.CommitNumber, alertID string, df *frame.FrameResponse, mustExist bool, updateFunc func(r *regression.Regression) error) (string, error) {
+func (s *SQLRegression2Store) updateBasedOnAlertAlgo(ctx context.Context, commitRange regression.AnomalyCommitRange, alertID string, df *frame.FrameResponse, mustExist bool, updateFunc func(r *regression.Regression) error) (string, error) {
 	// If KMeans the expectation is that as we get more incoming data,
 	// the regression becomes more accurate. This means we need to check
 	// if there is a regression for the same <commit_id, alert_id> pair
@@ -876,7 +881,7 @@ func (s *SQLRegression2Store) updateBasedOnAlertAlgo(ctx context.Context, commit
 	}
 
 	if alertConfig.Algo == types.KMeansGrouping {
-		regressionID, err = s.readModifyWriteCompat(ctx, commitNumber, prevCommitNumber, alertID, alertConfig.SubscriptionName, "", mustExist /* mustExist*/, func(r *regression.Regression) (bool, error) {
+		regressionID, err = s.readModifyWriteCompat(ctx, commitRange, alertID, alertConfig.SubscriptionName, "", mustExist /* mustExist*/, func(r *regression.Regression) (bool, error) {
 			if r.SubscriptionName == "" {
 				r.SubscriptionName = alertConfig.SubscriptionName
 			}
@@ -891,7 +896,7 @@ func (s *SQLRegression2Store) updateBasedOnAlertAlgo(ctx context.Context, commit
 		if traceName == "" {
 			sklog.Errorf("An empty trace name is not expected when running stepfit grouping.")
 		}
-		regressionID, err = s.readModifyWriteCompat(ctx, commitNumber, prevCommitNumber, alertID, alertConfig.SubscriptionName, traceName, mustExist /* mustExist*/, func(r *regression.Regression) (bool, error) {
+		regressionID, err = s.readModifyWriteCompat(ctx, commitRange, alertID, alertConfig.SubscriptionName, traceName, mustExist /* mustExist*/, func(r *regression.Regression) (bool, error) {
 			if r.Frame != nil {
 				// Do not update existing regressions when the algo is stepfit.
 				return false, nil
@@ -920,7 +925,7 @@ func (s *SQLRegression2Store) updateBasedOnAlertAlgo(ctx context.Context, commit
 // If mustExist is true then the read must be successful, otherwise a new
 // default Regression will be used and stored back to the database after the
 // callback is called.
-func (s *SQLRegression2Store) readModifyWriteCompat(ctx context.Context, commitNumber types.CommitNumber, prevCommitNumber types.CommitNumber, alertIDString string, subName string, traceName string, mustExist bool, cb func(r *regression.Regression) (bool, error)) (string, error) {
+func (s *SQLRegression2Store) readModifyWriteCompat(ctx context.Context, commitRange regression.AnomalyCommitRange, alertIDString string, subName string, traceName string, mustExist bool, cb func(r *regression.Regression) (bool, error)) (string, error) {
 	alertID := alerts.IDAsStringToInt(alertIDString)
 	if alertID == alerts.BadAlertID {
 		return "", skerr.Fmt("Failed to convert alertIDString %q to an int.", alertIDString)
@@ -936,32 +941,32 @@ func (s *SQLRegression2Store) readModifyWriteCompat(ctx context.Context, commitN
 
 	// An empty trace_name indicates that we are processing a k-means alert, which requires a query without a trace name filter.
 	if s.instanceConfig.AllowMultipleRegressionsPerAlertId && traceName != "" {
-		pCommit := prevCommitNumber
+		pCommit := commitRange.PrevCommitNumber
 		// If we only have a single commit rather than a range (indicated by BadCommitNumber),
 		// we set pCommit to commitNumber - 1 so that we can find any existing regressions
 		// that overlap specifically with this single commit.
 		if pCommit == types.BadCommitNumber {
-			pCommit = commitNumber - 1
+			pCommit = commitRange.CommitNumber - 1
 		}
 
 		if s.instanceConfig.Experiments.RegressionsTraceIdField {
 			traceId := types.TraceIDForSQLInBytesFromTraceName(traceName)
 			traceIdAsBytes := traceId[:]
 			if subName != "" {
-				rows, err = tx.Query(ctx, s.statements[readRegressionsByCommitRangeSubNameAndTraceId], commitNumber, pCommit, subName, traceIdAsBytes)
+				rows, err = tx.Query(ctx, s.statements[readRegressionsByCommitRangeSubNameAndTraceId], commitRange.CommitNumber, pCommit, subName, traceIdAsBytes)
 			} else {
-				rows, err = tx.Query(ctx, s.statements[readRegressionsByCommitRangeAlertAndTraceId], commitNumber, pCommit, alertID, traceIdAsBytes)
+				rows, err = tx.Query(ctx, s.statements[readRegressionsByCommitRangeAlertAndTraceId], commitRange.CommitNumber, pCommit, alertID, traceIdAsBytes)
 			}
 		} else {
 			if subName != "" {
-				rows, err = tx.Query(ctx, s.statements[readRegressionsByCommitRangeSubNameAndTraceName], commitNumber, pCommit, subName, traceName)
+				rows, err = tx.Query(ctx, s.statements[readRegressionsByCommitRangeSubNameAndTraceName], commitRange.CommitNumber, pCommit, subName, traceName)
 			} else {
-				rows, err = tx.Query(ctx, s.statements[readRegressionsByCommitRangeAlertAndTraceName], commitNumber, pCommit, alertID, traceName)
+				rows, err = tx.Query(ctx, s.statements[readRegressionsByCommitRangeAlertAndTraceName], commitRange.CommitNumber, pCommit, alertID, traceName)
 			}
 		}
 
 	} else {
-		rows, err = tx.Query(ctx, s.statements[readCompat], commitNumber, alertID)
+		rows, err = tx.Query(ctx, s.statements[readCompat], commitRange.CommitNumber, alertID)
 	}
 
 	if err != nil {
@@ -987,7 +992,7 @@ func (s *SQLRegression2Store) readModifyWriteCompat(ctx context.Context, commitN
 			}
 		}
 
-		s.logSuspectAnomalyOverlap(r, commitNumber, prevCommitNumber, traceName)
+		s.logSuspectAnomalyOverlap(r, commitRange.CommitNumber, commitRange.PrevCommitNumber, traceName)
 
 		shouldUpdate, err := cb(r)
 		if err != nil {
@@ -1002,8 +1007,9 @@ func (s *SQLRegression2Store) readModifyWriteCompat(ctx context.Context, commitN
 	if !existingRows {
 		r = regression.NewRegression()
 		r.AlertId = alertID
-		r.CommitNumber = commitNumber
-		r.PrevCommitNumber = prevCommitNumber
+		r.CommitNumber = commitRange.CommitNumber
+		r.PrevCommitNumber = commitRange.PrevCommitNumber
+		r.DisplayCommitNumber = commitRange.DisplayCommitNumber
 		r.CreationTime = time.Now().UTC()
 		shouldUpdate, err := cb(r)
 		if err != nil {
@@ -1019,7 +1025,7 @@ func (s *SQLRegression2Store) readModifyWriteCompat(ctx context.Context, commitN
 	for _, reg := range regressionsToWrite {
 		if err = s.writeSingleRegression(ctx, reg, tx); err != nil {
 			rollbackTransaction(ctx, tx)
-			return "", skerr.Wrapf(err, "Failed to write regression for alertID: %d  commitNumber=%d", alertID, commitNumber)
+			return "", skerr.Wrapf(err, "Failed to write regression for alertID: %d  commitNumber=%d", alertID, commitRange.CommitNumber)
 		}
 	}
 	return r.Id, tx.Commit(ctx)
@@ -1123,6 +1129,7 @@ func (s *SQLRegression2Store) populateRegression2Fields(regression *regression.R
 	regression.MedianAfter = medianAfter
 
 	regression.IsImprovement = isRegressionImprovement(regression.Frame.DataFrame.ParamSet, clusterSummary.StepFit.Status)
+
 	return nil
 }
 
@@ -1209,12 +1216,24 @@ func (s *SQLRegression2Store) ResetAnomalies(ctx context.Context, regressionIDs 
 
 // NudgeAndResetAnomalies updates the commit number and previous commit number for the given regressions,
 // and also sets the triage status to Untriaged, message to NudgedMessage, and bugID to 0.
-func (s *SQLRegression2Store) NudgeAndResetAnomalies(ctx context.Context, regressionIDs []string, commitNumber, prevCommitNumber types.CommitNumber) error {
+func (s *SQLRegression2Store) NudgeAndResetAnomalies(ctx context.Context, regressionIDs []string, displayCommitNumber types.CommitNumber) error {
 	if len(regressionIDs) == 0 {
 		return nil
 	}
 
-	_, err := s.db.Exec(ctx, s.statements[nudgeAndReset], commitNumber, prevCommitNumber, regressionIDs)
+	// Load regressions for boundaries/range check.
+	regs, err := s.GetByIDs(ctx, regressionIDs)
+	if err != nil {
+		return skerr.Wrapf(err, "Failed to load regressions for check: %v", regressionIDs)
+	}
+
+	for _, r := range regs {
+		if displayCommitNumber <= r.PrevCommitNumber || displayCommitNumber > r.CommitNumber {
+			return skerr.Fmt("displayCommitNumber %d is out of range (%d, %d] for regression %s", displayCommitNumber, r.PrevCommitNumber, r.CommitNumber, r.Id)
+		}
+	}
+
+	_, err = s.db.Exec(ctx, s.statements[nudgeAndReset], displayCommitNumber, regressionIDs)
 	if err != nil {
 		return skerr.Wrapf(err, "Failed to nudge regressions %v", regressionIDs)
 	}

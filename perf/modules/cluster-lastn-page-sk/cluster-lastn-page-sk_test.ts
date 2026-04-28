@@ -130,6 +130,7 @@ describe('cluster-lastn-page-sk', () => {
         id: 'reg-1',
         commit_number: CommitNumber(100),
         prev_commit_number: CommitNumber(99),
+        display_commit_number: CommitNumber(100),
         alert_id: -1,
         bugs: [],
         all_bugs_fetched: true,
