@@ -31,10 +31,9 @@ func GetTools(c *TaskSchedulerClient) []common.Tool {
 				{
 					Name: argStartTime,
 					Description: `
-[Required] The start of the time range to search for tasks.
+[Optional] The start of the time range to search for tasks.
 The input should be in the RFC 3339 format and GMT should be
 used as the default timezone, eg. "2025-07-12T14:30:00-00:00".`,
-					Required: true,
 				},
 				{
 					Name: argEndTime,
@@ -43,7 +42,6 @@ used as the default timezone, eg. "2025-07-12T14:30:00-00:00".`,
 The input should be in the RFC 3339 format and GMT should be
 used as the default timezone, eg. "2025-07-12T14:30:00-00:00".
 If not provided, the current time is used.`,
-					Required: false,
 				},
 				{
 					Name:        argIssue,

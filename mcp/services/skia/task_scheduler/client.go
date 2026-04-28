@@ -37,23 +37,13 @@ func (c *TaskSchedulerClient) Close() error {
 }
 
 func (c *TaskSchedulerClient) SearchTasksHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	st, err := req.RequireString(argStartTime)
+	startTime, err := parseTimeOrNil(req, argStartTime)
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
-	startTime, err := time.Parse(time.RFC3339, st)
+	endTime, err := parseTimeOrNil(req, argEndTime)
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
-	}
-	var endTime *time.Time
-	if et := req.GetString(argEndTime, ""); et != "" {
-		endTimeParsed, err := time.Parse(time.RFC3339, et)
-		if err != nil {
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-		}
-		endTime = &endTimeParsed
 	}
 
 	// If issue and patchset aren't provided, assume the caller doesn't want try jobs included.
@@ -74,7 +64,7 @@ func (c *TaskSchedulerClient) SearchTasksHandler(ctx context.Context, req mcp.Ca
 		Patchset:  &patchset,
 		Repo:      getStringOrNil(req, argRepo),
 		Revision:  getStringOrNil(req, argRevision),
-		TimeStart: &startTime,
+		TimeStart: startTime,
 		TimeEnd:   endTime,
 		Limit:     &limit,
 	}
@@ -97,4 +87,16 @@ func getStringOrNil(req mcp.CallToolRequest, arg string) *string {
 		return nil
 	}
 	return &str
+}
+
+func parseTimeOrNil(req mcp.CallToolRequest, arg string) (*time.Time, error) {
+	str, err := req.RequireString(arg)
+	if err != nil {
+		return nil, nil
+	}
+	parsed, err := time.Parse(time.RFC3339, str)
+	if err != nil {
+		return nil, skerr.Wrap(err)
+	}
+	return &parsed, nil
 }
