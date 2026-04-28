@@ -9,7 +9,10 @@ go_library(
     importpath = "go.skia.org/infra/mcp/services/skia/task_scheduler",
     visibility = ["//visibility:public"],
     deps = [
+        "//go/gitiles",
+        "//go/httputils",
         "//go/skerr",
+        "//go/vcsinfo",
         "//mcp/common",
         "//task_scheduler/go/db",
         "//task_scheduler/go/db/firestore",

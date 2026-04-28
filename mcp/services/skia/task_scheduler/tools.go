@@ -9,15 +9,16 @@ import (
 )
 
 const (
-	argStartTime  = "start_time"
-	argEndTime    = "end_time"
-	argIssue      = "issue"
-	argPatchset   = "patchset"
-	argTaskStatus = "status"
-	argRepo       = "repo"
-	argRevision   = "revision"
-	argTaskName   = "name"
-	argLimit      = "limit"
+	argStartTime     = "start_time"
+	argEndTime       = "end_time"
+	argIssue         = "issue"
+	argPatchset      = "patchset"
+	argTaskStatus    = "status"
+	argRepo          = "repo"
+	argRevision      = "revision"
+	argTaskName      = "name"
+	argLimit         = "limit"
+	argIncludeStable = "include_stable"
 
 	taskStatusPending = "PENDING"
 )
@@ -45,15 +46,15 @@ If not provided, the current time is used.`,
 				},
 				{
 					Name:        argIssue,
-					Description: `[Optional] CL issue ID. If not provided, try jobs are excluded from results.`,
+					Description: "[Optional] CL issue ID. If not provided, try jobs are excluded from results.",
 				},
 				{
 					Name:        argPatchset,
-					Description: `[Optional] CL patchset ID. If not provided, try jobs are excluded from results.`,
+					Description: "[Optional] CL patchset ID. If not provided, try jobs are excluded from results.",
 				},
 				{
 					Name: argTaskStatus,
-					Description: fmt.Sprintf(`[Optional] Task status, one of %v`, []string{
+					Description: fmt.Sprintf("[Optional] Task status, one of %v", []string{
 						taskStatusPending,
 						string(types.TASK_STATUS_RUNNING),
 						string(types.TASK_STATUS_SUCCESS),
@@ -67,18 +68,67 @@ If not provided, the current time is used.`,
 				},
 				{
 					Name:        argRevision,
-					Description: `[Optional] Full git commit hash at which the task ran.`,
+					Description: "[Optional] Full git commit hash at which the task ran.",
 				},
 				{
 					Name:        argTaskName,
-					Description: `[Optional] Name of the task.`,
+					Description: "[Optional] Name of the task.",
 				},
 				{
 					Name:        argLimit,
-					Description: fmt.Sprintf(`[Optional] Maximum number of tasks to return. Default %d`, db.SearchResultLimit),
+					Description: fmt.Sprintf("[Optional] Maximum number of tasks to return. Default %d", db.SearchResultLimit),
 				},
 			},
 			Handler: c.SearchTasksHandler,
+		},
+		{
+			Name:        "get_tasks_for_commits",
+			Description: "Retrieve a series of commits and all tasks associated with them.",
+			Arguments: []common.ToolArgument{
+				{
+					Name:        argRepo,
+					Description: `Git repository URL of the task, eg. "https://skia.googlesource.com/skia.git"`,
+					Required:    true,
+				},
+				{
+					Name:        argRevision,
+					Description: "Git commit hash or branch name at which to start.",
+					Required:    true,
+				},
+				{
+					Name:        argLimit,
+					Description: fmt.Sprintf("Maximum number of tasks to return. Default %d", db.SearchResultLimit),
+					Required:    true,
+				},
+			},
+			Handler: c.GetTasksForCommitsHandler,
+		},
+		{
+			Name:        "get_task_health_report",
+			Description: "Retrieve a summary of task health over a series of commits.",
+			Arguments: []common.ToolArgument{
+				{
+					Name:        argRepo,
+					Description: `Git repository URL of the task, eg. "https://skia.googlesource.com/skia.git"`,
+					Required:    true,
+				},
+				{
+					Name:        argRevision,
+					Description: "Git commit hash or branch name to start at.",
+					Required:    true,
+				},
+				{
+					Name:        argLimit,
+					Description: "Number of commits to trace backward in history.",
+					Required:    true,
+				},
+				{
+					Name:         argIncludeStable,
+					Description:  "If set, include results for tasks which are succeeding or failing consistently within the given window.",
+					ArgumentType: common.BooleanArgument,
+				},
+			},
+			Handler: c.GetTaskHealthReportHandler,
 		},
 	}
 }
