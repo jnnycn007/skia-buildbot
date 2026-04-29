@@ -1,0 +1,94 @@
+# GolangCI-Lint configuration for Skia Buildbot
+
+run:
+  timeout: 5m
+  # Don't modify the mod.go file.
+  modules-download-mode: readonly
+
+output:
+  # Sort results by file and line instead of order of discovery.
+  sort-results: true
+
+linters:
+  disable-all: true
+  enable:
+    # Linters
+    # Checks that you don't accidentally ignore returned errors
+    - errcheck
+    # Official Go tool; finds correctness bugs (e.g. bad Printf formats)
+    - govet
+    # The gold standard bug & performance analyzer
+    - staticcheck
+    # Checks whether HTTP response bodies are closed successfully
+    - bodyclose
+    # Checks if you forgot to pass context to HTTP requests
+    - noctx
+    # Checks if a function uses a non-inherited context
+    - contextcheck
+    # Suggests code simplifications for better readability
+    - gosimple
+    # Detects when assignments to existing variables are not used
+    - ineffassign
+    # Checks for unused constants, variables, functions, and types
+    - unused
+    # Modern drop-in replacement for golint; enforces naming conventions
+    - revive
+    # Highly opinionated stylistic checks and performance diagnostics
+    - gocritic
+    # Enforces correct error wrapping and errors.Is/As usage
+    - errorlint
+    # Checks the usage of github.com/stretchr/testify
+    - testifylint
+    # Inspects source code for security problems
+    - gosec
+    # Finds commonly misspelled words
+    - misspell
+
+    # Formatters
+    # Stricter gofmt
+    - gofumpt
+    # Checks import formatting and ordering
+    - goimports
+
+linters-settings:
+  gofumpt:
+    # Module path which contains the source code being formatted.
+    module-path: go.skia.org/infra
+    # Use the extra strict formatting rules.
+    extra-rules: true
+
+  goimports:
+    # Put imports beginning with prefix after 3rd-party packages.
+    local-prefixes: go.skia.org/infra
+
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+      - experimental
+
+  revive:
+    rules:
+      # Disable strict comment checking
+      - name: exported
+        disabled: true
+      - name: package-comments
+        disabled: true
+
+  testifylint:
+    enable-all: true
+
+issues:
+  # Do not limit the number of issues per linter (default is 50).
+  max-issues-per-linter: 0
+  # Do not limit the number of the same issues (default is 3).
+  max-same-issues: 0
+
+  exclude-rules:
+    # Exclude security/pointer checks in test files since tests are not production.
+    - path: _test\.go
+      linters:
+        - gosec
+        - bodyclose
+        - noctx

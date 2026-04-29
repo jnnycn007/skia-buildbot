@@ -29,6 +29,8 @@ import (
 	"go.skia.org/infra/go/util"
 )
 
+const golangci = "github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8"
+
 func main() {
 	var (
 		// https://bazel.build/docs/user-manual#running-executables
@@ -37,6 +39,7 @@ func main() {
 		verbose  = flag.Bool("verbose", false, "If extra logging is desired")
 		upload   = flag.Bool("upload", false, "If true, this will skip any checks that are not suitable for an upload check (may be the empty set).")
 		commit   = flag.Bool("commit", false, "If true, this will skip any checks that are not suitable for a commit check (may be the empty set).")
+		fix      = flag.Bool("fix", false, "If true, instructs linters to automatically fix issues when possible.")
 	)
 	flag.Parse()
 	ctx := withOutputWriter(context.Background(), os.Stdout)
@@ -131,6 +134,8 @@ func main() {
 	trackErrors(checkBannedGoAPIs(ctx, changedFiles))
 	trackErrors(checkJSDebugging(ctx, changedFiles))
 	if !*commit {
+		trackErrors(runGolangCILintForPinpoint(ctx, changedFiles, branchBaseCommit, *fix))
+
 		// Long lines are sometimes inevitable. Ideally we would add these long line files to
 		// the excluded list, but sometimes that is hard to do precisely.
 		trackErrors(checkLongLines(ctx, changedFiles))
@@ -262,7 +267,7 @@ func extractBranchBase(output string) string {
 		parts := strings.Split(line, refSeperator)
 		// First part is the possibly empty branch name
 		currentEntry.branch = parts[0]
-		// second part is the possibly multiple parents, seperated by spaces
+		// second part is the possibly multiple parents, separated by spaces
 		parents := strings.Split(parts[1], " ")
 		currentEntry.parents = parents
 		for _, parent := range parents {
@@ -409,6 +414,57 @@ func extractChangedAndDeletedFiles(diffOutput string) ([]fileWithChanges, []stri
 	}
 
 	return changed, deleted
+}
+
+func runGolangCILintForPinpoint(ctx context.Context, files []fileWithChanges, branchBaseCommit string, fix bool) bool {
+	// Collect unique directories of the changed files.
+	// We must pass directories to golangci-lint, not individual files.
+	// Passing individual files breaks the Go package context and causes "undefined type" errors.
+	dirsMap := make(map[string]bool)
+	for _, f := range files {
+		// Only run the linter for Go files inside the pinpoint directory.
+		if filepath.Ext(f.fileName) == ".go" && strings.HasPrefix(f.fileName, "pinpoint/") {
+			dirsMap["./"+filepath.Dir(f.fileName)] = true
+		}
+	}
+
+	if len(dirsMap) == 0 {
+		return true
+	}
+
+	var dirs []string
+	for d := range dirsMap {
+		dirs = append(dirs, d)
+	}
+
+	baseArgs := []string{
+		"run",
+		"--config=mayberemote",
+		"//:go",
+		"--",
+		"run",
+		golangci,
+		"run",
+		"--new-from-rev",
+		branchBaseCommit,
+		"--whole-files",
+	}
+
+	if fix {
+		baseArgs = append(baseArgs, "--fix")
+	}
+
+	args := append(baseArgs, dirs...)
+	cmd := exec.CommandContext(ctx, "bazelisk", args...)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		log(ctx, string(output))
+		log(ctx, "golangci-lint failed!\n")
+		log(ctx, "To apply fixes automatically (if possible) run:\n")
+		log(ctx, "    bazelisk run //cmd/presubmit -- --fix\n")
+		return false
+	}
+
+	return true
 }
 
 // checkLongLines looks through all touched lines and returns false if any of them (not covered by
