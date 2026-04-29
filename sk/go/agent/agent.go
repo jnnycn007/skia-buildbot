@@ -3,6 +3,7 @@ package agent
 import (
 	"github.com/urfave/cli/v2"
 	"go.skia.org/infra/sk/go/agent/tool"
+	"go.skia.org/infra/sk/go/agent/workflow"
 )
 
 func Command() *cli.Command {
@@ -11,6 +12,7 @@ func Command() *cli.Command {
 		Usage: "Commands intended for use by AI agents",
 		Subcommands: []*cli.Command{
 			tool.Command(),
+			workflow.Command(),
 		},
 	}
 }
