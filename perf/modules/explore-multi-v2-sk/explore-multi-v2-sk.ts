@@ -5,7 +5,8 @@ import { FrameRequest, Regression } from '../json';
 import { TraceSeries } from './trace-chart-sk';
 import { computeTraceDiffs, computeSplitGroups, calculateLoadedBounds } from './chart-logic';
 import { calculateFetchRequests } from './fetch-logic';
-import { toParamSet } from '../../../infra-sk/modules/query';
+import { toParamSet, fromParamSet } from '../../../infra-sk/modules/query';
+import { GraphConfig, updateShortcut } from '../common/graph-config';
 import { stateReflector } from '../../../infra-sk/modules/stateReflector';
 import { makeKey } from '../paramtools';
 import './query-bar-sk';
@@ -44,6 +45,12 @@ export const SUBREPO_CONFIG: Record<string, { logUrl: string; repoUrl: string }>
 @customElement('explore-multi-v2-sk')
 export class ExploreMultiV2Sk extends LitElement {
   @state() private _queries: Record<string, string[]>[] = [{}];
+
+  @state() private _shortcut = '';
+
+  private _lastQueriesJson = '';
+
+  private _lastLoadedShortcut = '';
 
   @state() private _defaultParamSelections: Record<string, string[]> = {};
 
@@ -155,7 +162,7 @@ export class ExploreMultiV2Sk extends LitElement {
     this._stateHasChanged = stateReflector(
       () => {
         return {
-          qs: JSON.stringify(this._queries),
+          shortcut: this._shortcut,
           centre: this._normalizeCentre,
           scale: this._normalizeScale,
           hoverMode: this._hoverMode,
@@ -175,25 +182,9 @@ export class ExploreMultiV2Sk extends LitElement {
       },
       (o: any) => {
         const stateObj = o as any;
-        if (stateObj.qs !== undefined) {
-          console.log('explore-multi-v2-sk: Raw qs from URL:', stateObj.qs);
-          try {
-            const parsed = JSON.parse(stateObj.qs);
-            if (Array.isArray(parsed)) {
-              this._queries = parsed;
-            } else if (typeof parsed === 'object' && parsed !== null) {
-              console.log('explore-multi-v2-sk: Wrapping object query in array');
-              this._queries = [parsed];
-            } else {
-              console.error('explore-multi-v2-sk: Invalid qs type:', typeof parsed);
-              this._queries = [{}];
-            }
-          } catch (e) {
-            console.error('explore-multi-v2-sk: Failed to parse qs from URL:', e);
-            this._queries = [{}];
-          }
-        } else if (stateObj.q !== undefined) {
-          this._queries = [toParamSet(stateObj.q)];
+        if (stateObj.shortcut !== undefined) {
+          this._shortcut = stateObj.shortcut;
+          void this._loadShortcut(this._shortcut);
         }
         if (stateObj.centre !== undefined) this._normalizeCentre = stateObj.centre;
         if (stateObj.scale !== undefined) this._normalizeScale = stateObj.scale;
@@ -602,6 +593,7 @@ export class ExploreMultiV2Sk extends LitElement {
       if (this._workerController?.isReady()) {
         this._triggerWorkerFilter();
       }
+      void this._updateShortcut();
     }
 
     if (changedProperties.has('_tracePage') || changedProperties.has('_showAllTraces')) {
@@ -639,6 +631,70 @@ export class ExploreMultiV2Sk extends LitElement {
       changedProperties.has('_evenXAxisSpacing')
     ) {
       this._stateHasChanged();
+    }
+  }
+
+  private async _loadShortcut(id: string) {
+    if (!id || id === this._lastLoadedShortcut) return;
+    this._lastLoadedShortcut = id;
+    this._loading = true;
+    try {
+      const graphConfigs = await DataService.getInstance().getShortcut(id);
+      if (graphConfigs && graphConfigs.length > 0) {
+        const queries: Record<string, string[]>[] = [];
+        for (const config of graphConfigs) {
+          if (config.queries && config.queries.length > 0) {
+            for (const q of config.queries) {
+              queries.push(toParamSet(q));
+            }
+          }
+        }
+        if (queries.length > 0) {
+          this._lastQueriesJson = JSON.stringify(queries);
+          this._queries = queries;
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load shortcut:', e);
+    } finally {
+      this._loading = false;
+    }
+  }
+
+  private async _updateShortcut() {
+    if ((window as any).perf && (window as any).perf.disable_shortcut_update) {
+      return;
+    }
+    const currentJson = JSON.stringify(this._queries);
+    if (currentJson === this._lastQueriesJson) {
+      return;
+    }
+    this._lastQueriesJson = currentJson;
+
+    const graphConfigs = this._queries
+      .filter((q) => Object.keys(q).length > 0)
+      .map((q) => {
+        const config = new GraphConfig();
+        config.queries = [fromParamSet(q)];
+        return config;
+      });
+
+    if (graphConfigs.length === 0) {
+      if (this._shortcut !== '') {
+        this._shortcut = '';
+        this._stateHasChanged();
+      }
+      return;
+    }
+
+    try {
+      const id = await updateShortcut(graphConfigs);
+      if (id && id !== this._shortcut) {
+        this._shortcut = id;
+        this._stateHasChanged();
+      }
+    } catch (e) {
+      console.error('Failed to update shortcut:', e);
     }
   }
 

@@ -900,4 +900,100 @@ describe('explore-multi-v2-sk', () => {
     expect(splitPill).to.not.be.undefined;
     expect(splitPill!.textContent).to.include('bot');
   });
+
+  it('loads queries from a shortcut ID', async () => {
+    const mockShortcutConfigs = [
+      { queries: ['test=A&stat=value'], formulas: [], keys: '' },
+      { queries: ['benchmark=B'], formulas: [], keys: '' },
+    ];
+    let getShortcutId = '';
+    const originalGetShortcut = DataService.prototype.getShortcut;
+    DataService.prototype.getShortcut = async (id: string) => {
+      getShortcutId = id;
+      return mockShortcutConfigs as any;
+    };
+
+    try {
+      await element['_loadShortcut']('mock-shortcut-123');
+
+      expect(getShortcutId).to.equal('mock-shortcut-123');
+      expect(element['_queries'].length).to.equal(2);
+      expect(element['_queries'][0]).to.deep.equal({ test: ['A'], stat: ['value'] });
+      expect(element['_queries'][1]).to.deep.equal({ benchmark: ['B'] });
+      expect(element['_lastLoadedShortcut']).to.equal('mock-shortcut-123');
+    } finally {
+      DataService.prototype.getShortcut = originalGetShortcut;
+    }
+  });
+
+  it('updates the shortcut ID in state and URL when queries change', async () => {
+    const originalUpdateShortcut = DataService.prototype.updateShortcut;
+    let updateConfigs: any = null;
+    DataService.prototype.updateShortcut = async (configs: any) => {
+      updateConfigs = configs;
+      return 'new-shortcut-id-456';
+    };
+
+    try {
+      element['_queries'] = [{ test: ['X'] }];
+      await element['_updateShortcut']();
+
+      expect(updateConfigs).to.not.be.null;
+      expect(updateConfigs.length).to.equal(1);
+      expect(updateConfigs[0].queries).to.deep.equal(['test=X']);
+      expect(element['_shortcut']).to.equal('new-shortcut-id-456');
+
+      const url = new URL(window.location.href);
+      expect(url.searchParams.get('shortcut')).to.equal('new-shortcut-id-456');
+    } finally {
+      DataService.prototype.updateShortcut = originalUpdateShortcut;
+    }
+  });
+
+  it('clears shortcut ID from state and URL when queries are emptied', async () => {
+    const originalUpdateShortcut = DataService.prototype.updateShortcut;
+    let updateCalled = false;
+    DataService.prototype.updateShortcut = async () => {
+      updateCalled = true;
+      return 'test-id';
+    };
+
+    try {
+      // Start with a valid query and shortcut
+      element['_queries'] = [{ test: ['Z'] }];
+      element['_shortcut'] = 'some-existing-id';
+      element['_lastQueriesJson'] = JSON.stringify([{ test: ['Z'] }]);
+
+      // Now clear the query
+      element['_queries'] = [{}];
+      await element['_updateShortcut']();
+
+      expect(updateCalled).to.be.false; // Should not call updateShortcut when empty
+      expect(element['_shortcut']).to.equal('');
+
+      const url = new URL(window.location.href);
+      expect(url.searchParams.get('shortcut')).to.be.null;
+    } finally {
+      DataService.prototype.updateShortcut = originalUpdateShortcut;
+    }
+  });
+
+  it('handles network errors when loading a shortcut gracefully', async () => {
+    const originalGetShortcut = DataService.prototype.getShortcut;
+    DataService.prototype.getShortcut = async () => {
+      throw new Error('Network failure');
+    };
+
+    try {
+      element['_queries'] = [{ existing: ['true'] }];
+      element['_lastLoadedShortcut'] = '';
+
+      await element['_loadShortcut']('bad-shortcut-id');
+
+      // Queries should remain unchanged from the existing queries
+      expect(element['_queries']).to.deep.equal([{ existing: ['true'] }]);
+    } finally {
+      DataService.prototype.getShortcut = originalGetShortcut;
+    }
+  });
 });

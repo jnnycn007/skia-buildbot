@@ -230,4 +230,40 @@ describe('explore-multi-v2-sk', () => {
     queryBarCount = await exploreMultiV2SkPO.getQueryBarCount();
     expect(queryBarCount).to.equal(2);
   });
+
+  it('should load queries from a shortcut in the URL', async () => {
+    const page = testBed.page;
+
+    // Mock /_/shortcut/get to return our graph configs
+    await page.evaluate(() => {
+      (window as any).fetchMock.post(
+        '/_/shortcut/get',
+        {
+          graphs: [{ queries: ['test=A&stat=value'], formulas: [], keys: '' }],
+        },
+        { overwriteRoutes: true }
+      );
+    });
+
+    // Load the shortcut directly instead of full page navigation
+    await page.evaluate(async () => {
+      const explore = document.querySelector('explore-multi-v2-sk') as any;
+      await explore._loadShortcut('test-shortcut-id');
+    });
+
+    // Wait for the query-bar-sk element to be updated with the loaded queries
+    await page.waitForFunction(() => {
+      const explore = document.querySelector('explore-multi-v2-sk') as any;
+      const queryBar = explore?.shadowRoot?.querySelector('query-bar-sk') as any;
+      return queryBar && queryBar.query && Object.keys(queryBar.query).length > 0;
+    });
+
+    const query = await page.evaluate(() => {
+      const explore = document.querySelector('explore-multi-v2-sk') as any;
+      const queryBar = explore.shadowRoot.querySelector('query-bar-sk') as any;
+      return queryBar.query;
+    });
+
+    expect(query).to.deep.equal({ test: ['A'], stat: ['value'] });
+  });
 });
