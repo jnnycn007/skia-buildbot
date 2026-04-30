@@ -567,21 +567,6 @@ export class ExploreMultiV2Sk extends LitElement {
         if (this._queries.length === 1 && Object.keys(this._queries[0]).length === 0) {
           this._queries = [{ ...this._defaultParamSelections }];
         }
-
-        // Apply URL defaults
-        if (defaults.default_url_values) {
-          const url = new URL(window.location.href);
-          let urlChanged = false;
-          for (const key of Object.keys(defaults.default_url_values)) {
-            if (!url.searchParams.has(key)) {
-              url.searchParams.set(key, defaults.default_url_values[key]);
-              urlChanged = true;
-            }
-          }
-          if (urlChanged) {
-            window.history.replaceState(null, '', url.toString());
-          }
-        }
       } catch (e) {
         console.error('Failed to fetch defaults:', e);
       }
