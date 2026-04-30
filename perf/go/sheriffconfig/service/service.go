@@ -301,7 +301,7 @@ func (s *sheriffconfigService) ImportSheriffConfig(ctx context.Context, path str
 	if err != nil {
 		return skerr.Wrap(err)
 	}
-	sklog.Infof("Imported %d subscriptions and %d alerts.", len(subscriptions), len(saveRequests))
+	sklog.Infof("Imported %d changed subscriptions and %d changed alerts.", len(subscriptions), len(saveRequests))
 	return nil
 }
 
@@ -321,6 +321,7 @@ func (s *sheriffconfigService) processConfig(ctx context.Context, config *lucico
 	saveRequests := []*alerts.SaveRequest{}
 
 	instanceSubCount := 0
+	totalAlertsCount := 0
 
 	// Prepare subscription and alert data
 	for _, subscription := range sheriffconfig.Subscriptions {
@@ -328,6 +329,9 @@ func (s *sheriffconfigService) processConfig(ctx context.Context, config *lucico
 			continue
 		}
 		instanceSubCount++
+		for _, anomalyConfig := range subscription.AnomalyConfigs {
+			totalAlertsCount += len(anomalyConfig.Rules.Match)
+		}
 
 		subscriptionEntity := makeSubscriptionEntity(subscription, config.Revision)
 
@@ -348,7 +352,10 @@ func (s *sheriffconfigService) processConfig(ctx context.Context, config *lucico
 		}
 	}
 
-	sklog.Infof("Found %d subs for this instance (%s)", instanceSubCount, s.instance)
+	unchangedSubs := instanceSubCount - len(subscriptionEntities)
+	unchangedAlerts := totalAlertsCount - len(saveRequests)
+	sklog.Infof("Found %d subscriptions with %d alerts for this instance (%s), %d/%d subscriptions and %d/%d alerts unchanged",
+		instanceSubCount, totalAlertsCount, s.instance, unchangedSubs, instanceSubCount, unchangedAlerts, totalAlertsCount)
 
 	return subscriptionEntities, saveRequests, nil
 }
