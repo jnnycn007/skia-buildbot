@@ -45,6 +45,11 @@
       "issue_tracker_api_key_secret_project": "skia-infra-public",
       "issue_tracker_api_key_secret_name": "perf-issue-tracker-apikey"
     },
+    "maintenance_config": {
+      "gitiles_repo_url": "https://chrome-internal.googlesource.com/infra/infra_internal",
+      "sheriff_config_path": "infra/config/generated/skia-sheriff-configs.cfg",
+      "fallback_to_lucicfg": true
+    },
     "git_repo_config": {
       "provider": "gitiles",
       "url": "https://turquoise-internal.googlesource.com/integration/",

@@ -57,6 +57,11 @@
         "branches": [],
         "file_ingestion_pubsub_topic_name": "perf-cluster-chrome-non-public-autopush"
     },
+    "maintenance_config": {
+        "gitiles_repo_url": "https://chrome-internal.googlesource.com/infra/infra_internal",
+        "sheriff_config_path": "infra/config/generated/skia-sheriff-configs.cfg",
+        "fallback_to_lucicfg": true
+    },
     "git_repo_config": {
         "provider": "gitiles",
         "url": "https://chromium.googlesource.com/chromium/src",
