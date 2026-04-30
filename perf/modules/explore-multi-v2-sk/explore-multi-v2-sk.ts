@@ -105,6 +105,8 @@ export class ExploreMultiV2Sk extends LitElement {
 
   @state() private _showSparklines = false;
 
+  @state() private _evenXAxisSpacing = false;
+
   @state() private _showMinMax = true;
 
   @state() private _showStd = false;
@@ -168,6 +170,7 @@ export class ExploreMultiV2Sk extends LitElement {
           regressions: this._showRegressions,
           tooltipDiffs: this._tooltipDiffs,
           loadedBounds: this._showLoadedBounds,
+          evenXAxisSpacing: this._evenXAxisSpacing,
         };
       },
       (o: any) => {
@@ -218,6 +221,8 @@ export class ExploreMultiV2Sk extends LitElement {
         if (stateObj.regressions !== undefined) this._showRegressions = stateObj.regressions;
         if (stateObj.tooltipDiffs !== undefined) this._tooltipDiffs = stateObj.tooltipDiffs;
         if (stateObj.loadedBounds !== undefined) this._showLoadedBounds = stateObj.loadedBounds;
+        if (stateObj.evenXAxisSpacing !== undefined)
+          this._evenXAxisSpacing = stateObj.evenXAxisSpacing;
       }
     );
 
@@ -630,7 +635,8 @@ export class ExploreMultiV2Sk extends LitElement {
       changedProperties.has('_showCount') ||
       changedProperties.has('_showRegressions') ||
       changedProperties.has('_tooltipDiffs') ||
-      changedProperties.has('_showLoadedBounds')
+      changedProperties.has('_showLoadedBounds') ||
+      changedProperties.has('_evenXAxisSpacing')
     ) {
       this._stateHasChanged();
     }
@@ -1584,6 +1590,7 @@ export class ExploreMultiV2Sk extends LitElement {
           .showDots=${this._showDots}
           .showSparklines=${this._showSparklines}
           .showMinMax=${this._showMinMax}
+          .evenXAxisSpacing=${this._evenXAxisSpacing}
           .showStd=${this._showStd}
           .showCount=${this._showCount}
           .showRegressions=${this._showRegressions}
@@ -1627,6 +1634,7 @@ export class ExploreMultiV2Sk extends LitElement {
                 .edgeLookahead=${this._edgeLookahead}
                 .showDots=${this._showDots}
                 .showVariance=${this._showMinMax}
+                .evenXAxisSpacing=${this._evenXAxisSpacing}
                 .showStd=${this._showStd}
                 .showCount=${this._showCount}
                 .viewportMinX=${this._viewportMinX}

@@ -258,4 +258,228 @@ describe('trace-chart-sk', () => {
       ctx.fillText = oldFillText;
     }
   });
+
+  it('spaces X axis evenly when evenXAxisSpacing is enabled', async () => {
+    element.evenXAxisSpacing = true;
+    element.series = [
+      {
+        id: 'test',
+        color: '#fff',
+        rows: [
+          { commit_number: 10, val: 1, createdat: 1000 },
+          { commit_number: 20, val: 2, createdat: 2000 },
+          { commit_number: 100, val: 3, createdat: 3000 },
+        ],
+      },
+    ];
+    await element.updateComplete;
+
+    const canvas = element.shadowRoot!.querySelector('#chart-canvas') as HTMLCanvasElement;
+    canvas.getBoundingClientRect = () => ({ left: 0, top: 0, width: 1000, height: 400 }) as DOMRect;
+
+    const mapping = (element as any)['_getChartBoundsAndMapping'](canvas.getBoundingClientRect());
+
+    const x1 = mapping.mapX(10);
+    const x2 = mapping.mapX(20);
+    const x3 = mapping.mapX(100);
+
+    const diff1 = x2 - x1;
+    const diff2 = x3 - x2;
+
+    expect(Math.abs(diff1 - diff2)).to.be.below(1);
+  });
+
+  it('generates X axis ticks at indices when evenXAxisSpacing is enabled', async () => {
+    element.evenXAxisSpacing = true;
+    element.series = [
+      {
+        id: 'test',
+        color: '#fff',
+        rows: [
+          { commit_number: 10, val: 1, createdat: 1000 },
+          { commit_number: 20, val: 2, createdat: 2000 },
+          { commit_number: 100, val: 3, createdat: 3000 },
+        ],
+      },
+    ];
+    await element.updateComplete;
+
+    const canvas = element.shadowRoot!.querySelector('#chart-canvas') as HTMLCanvasElement;
+    const ctx = canvas.getContext('2d')!;
+    const oldFillText = ctx.fillText;
+    const texts: string[] = [];
+    ctx.fillText = function (text: string, x: number, y: number) {
+      texts.push(text);
+      oldFillText.call(this, text, x, y);
+    };
+
+    try {
+      (element as any)['_drawBackground']();
+
+      expect(texts).to.include('10');
+      expect(texts).to.include('20');
+      expect(texts).to.include('100');
+      expect(texts).to.not.include('55');
+    } finally {
+      ctx.fillText = oldFillText;
+    }
+  });
+
+  it('zooms correctly in even spacing mode when bounds are not exact matches', async () => {
+    element.evenXAxisSpacing = true;
+    element.series = [
+      {
+        id: 'test',
+        color: '#fff',
+        rows: [
+          { commit_number: 10, val: 1, createdat: 1000 },
+          { commit_number: 20, val: 2, createdat: 2000 },
+          { commit_number: 100, val: 3, createdat: 3000 },
+        ],
+      },
+    ];
+    await element.updateComplete;
+
+    // Set viewport bounds that are not exact matches
+    element.viewportMinX = 15;
+    element.viewportMaxX = 50;
+    await element.updateComplete;
+
+    const canvas = element.shadowRoot!.querySelector('#chart-canvas') as HTMLCanvasElement;
+    canvas.getBoundingClientRect = () => ({ left: 0, top: 0, width: 1000, height: 400 }) as DOMRect;
+
+    const mapping = (element as any)['_getChartBoundsAndMapping'](canvas.getBoundingClientRect());
+
+    // With continuous virtual indices:
+    // 15 -> idx 0.5
+    // 50 -> idx 1.375
+    // Range = 0.875
+    // Point 20 (idx 1) is at (1 - 0.5) / 0.875 = 57.14% of width.
+
+    expect(mapping.mapX(20)).to.be.closeTo(591.4, 0.1);
+  });
+
+  it('maintains constant spacing during panning in even spacing mode', async () => {
+    element.evenXAxisSpacing = true;
+    element.series = [
+      {
+        id: 'test',
+        color: '#fff',
+        rows: [
+          { commit_number: 10, val: 1, createdat: 1000 },
+          { commit_number: 20, val: 2, createdat: 2000 },
+          { commit_number: 30, val: 3, createdat: 2500 },
+          { commit_number: 100, val: 4, createdat: 3000 },
+        ],
+      },
+    ];
+    await element.updateComplete;
+
+    const canvas = element.shadowRoot!.querySelector('#chart-canvas') as HTMLCanvasElement;
+    canvas.getBoundingClientRect = () => ({ left: 0, top: 0, width: 1000, height: 400 }) as DOMRect;
+
+    const mapping1 = (element as any)['_getChartBoundsAndMapping'](canvas.getBoundingClientRect());
+    const spacing1 = mapping1.mapX(30) - mapping1.mapX(20);
+
+    (element as any)['_dragCtx'] = {
+      isDragging: true,
+      dragStartX: 500,
+      dragStartY: 200,
+      isCtrl: false,
+      isShift: false,
+    };
+
+    const moveEvent = new PointerEvent('pointermove', { clientX: 444, clientY: 200 });
+    (element as any)['_handlePointerMove'](moveEvent);
+    await element.updateComplete;
+
+    const mapping2 = (element as any)['_getChartBoundsAndMapping'](canvas.getBoundingClientRect());
+    const spacing2 = mapping2.mapX(30) - mapping2.mapX(20);
+
+    expect(spacing2).to.equal(spacing1);
+  });
+
+  it('aligns multiple traces correctly in even spacing mode', async () => {
+    element.evenXAxisSpacing = true;
+    element.series = [
+      {
+        id: 'traceA',
+        color: '#fff',
+        rows: [
+          { commit_number: 10, val: 1, createdat: 1000 },
+          { commit_number: 20, val: 2, createdat: 2000 },
+        ],
+      },
+      {
+        id: 'traceB',
+        color: '#000',
+        rows: [
+          { commit_number: 10, val: 3, createdat: 1000 },
+          { commit_number: 30, val: 4, createdat: 3000 },
+        ],
+      },
+    ];
+    await element.updateComplete;
+
+    const canvas = element.shadowRoot!.querySelector('#chart-canvas') as HTMLCanvasElement;
+    canvas.getBoundingClientRect = () => ({ left: 0, top: 0, width: 1000, height: 400 }) as DOMRect;
+
+    const mapping = (element as any)['_getChartBoundsAndMapping'](canvas.getBoundingClientRect());
+
+    const x10_A = mapping.mapX(10);
+    const x20_A = mapping.mapX(20);
+    const x10_B = mapping.mapX(10);
+    const x30_B = mapping.mapX(30);
+
+    expect(x10_A).to.equal(x10_B);
+
+    const diff1 = x20_A - x10_A;
+    const diff2 = x30_B - x20_A;
+
+    expect(Math.abs(diff1 - diff2)).to.be.below(1);
+  });
+
+  it('does not expand points when panning beyond edges in even spacing mode', async () => {
+    element.evenXAxisSpacing = true;
+    element.series = [
+      {
+        id: 'test',
+        color: '#fff',
+        rows: [
+          { commit_number: 10, val: 1, createdat: 1000 },
+          { commit_number: 20, val: 2, createdat: 2000 },
+          { commit_number: 30, val: 3, createdat: 2500 },
+          { commit_number: 100, val: 4, createdat: 3000 },
+        ],
+      },
+    ];
+    await element.updateComplete;
+
+    element.viewportMinX = 20;
+    element.viewportMaxX = 100;
+    await element.updateComplete;
+
+    const canvas = element.shadowRoot!.querySelector('#chart-canvas') as HTMLCanvasElement;
+    canvas.getBoundingClientRect = () => ({ left: 0, top: 0, width: 1000, height: 400 }) as DOMRect;
+
+    const mapping1 = (element as any)['_getChartBoundsAndMapping'](canvas.getBoundingClientRect());
+    const spacing1 = mapping1.mapX(30) - mapping1.mapX(20);
+
+    (element as any)['_dragCtx'] = {
+      isDragging: true,
+      dragStartX: 500,
+      dragStartY: 200,
+      isCtrl: false,
+      isShift: false,
+    };
+
+    const moveEvent = new PointerEvent('pointermove', { clientX: 250, clientY: 200 });
+    (element as any)['_handlePointerMove'](moveEvent);
+    await element.updateComplete;
+
+    const mapping2 = (element as any)['_getChartBoundsAndMapping'](canvas.getBoundingClientRect());
+    const spacing2 = mapping2.mapX(30) - mapping2.mapX(20);
+
+    expect(spacing2).to.equal(spacing1);
+  });
 });

@@ -35,6 +35,8 @@ export class ExploreToolbarSk extends LitElement {
 
   @property({ type: Boolean }) dateMode = false;
 
+  @property({ type: Boolean }) evenXAxisSpacing = false;
+
   @property({ type: String }) hoverMode = 'original';
 
   @property({ type: Number }) smoothingRadius = 20;
@@ -258,6 +260,15 @@ export class ExploreToolbarSk extends LitElement {
               @change=${(e: any) => this._emitChange('dateMode', e.target.checked)} />
             <span class="checkmark"></span>
             Date Mode
+          </label>
+
+          <label class="custom-checkbox">
+            <input
+              type="checkbox"
+              .checked=${this.evenXAxisSpacing}
+              @change=${(e: any) => this._emitChange('evenXAxisSpacing', e.target.checked)} />
+            <span class="checkmark"></span>
+            Even X-Axis Spacing
           </label>
 
           <label class="custom-checkbox">

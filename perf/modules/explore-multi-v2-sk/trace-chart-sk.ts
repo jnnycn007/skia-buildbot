@@ -32,6 +32,38 @@ export interface ProcessedTraceSeries extends TraceSeries {
   parsedColor: { r: number; g: number; b: number };
 }
 
+// Returns a fractional index representing the value's relative position between two actual indices.
+// For example, if val is halfway between arr[i] and arr[i+1], it returns i + 0.5.
+function getVirtualIndex(arr: number[], val: number): number {
+  if (arr.length === 0) return 0;
+  if (val <= arr[0]) return 0;
+  if (val >= arr[arr.length - 1]) return arr.length - 1;
+
+  let low = 0;
+  let high = arr.length - 1;
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    if (arr[mid] === val) return mid;
+    if (arr[mid] < val) low = mid + 1;
+    else high = mid - 1;
+  }
+  // low is guaranteed to be at least 1 here as we already handled the case where val <= arr[0].
+  // Thus, i will be at least 0.
+  const i = low - 1;
+  const frac = (val - arr[i]) / (arr[i + 1] - arr[i]);
+  return i + frac;
+}
+
+function getXFromVirtualIndex(arr: number[], vIdx: number): number {
+  if (arr.length === 0) return 0;
+  if (vIdx <= 0) return arr[0];
+  if (vIdx >= arr.length - 1) return arr[arr.length - 1];
+
+  const i = Math.floor(vIdx);
+  const frac = vIdx - i;
+  return arr[i] + frac * (arr[i + 1] - arr[i]);
+}
+
 @customElement('trace-chart-sk')
 export class TraceChartSk extends LitElement {
   @property({ type: String }) title = '';
@@ -39,6 +71,8 @@ export class TraceChartSk extends LitElement {
   @property({ type: Number }) canvasHeight = 250;
 
   @property({ type: String }) yAxisLabel = 'score';
+
+  @property({ type: Boolean }) evenXAxisSpacing = false;
 
   @property({ type: Array, attribute: false }) series: TraceSeries[] = [];
 
@@ -88,6 +122,10 @@ export class TraceChartSk extends LitElement {
   @state() private _diffNamesMap: Map<string, string> = new Map();
 
   private _canvasWidth: number = 0;
+
+  private _xValueToIndex: Map<number, number> = new Map();
+
+  private _sortedXValues: number[] = [];
 
   @property({ type: String }) selectedSubrepo: string = 'none';
 
@@ -193,6 +231,18 @@ export class TraceChartSk extends LitElement {
 
     if (changedProperties.has('series') || changedProperties.has('selectedSubrepo')) {
       this._subrepoRolls = this._computeSubrepoRolls();
+    }
+
+    if (changedProperties.has('series') || changedProperties.has('dateMode')) {
+      const uniqueXValues = new Set<number>();
+      this.series.forEach((s) => {
+        s.rows.forEach((r) => {
+          uniqueXValues.add(this._xAccessor(r));
+        });
+      });
+      this._sortedXValues = Array.from(uniqueXValues).sort((a, b) => a - b);
+      this._xValueToIndex = new Map<number, number>();
+      this._sortedXValues.forEach((val, idx) => this._xValueToIndex.set(val, idx));
     }
 
     if (
@@ -342,7 +392,8 @@ export class TraceChartSk extends LitElement {
       changedProperties.has('showVariance') ||
       changedProperties.has('showStd') ||
       changedProperties.has('showCount') ||
-      changedProperties.has('selectedSubrepo')
+      changedProperties.has('selectedSubrepo') ||
+      changedProperties.has('evenXAxisSpacing')
     ) {
       needsBackgroundRedraw = true;
     }
@@ -585,12 +636,43 @@ export class TraceChartSk extends LitElement {
       // X Axis
       ctx.textBaseline = 'top';
 
-      const numTicks = 6;
-      for (let i = 0; i < numTicks; i++) {
-        const val = minX + ((maxX - minX) * i) / (numTicks - 1);
-        const x = mapX(val);
+      const numTicks =
+        this.evenXAxisSpacing && this._sortedXValues.length > 0
+          ? Math.min(6, this._sortedXValues.length)
+          : 6;
 
-        const ts = minTimestamp + ((maxTimestamp - minTimestamp) * i) / (numTicks - 1);
+      const minIdx =
+        this.evenXAxisSpacing && this._sortedXValues.length > 0
+          ? this._xValueToIndex.get(minX) ?? 0
+          : 0;
+      const maxIdx =
+        this.evenXAxisSpacing && this._sortedXValues.length > 0
+          ? this._xValueToIndex.get(maxX) ?? this._sortedXValues.length - 1
+          : 0;
+
+      for (let i = 0; i < numTicks; i++) {
+        let val: number;
+        let x: number;
+        let ts: number;
+
+        if (this.evenXAxisSpacing && this._sortedXValues.length > 0) {
+          const idx = Math.round(minIdx + ((maxIdx - minIdx) * i) / (numTicks - 1));
+          val = this._sortedXValues[idx];
+          x = mapX(val);
+          ts = minTimestamp + ((maxTimestamp - minTimestamp) * i) / (numTicks - 1); // Fallback
+          for (const s of this._processedSeries) {
+            const r = s.rows.find((row) => this._xAccessor(row) === val);
+            if (r) {
+              ts = r.createdat;
+              break;
+            }
+          }
+        } else {
+          val = minX + ((maxX - minX) * i) / (numTicks - 1);
+          x = mapX(val);
+          ts = minTimestamp + ((maxTimestamp - minTimestamp) * i) / (numTicks - 1);
+        }
+
         const label = this.dateMode
           ? this._formatDate(ts) || Math.round(val).toString()
           : Math.round(val).toString();
@@ -1222,13 +1304,36 @@ export class TraceChartSk extends LitElement {
       : { top: 10, right: 10, bottom: 32, left: computeLeftPadding(maxY, minY) };
     const graphWidth = rect.width - padding.left - padding.right;
     const graphHeight = rect.height - padding.top - padding.bottom;
-    const xRange = displayMaxX - displayMinX || 1;
     const yRange = maxY - minY || 1;
 
-    const mapX = (val: number) => padding.left + ((val - displayMinX) / xRange) * graphWidth;
+    let mapX: (val: number) => number;
+    let unmapX: (px: number) => number;
+    let xRange: number;
+
+    if (this.evenXAxisSpacing && this._sortedXValues.length > 0) {
+      const minIdx = getVirtualIndex(this._sortedXValues, displayMinX);
+      const maxIdx = getVirtualIndex(this._sortedXValues, displayMaxX);
+      xRange = maxIdx - minIdx || 1;
+
+      mapX = (val: number) => {
+        const idx = this._xValueToIndex.get(val);
+        if (idx === undefined) return padding.left;
+        return padding.left + ((idx - minIdx) / xRange) * graphWidth;
+      };
+
+      unmapX = (px: number) => {
+        const idx = Math.round(minIdx + ((px - padding.left) / graphWidth) * xRange);
+        const clampedIdx = Math.max(0, Math.min(idx, this._sortedXValues.length - 1));
+        return this._sortedXValues[clampedIdx];
+      };
+    } else {
+      xRange = displayMaxX - displayMinX || 1;
+      mapX = (val: number) => padding.left + ((val - displayMinX) / xRange) * graphWidth;
+      unmapX = (px: number) => displayMinX + ((px - padding.left) / graphWidth) * xRange;
+    }
+
     const mapY = (val: number) => padding.top + graphHeight - ((val - minY) / yRange) * graphHeight;
     const unmapY = (py: number) => minY + ((padding.top + graphHeight - py) / graphHeight) * yRange;
-    const unmapX = (px: number) => displayMinX + ((px - padding.left) / graphWidth) * xRange;
 
     return {
       padding,
@@ -1385,10 +1490,27 @@ export class TraceChartSk extends LitElement {
         this._drawForeground();
       } else {
         const dx = mouseX - this._dragCtx.dragStartX;
-        const dataXOffset = (dx / mapping.graphWidth) * (mapping.maxX - mapping.minX);
 
-        this._viewportMinX = mapping.minX - dataXOffset;
-        this._viewportMaxX = mapping.maxX - dataXOffset;
+        if (this.evenXAxisSpacing && this._sortedXValues.length > 0) {
+          const vMinIdx = getVirtualIndex(this._sortedXValues, mapping.minX);
+          const vMaxIdx = getVirtualIndex(this._sortedXValues, mapping.maxX);
+          const vIdxRange = vMaxIdx - vMinIdx;
+          let vIdxOffset = (dx / mapping.graphWidth) * vIdxRange;
+
+          if (vMinIdx - vIdxOffset < 0) {
+            vIdxOffset = vMinIdx;
+          }
+          if (vMaxIdx - vIdxOffset > this._sortedXValues.length - 1) {
+            vIdxOffset = vMaxIdx - (this._sortedXValues.length - 1);
+          }
+
+          this._viewportMinX = getXFromVirtualIndex(this._sortedXValues, vMinIdx - vIdxOffset);
+          this._viewportMaxX = getXFromVirtualIndex(this._sortedXValues, vMaxIdx - vIdxOffset);
+        } else {
+          const dataXOffset = (dx / mapping.graphWidth) * (mapping.maxX - mapping.minX);
+          this._viewportMinX = mapping.minX - dataXOffset;
+          this._viewportMaxX = mapping.maxX - dataXOffset;
+        }
 
         this._dragCtx.dragStartX = mouseX;
         this._dragCtx.dragStartY = mouseY;
