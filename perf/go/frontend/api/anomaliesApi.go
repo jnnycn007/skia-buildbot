@@ -263,6 +263,9 @@ func (api anomaliesApi) GetAnomalyListLegacy(w http.ResponseWriter, r *http.Requ
 	currentHost := query_values.Get("host")
 	query_values.Set("host", getOverrideNonProdHost(currentHost))
 	query_values.Set("max_anomalies_to_show", "5000")
+	if query_values.Get("triaged") == "true" || query_values.Get("improvements") == "true" {
+		query_values.Set("max_anomalies_to_show", "500")
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 
