@@ -66,6 +66,9 @@ type Store interface {
 	// GetRegression returns the regression info at the given commit for specific alert.
 	GetRegression(ctx context.Context, commitNumber types.CommitNumber, alertID string) (*Regression, error)
 
+	// GetRegressionsBefore returns up to limit regressions for the given trace before or at the commit.
+	GetRegressionsBefore(ctx context.Context, traceName string, commit types.CommitNumber, limit int) ([]*Regression, error)
+
 	// DeleteByCommit deletes a regression from the Regression table via the CommitNumber.
 	// Use with caution.
 	DeleteByCommit(ctx context.Context, commitNumber types.CommitNumber, tx pgx.Tx) error

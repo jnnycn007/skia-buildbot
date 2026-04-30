@@ -245,6 +245,31 @@ func CalcCohenStep(y0, y1, s1, s2 float32, n1, n2 int, stddevThreshold float32) 
 	return stepSize, stepSize
 }
 
+// CalcValidCohenStep calculates step size and regression for Cohen's d effect size.
+// It uses the pooled standard deviation.
+// https://en.wikipedia.org/wiki/Effect_size#Cohen's_d
+func CalcValidCohenStep(y0, y1, s1, s2 float32, n1, n2 int, stddevThreshold float32) (float32, float32) {
+	if n1+n2 < 3 {
+		return 0, 0
+	}
+
+	var s_p float32
+	denominator := float32(n1 + n2 - 2)
+	if denominator > 0 {
+		s_p = float32(math.Sqrt(float64(((float32(n1-1)*s1*s1 + float32(n2-1)*s2*s2) / denominator))))
+	} else {
+		s_p = (s1 + s2) / 2.0
+	}
+
+	var stepSize float32
+	if math.IsNaN(float64(s_p)) || s_p < stddevThreshold {
+		stepSize = (y0 - y1) / stddevThreshold
+	} else {
+		stepSize = (y0 - y1) / s_p
+	}
+	return stepSize, stepSize
+}
+
 // CalcMannWhitneyStep calculates step size, regression (p-value), and LSE (U-statistic) for MannWhitneyU detection.
 func CalcMannWhitneyStep(y0, y1 float32, sample1, sample2 []float64) (float32, float32, float32, error) {
 	mwResults, err := stats.MannWhitneyUTest(sample1, sample2, stats.LocationDiffers)

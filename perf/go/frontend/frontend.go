@@ -767,7 +767,9 @@ func (f *Frontend) initialize() {
 	paramsProvider := newParamsetProvider(f.paramsetRefresher)
 
 	var regressionRefiner regression.RegressionRefiner
-	if config.Config.AnomalyConfig.UseAnomalyLocalization {
+	if config.Config.AnomalyConfig.UseImprovedAnomalyBoundsRefiner {
+		regressionRefiner = refiner.NewImprovedAnomalyBoundsRefiner(f.anomalyStore, f.regStore, f.traceStore, f.perfGit, config.MinStdDev)
+	} else if config.Config.AnomalyConfig.UseAnomalyLocalization {
 		regressionRefiner = refiner.NewAnomalyBoundsRefiner(config.MinStdDev)
 	} else {
 		regressionRefiner = refiner.NewDefaultRegressionRefiner()

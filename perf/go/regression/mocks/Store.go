@@ -223,6 +223,36 @@ func (_m *Store) GetRegression(ctx context.Context, commitNumber types.CommitNum
 	return r0, r1
 }
 
+// GetRegressionsBefore provides a mock function with given fields: ctx, traceName, commit, limit
+func (_m *Store) GetRegressionsBefore(ctx context.Context, traceName string, commit types.CommitNumber, limit int) ([]*regression.Regression, error) {
+	ret := _m.Called(ctx, traceName, commit, limit)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetRegressionsBefore")
+	}
+
+	var r0 []*regression.Regression
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, types.CommitNumber, int) ([]*regression.Regression, error)); ok {
+		return rf(ctx, traceName, commit, limit)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, types.CommitNumber, int) []*regression.Regression); ok {
+		r0 = rf(ctx, traceName, commit, limit)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*regression.Regression)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, types.CommitNumber, int) error); ok {
+		r1 = rf(ctx, traceName, commit, limit)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetRegressionsBySubName provides a mock function with given fields: ctx, req, limit
 func (_m *Store) GetRegressionsBySubName(ctx context.Context, req regression.GetAnomalyListRequest, limit int) ([]*regression.Regression, error) {
 	ret := _m.Called(ctx, req, limit)

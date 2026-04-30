@@ -74,6 +74,8 @@ const (
 	nudgeAndReset
 	readBugsForRegressions
 	getSubscriptionsForRegressions
+	readRegressionsBefore
+	readRegressionsBeforeByTraceId
 )
 
 // statementContext provides a struct to expand sql statement templates.
@@ -185,6 +187,30 @@ var statementFormats = map[statementFormat]string{
 			commit_number >= $1
 			AND commit_number <= $2
 			AND trace_id = ANY($3)
+	`,
+	readRegressionsBefore: `
+		SELECT
+			{{ .Columns }}
+		FROM
+			Regressions2
+		WHERE
+			commit_number <= $1
+			AND (frame->'dataframe'->'traceset') ? $2
+		ORDER BY
+			commit_number DESC
+		LIMIT $3
+	`,
+	readRegressionsBeforeByTraceId: `
+		SELECT
+			{{ .Columns }}
+		FROM
+			Regressions2
+		WHERE
+			commit_number <= $1
+			AND trace_id = $2
+		ORDER BY
+			commit_number DESC
+		LIMIT $3
 	`,
 	write: `
 		INSERT INTO
@@ -608,6 +634,29 @@ func (s *SQLRegression2Store) GetByRevision(ctx context.Context, rev string) ([]
 		return nil, skerr.Wrapf(err, "failed to convert rows into regressions")
 	}
 	return regressions, nil
+}
+
+// GetRegressionsBefore returns up to limit regressions for the given trace before or at the commit.
+func (s *SQLRegression2Store) GetRegressionsBefore(ctx context.Context, traceName string, commit types.CommitNumber, limit int) ([]*regression.Regression, error) {
+	ctx, span := trace.StartSpan(ctx, "sqlregression2store.GetRegressionsBefore")
+	defer span.End()
+
+	var rows pgx.Rows
+	var err error
+
+	if s.instanceConfig.Experiments.RegressionsTraceIdField {
+		traceId := types.TraceIDForSQLInBytesFromTraceName(traceName)
+		rows, err = s.db.Query(ctx, s.statements[readRegressionsBeforeByTraceId], commit, traceId[:], limit)
+	} else {
+		rows, err = s.db.Query(ctx, s.statements[readRegressionsBefore], commit, traceName, limit)
+	}
+
+	if err != nil {
+		return nil, skerr.Wrapf(err, "Failed to read regressions before %d for trace %s", commit, traceName)
+	}
+	defer rows.Close()
+
+	return s.convertRowsIntoRegressions(rows)
 }
 
 // convertRowToRegression converts the content of the row retrieved from the database
