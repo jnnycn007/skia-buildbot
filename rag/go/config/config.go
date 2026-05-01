@@ -17,6 +17,9 @@ type ApiServerConfig struct {
 	// Ingestion configuration
 	IngestionConfig IngestionConfig `json:"ingestion_config"`
 
+	// The GCS bucket to use for index snapshots in in-memory mode.
+	GCSBucket string `json:"gcs_bucket"`
+
 	// The embedding model to use for embedding the input query.
 	QueryEmbeddingModel string `json:"query_embedding_model"`
 

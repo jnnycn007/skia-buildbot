@@ -225,5 +225,6 @@
         "webkit_data_bmp_decoder": "webkit/data/bmp_decoder",
         "webkit_data_ico_decoder": "webkit/data/ico_decoder",
         "webkit_data_test_shell_plugins": "webkit/data/test_shell/plugins"
-    }
+    },
+    "gcs_bucket": "historyrag-chrome-internal-staging"
 }

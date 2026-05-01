@@ -9,16 +9,21 @@ import (
 	"go.skia.org/infra/go/skerr"
 )
 
+type topicKey struct {
+	repository string
+	topicID    int64
+}
+
 // InMemoryTopicStore implements the TopicStore interface using an in-memory map.
 type InMemoryTopicStore struct {
 	mu     sync.RWMutex
-	topics map[int64]*Topic
+	topics map[topicKey]*Topic
 }
 
 // NewInMemoryTopicStore returns a new instance of InMemoryTopicStore.
 func NewInMemoryTopicStore() *InMemoryTopicStore {
 	return &InMemoryTopicStore{
-		topics: make(map[int64]*Topic),
+		topics: make(map[topicKey]*Topic),
 	}
 }
 
@@ -26,7 +31,7 @@ func NewInMemoryTopicStore() *InMemoryTopicStore {
 func (s *InMemoryTopicStore) WriteTopic(ctx context.Context, topic *Topic) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.topics[topic.ID] = topic
+	s.topics[topicKey{repository: topic.Repository, topicID: topic.ID}] = topic
 	return nil
 }
 
@@ -34,9 +39,9 @@ func (s *InMemoryTopicStore) WriteTopic(ctx context.Context, topic *Topic) error
 func (s *InMemoryTopicStore) ReadTopic(ctx context.Context, topicID int64, repository string) (*Topic, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	topic, ok := s.topics[topicID]
+	topic, ok := s.topics[topicKey{repository: repository, topicID: topicID}]
 	if !ok {
-		return nil, skerr.Fmt("Topic %d not found", topicID)
+		return nil, skerr.Fmt("Topic %d not found in repository %s", topicID, repository)
 	}
 	return topic, nil
 }
@@ -73,13 +78,14 @@ func (s *InMemoryTopicStore) SearchTopics(ctx context.Context, queryEmbedding []
 	})
 
 	var ret []*FoundTopic
-	topicMap := make(map[int64]*FoundTopic)
+	topicMap := make(map[topicKey]*FoundTopic)
 	for _, cd := range allChunks {
-		if len(ret) >= topicCount && topicMap[cd.topic.ID] == nil {
+		key := topicKey{repository: cd.topic.Repository, topicID: cd.topic.ID}
+		if len(ret) >= topicCount && topicMap[key] == nil {
 			continue
 		}
 
-		ft, ok := topicMap[cd.topic.ID]
+		ft, ok := topicMap[key]
 		if !ok {
 			if len(ret) >= topicCount {
 				continue
@@ -91,7 +97,7 @@ func (s *InMemoryTopicStore) SearchTopics(ctx context.Context, queryEmbedding []
 				Distance:   cd.distance,
 				Summary:    cd.topic.Summary,
 			}
-			topicMap[cd.topic.ID] = ft
+			topicMap[key] = ft
 			ret = append(ret, ft)
 		}
 		ft.Chunks = append(ft.Chunks, cd.chunk)

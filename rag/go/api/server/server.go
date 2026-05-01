@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"path/filepath"
+	"time"
 
 	"cloud.google.com/go/spanner"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
@@ -14,9 +15,12 @@ import (
 	"go.skia.org/infra/go/cleanup"
 	"go.skia.org/infra/go/httputils"
 	"go.skia.org/infra/go/metrics2"
+	"go.skia.org/infra/go/skerr"
 	"go.skia.org/infra/go/sklog"
 	"go.skia.org/infra/rag/go/api/services/history"
 	"go.skia.org/infra/rag/go/config"
+	ingestHistory "go.skia.org/infra/rag/go/ingest/history"
+	"go.skia.org/infra/rag/go/topicstore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
@@ -37,13 +41,15 @@ type Service interface {
 
 // ApiServerFlags defines the commandline flags to start the api server.
 type ApiServerFlags struct {
-	ConfigFilename string
-	GrpcPort       string
-	HttpPort       string
-	PromPort       string
-	Services       cli.StringSlice
-	Local          bool
-	ResourcesDir   string
+	ConfigFilename   string
+	GrpcPort         string
+	HttpPort         string
+	PromPort         string
+	Services         cli.StringSlice
+	Local            bool
+	ResourcesDir     string
+	UseInMemoryStore bool
+	IndexDate        string
 }
 
 // AsCliFlags returns a slice of cli.Flag.
@@ -90,6 +96,19 @@ func (flags *ApiServerFlags) AsCliFlags() []cli.Flag {
 			Value:       "./dist",
 			Usage:       "The directory to serve static files from.",
 		},
+
+		&cli.BoolFlag{
+			Destination: &flags.UseInMemoryStore,
+			Name:        "use_in_memory_store",
+			Value:       false,
+			Usage:       "Use in-memory topic store instead of database.",
+		},
+		&cli.StringFlag{
+			Destination: &flags.IndexDate,
+			Name:        "index_date",
+			Value:       "",
+			Usage:       "The date for the index snapshot (YYYY/MM/DD).",
+		},
 	}
 }
 
@@ -125,11 +144,14 @@ func NewApiServer(flags *ApiServerFlags) (*apiServer, error) {
 		return nil, err
 	}
 
-	// Generate the database identifier string and create the spanner client.
-	databaseName := fmt.Sprintf("projects/%s/instances/%s/databases/%s", config.SpannerConfig.ProjectID, config.SpannerConfig.InstanceID, config.SpannerConfig.DatabaseID)
-	spannerClient, err := spanner.NewClient(ctx, databaseName)
-	if err != nil {
-		return nil, err
+	var spannerClient *spanner.Client
+	if !flags.UseInMemoryStore {
+		// Generate the database identifier string and create the spanner client.
+		databaseName := fmt.Sprintf("projects/%s/instances/%s/databases/%s", config.SpannerConfig.ProjectID, config.SpannerConfig.InstanceID, config.SpannerConfig.DatabaseID)
+		spannerClient, err = spanner.NewClient(ctx, databaseName)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	dimensionality := int32(config.OutputDimensionality)
@@ -149,7 +171,7 @@ func NewApiServer(flags *ApiServerFlags) (*apiServer, error) {
 		instanceName:        config.InstanceName,
 		headerIconUrl:       config.HeaderIconUrl,
 	}
-	err = server.initialize(ctx, flags)
+	err = server.initialize(ctx, flags, config)
 	if err != nil {
 		return nil, err
 	}
@@ -158,14 +180,38 @@ func NewApiServer(flags *ApiServerFlags) (*apiServer, error) {
 }
 
 // initialize performs the init steps for the apiServer object.
-func (server *apiServer) initialize(ctx context.Context, flags *ApiServerFlags) error {
+func (server *apiServer) initialize(ctx context.Context, flags *ApiServerFlags, cfg *config.ApiServerConfig) error {
 	// Initialize metrics/
 	metrics2.InitPrometheus(flags.PromPort)
+
+	var store topicstore.TopicStore
+	// If in-memory store is requested, load it from GCS instead of using Spanner.
+	if flags.UseInMemoryStore {
+		if flags.IndexDate == "" {
+			return skerr.Fmt("--index_date is required when --use_in_memory_store is true")
+		}
+		// Normalize the date to YYYY/MM/DD format for GCS paths.
+		normalizedDate, err := normalizeDate(flags.IndexDate)
+		if err != nil {
+			return err
+		}
+		if cfg.GCSBucket == "" {
+			return skerr.Fmt("gcs_bucket must be set in config when using in-memory store")
+		}
+
+		inMemoryStore := topicstore.NewInMemoryTopicStore()
+		if err := ingestHistory.LoadInMemoryStoreFromGCS(ctx, inMemoryStore, cfg.GCSBucket, normalizedDate, cfg.DefaultRepoName, int(server.dimensionality)); err != nil {
+			return err
+		}
+		store = inMemoryStore
+	} else {
+		store = topicstore.NewRepositoryTopicStore(server.dbClient)
+	}
 
 	// Define the list of services to be hosted based on the "services" flag.
 	serviceList := []Service{}
 	var serviceMap = map[string]Service{
-		"history": history.NewApiService(ctx, server.dbClient, server.queryEmbeddingModel, server.summaryModel, server.dimensionality, server.repoPaths),
+		"history": history.NewApiService(ctx, store, server.queryEmbeddingModel, server.summaryModel, server.dimensionality, server.repoPaths),
 	}
 	for _, serviceName := range flags.Services.Value() {
 		service, ok := serviceMap[serviceName]
@@ -204,7 +250,6 @@ func (server *apiServer) initialize(ctx context.Context, flags *ApiServerFlags) 
 	}
 
 	cleanup.AtExit(server.cleanup)
-
 	return nil
 
 }
@@ -282,4 +327,22 @@ func (server *apiServer) cleanup() {
 	if server.dbClient != nil {
 		server.dbClient.Close()
 	}
+}
+
+// normalizeDate parses the date string in various formats and returns it in YYYY/MM/DD format.
+func normalizeDate(dateStr string) (string, error) {
+	layouts := []string{
+		"2006-01-02",
+		"2006/01/02",
+		"20060102",
+	}
+	var t time.Time
+	var err error
+	for _, layout := range layouts {
+		t, err = time.Parse(layout, dateStr)
+		if err == nil {
+			return t.Format("2006/01/02"), nil
+		}
+	}
+	return "", skerr.Fmt("invalid date format %q, supported formats are YYYY-MM-DD, YYYY/MM/DD, YYYYMMDD", dateStr)
 }

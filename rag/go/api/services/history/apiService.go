@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"cloud.google.com/go/spanner"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"go.opencensus.io/trace"
 	"google.golang.org/grpc"
@@ -64,7 +63,7 @@ type ApiService struct {
 }
 
 // NewApiService returns a new instance of the ApiService struct.
-func NewApiService(ctx context.Context, dbClient *spanner.Client, queryEmbeddingModel, summaryModel string, dimensionality int32, repoPaths map[string]string) *ApiService {
+func NewApiService(ctx context.Context, topicStore topicstore.TopicStore, queryEmbeddingModel, summaryModel string, dimensionality int32, repoPaths map[string]string) *ApiService {
 	var genAiClient *genai.GeminiClient
 	var err error
 	// Get the api key from the env.
@@ -93,7 +92,6 @@ func NewApiService(ctx context.Context, dbClient *spanner.Client, queryEmbedding
 		repoNames[path] = name
 	}
 
-	topicStore := topicstore.NewRepositoryTopicStore(dbClient)
 	return &ApiService{
 		topicStore:          topicStore,
 		genAiClient:         genAiClient,
@@ -127,6 +125,7 @@ func (service *ApiService) GetServiceDescriptor() grpc.ServiceDesc {
 
 // GetTopics implements the GetTopics endpoint.
 func (service *ApiService) GetTopics(ctx context.Context, req *pb.GetTopicsRequest) (*pb.GetTopicsResponse, error) {
+
 	query := req.GetQuery()
 	if query == "" {
 		return nil, skerr.Fmt("query cannot be empty.")
@@ -214,6 +213,7 @@ func (service *ApiService) GetRepositories(ctx context.Context, req *pb.GetRepos
 
 // GetTopicDetails implements the GetTopicDetails endpoint.
 func (service *ApiService) GetTopicDetails(ctx context.Context, req *pb.GetTopicDetailsRequest) (*pb.GetTopicDetailsResponse, error) {
+
 	// Get all the topic ids from the request.
 	topicIds := req.GetTopicIds()
 	if len(topicIds) == 0 {

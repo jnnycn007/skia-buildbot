@@ -96,3 +96,40 @@ func TestInMemoryTopicStore_Repository(t *testing.T) {
 	assert.Len(t, found, 1)
 	assert.Equal(t, "repo-x", found[0].Repository)
 }
+
+func TestInMemoryTopicStore_CompositeKey(t *testing.T) {
+	ctx := context.Background()
+	store := NewInMemoryTopicStore()
+
+	topic1 := &Topic{
+		ID:         1,
+		Repository: "repo-a",
+		Title:      "Topic A",
+		Chunks: []*TopicChunk{
+			{ID: 101, Chunk: "Chunk A", Embedding: []float32{1.0}},
+		},
+	}
+
+	topic2 := &Topic{
+		ID:         1,
+		Repository: "repo-b",
+		Title:      "Topic B",
+		Chunks: []*TopicChunk{
+			{ID: 101, Chunk: "Chunk B", Embedding: []float32{0.0}},
+		},
+	}
+
+	err := store.WriteTopic(ctx, topic1)
+	require.NoError(t, err)
+
+	err = store.WriteTopic(ctx, topic2)
+	require.NoError(t, err)
+
+	readTopic1, err := store.ReadTopic(ctx, 1, "repo-a")
+	require.NoError(t, err)
+	assert.Equal(t, "Topic A", readTopic1.Title)
+
+	readTopic2, err := store.ReadTopic(ctx, 1, "repo-b")
+	require.NoError(t, err)
+	assert.Equal(t, "Topic B", readTopic2.Title)
+}
