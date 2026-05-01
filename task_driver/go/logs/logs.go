@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/gob"
 	"fmt"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/bigtable"
@@ -17,6 +18,7 @@ import (
 	"golang.org/x/oauth2"
 	"google.golang.org/api/option"
 
+	"go.skia.org/infra/go/skerr"
 	"go.skia.org/infra/go/sklog"
 	"go.skia.org/infra/go/util"
 	"go.skia.org/infra/task_driver/go/td"
@@ -107,7 +109,7 @@ type LogsManager struct {
 func NewLogsManager(ctx context.Context, project, instance string, ts oauth2.TokenSource) (*LogsManager, error) {
 	client, err := bigtable.NewClient(ctx, project, instance, option.WithTokenSource(ts))
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create BigTable client: %s", err)
+		return nil, skerr.Wrapf(err, "failed to create BigTable client")
 	}
 	table := client.Open(BT_TABLE)
 	return &LogsManager{
@@ -128,7 +130,7 @@ func (m *LogsManager) Insert(ctx context.Context, e *Entry) error {
 	// Encode the log entry.
 	buf := bytes.Buffer{}
 	if err := gob.NewEncoder(&buf).Encode(e); err != nil {
-		return fmt.Errorf("Failed to gob-encode log entry: %s", err)
+		return skerr.Wrapf(err, "failed to gob-encode log entry")
 	}
 	// Insert the log entry into BigTable.
 	mt := bigtable.NewMutation()
@@ -136,7 +138,7 @@ func (m *LogsManager) Insert(ctx context.Context, e *Entry) error {
 	taskId, ok := e.Labels["taskId"]
 	if !ok {
 		// TODO(borenet): We should Ack() the message in this case.
-		return fmt.Errorf("Log entry is missing a task ID! %+v", e)
+		return skerr.Fmt("Log entry is missing a task ID! %+v", e)
 	}
 	stepId, ok := e.Labels["stepId"]
 	if !ok {
@@ -153,7 +155,9 @@ func (m *LogsManager) Insert(ctx context.Context, e *Entry) error {
 }
 
 // Search returns Entries matching the given search terms.
-func (m *LogsManager) Search(ctx context.Context, taskId, stepId, logId string) ([]*Entry, error) {
+// If limit is provided, the results are paginated: a cursor will be returned
+// which, if non-empty, can be passed to the next call to Search.
+func (m *LogsManager) Search(ctx context.Context, taskId, stepId, logId, cursor string, limit int) ([]*Entry, string, error) {
 	ctx, span := trace.StartSpan(ctx, "LogsManager_Search")
 	defer span.End()
 	prefix := rowKey(taskId, stepId, logId, time.Time{}, "")
@@ -162,7 +166,32 @@ func (m *LogsManager) Search(ctx context.Context, taskId, stepId, logId string) 
 	var decodeErr error
 	ctx, cancel := context.WithTimeout(ctx, QUERY_TIMEOUT)
 	defer cancel()
-	if err := m.table.ReadRows(ctx, bigtable.PrefixRange(prefix), func(row bigtable.Row) bool {
+
+	var rr bigtable.RowRange
+	if cursor != "" {
+		// We'll perform a prefix check in ReadRows.
+		rr = bigtable.InfiniteRange(cursor)
+	} else {
+		rr = bigtable.PrefixRange(prefix)
+	}
+
+	opts := []bigtable.ReadOption{
+		bigtable.RowFilter(bigtable.LatestNFilter(1)),
+	}
+	if limit > 0 {
+		// Fetch one more than the limit so we know the next row key
+		opts = append(opts, bigtable.LimitRows(int64(limit+1)))
+	}
+
+	nextCursor := ""
+	if err := m.table.ReadRows(ctx, rr, func(row bigtable.Row) bool {
+		if !strings.HasPrefix(row.Key(), prefix) {
+			return false
+		}
+		if limit > 0 && len(entries) == limit {
+			nextCursor = row.Key()
+			return false
+		}
 		for _, ri := range row[BT_COLUMN_FAMILY] {
 			if ri.Column == BT_COLUMN_FULL {
 				var e Entry
@@ -176,11 +205,11 @@ func (m *LogsManager) Search(ctx context.Context, taskId, stepId, logId string) 
 			}
 		}
 		return true
-	}, bigtable.RowFilter(bigtable.LatestNFilter(1))); err != nil {
-		return nil, fmt.Errorf("Failed to retrieve data from BigTable: %s", err)
+	}, opts...); err != nil {
+		return nil, "", skerr.Wrapf(err, "failed to retrieve data from BigTable")
 	}
 	if decodeErr != nil {
-		return nil, fmt.Errorf("Failed to gob-decode entry: %s", decodeErr)
+		return nil, "", skerr.Wrapf(decodeErr, "failed to gob-decode entry")
 	}
-	return entries, nil
+	return entries, nextCursor, nil
 }

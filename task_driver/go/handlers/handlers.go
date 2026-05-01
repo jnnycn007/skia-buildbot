@@ -24,7 +24,7 @@ func logsHandler(w http.ResponseWriter, r *http.Request, lm *logs.LogsManager, t
 	// retrieve the run and then limit our search to its duration. That
 	// might speed up the search quite a bit.
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	entries, err := lm.Search(r.Context(), taskId, stepId, logId)
+	entries, _, err := lm.Search(r.Context(), taskId, stepId, logId, "", 0)
 	if err != nil {
 		httputils.ReportError(w, err, "Failed to search log entries.", http.StatusInternalServerError)
 		return
