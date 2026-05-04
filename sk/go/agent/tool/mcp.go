@@ -3,6 +3,7 @@ package tool
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/client"
@@ -16,7 +17,8 @@ import (
 )
 
 const (
-	mcpServerURL = "https://mcp-skia.luci.app/sse"
+	mcpServerURL            = "https://mcp-skia.luci.app/sse"
+	mcpServerOverrideEnvVar = "SK_MCP_SERVER_OVERRIDE"
 )
 
 func createCommandsForMCPTools(ctx context.Context) ([]*cli.Command, error) {
@@ -134,8 +136,13 @@ func initMCP(ctx context.Context) (*client.Client, error) {
 	if err != nil {
 		return nil, skerr.Wrap(err)
 	}
-	c := httputils.DefaultClientConfig().WithTokenSource(ts).Client()
-	mcpClient, err := client.NewSSEMCPClient(mcpServerURL, transport.WithHTTPClient(c))
+	c := httputils.DefaultClientConfig().WithTokenSource(ts).WithoutRetries().Client()
+
+	mcpURL := os.Getenv(mcpServerOverrideEnvVar)
+	if mcpURL == "" {
+		mcpURL = mcpServerURL
+	}
+	mcpClient, err := client.NewSSEMCPClient(mcpURL, transport.WithHTTPClient(c))
 	if err != nil {
 		return nil, skerr.Wrap(err)
 	}

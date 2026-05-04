@@ -11,7 +11,6 @@ import (
 	"go.skia.org/infra/go/gitiles"
 	"go.skia.org/infra/go/httputils"
 	"go.skia.org/infra/go/skerr"
-	"go.skia.org/infra/go/vcsinfo"
 	"go.skia.org/infra/task_scheduler/go/db"
 	"go.skia.org/infra/task_scheduler/go/db/firestore"
 	"go.skia.org/infra/task_scheduler/go/types"
@@ -86,67 +85,13 @@ func (c *TaskSchedulerClient) SearchTasksHandler(ctx context.Context, req mcp.Ca
 	return mcp.NewToolResultText(string(b)), nil
 }
 
-type GetTasksForCommitsResult struct {
-	Commits []CommitTasks          `json:"commits"`
-	Tasks   map[string]*types.Task `json:"tasks"`
-}
-
-type CommitTasks struct {
-	*vcsinfo.LongCommit
-	Tasks []string `json:"task_ids"`
-}
-
-func (c *TaskSchedulerClient) GetTasksForCommitsHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	repoUrl, err := req.RequireString(argRepo)
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
-	}
-	revision, err := req.RequireString(argRevision)
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
-	}
-	limit, err := req.RequireInt(argLimit)
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
-	}
-
-	repo := gitiles.NewRepo(repoUrl, c.client)
-	commits, err := repo.Log(ctx, revision, gitiles.LogLimit(limit))
-	if err != nil {
-		return nil, err
-	}
-
-	res := &GetTasksForCommitsResult{
-		Commits: make([]CommitTasks, 0, len(commits)),
-		Tasks:   map[string]*types.Task{},
-	}
-	for _, commit := range commits {
-		tasks, err := c.db.SearchTasks(ctx, &db.TaskSearchParams{
-			Repo:              &repoUrl,
-			BlamelistContains: &commit.Hash,
-		})
-		if err != nil {
-			return nil, err
-		}
-		taskIDs := make([]string, 0, len(tasks))
-		for _, task := range tasks {
-			taskIDs = append(taskIDs, task.Id)
-			res.Tasks[task.Id] = task
-		}
-		res.Commits = append(res.Commits, CommitTasks{
-			LongCommit: commit,
-			Tasks:      taskIDs,
-		})
-	}
-	return encodeJSONResponse(res)
-}
-
 type TaskHealthReport struct {
 	CommitGraph []string                       `json:"commit_graph"`
 	Tasks       map[string][]TaskResultSummary `json:"tasks"`
 }
 
 type TaskResultSummary struct {
+	ID        string           `json:"id"`
 	Revision  string           `json:"rev"`
 	Status    types.TaskStatus `json:"status"`
 	BlameSize int              `json:"blame_size"`
@@ -198,6 +143,7 @@ func (c *TaskSchedulerClient) GetTaskHealthReportHandler(ctx context.Context, re
 			seenTasks[t.Id] = true
 
 			taskHistory[t.Name] = append(taskHistory[t.Name], TaskResultSummary{
+				ID:        t.Id,
 				Revision:  t.Revision,
 				Status:    t.Status,
 				BlameSize: len(t.Commits),
@@ -229,6 +175,18 @@ func (c *TaskSchedulerClient) GetTaskHealthReportHandler(ctx context.Context, re
 		report.Tasks[name] = history
 	}
 	return encodeJSONResponse(report)
+}
+
+func (c *TaskSchedulerClient) GetTaskHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	taskID, err := req.RequireString(argTaskId)
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	task, err := c.db.GetTaskById(ctx, taskID)
+	if err != nil {
+		return nil, skerr.Wrap(err)
+	}
+	return encodeJSONResponse(task)
 }
 
 func getStringOrNil(req mcp.CallToolRequest, arg string) *string {

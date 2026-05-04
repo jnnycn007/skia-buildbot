@@ -28,6 +28,7 @@ Retrieve the recent task results, eg.
   (index 0 is newest).
 - **`tasks`:** A map of task name to recent runs of that task, each of which
   contains:
+  - **`id`:** The database ID of the task.
   - **`rev`:** The commit hash at which the task ran.
   - **`status`:** The result (`SUCCESS`, `FAILURE`, `MISHAP`).
   - **`blame_size`:** Critical for pinpointing culprits. If a `FAILURE` occurs
@@ -52,7 +53,7 @@ analysis to a sub-agent (the "Task Specialist").
       task as either flaky or persistent failure and identifying the culprit
       range."
 
-### Phase 3: Synthesis
+### Phase 3: Aggregate
 
 Once all Task Specialists have returned their findings, aggregate their reports.
 
@@ -62,4 +63,33 @@ Once all Task Specialists have returned their findings, aggregate their reports.
 - If two or more tasks started failing within overlapping commit ranges and
   those tasks look similar, you may be able to use the intersection of those
   commit ranges to futher narrow down the culprit or isolate it altogether.
-- Present the final holistic analysis to the user.
+
+### Phase 4: Refinement and Further Analysis
+
+If the results from Phase 3 are definitive, you might be able to stop there.
+However, depending on what you were originally asked to do, you may need to
+investigate further. Follow the instructions below and present a definitive
+report to the user.
+
+#### Persistent Failures
+
+If you found a persistently-failing task, your first priority is to single out
+the commit which caused it. If a single culprit has not already been found by
+this point, start by retrieving the commit messages for the suspect commits. The
+`gerrit_get_commit_message` tool from the pnd MCP server will be your best bet.
+If that's not available, you can try using `git log` locally but you may not be
+inside of a checkout of the correct repository. If all else fails, try using the
+Gitiles HTTP API.
+
+If the culprit is not obvious by correlating the name(s) of the failing
+task(s) with the commit message, follow the instructions from
+`sk agent workflow task_drilldown`. This will be a context-heavy task, so you
+should have a sub-agent perform it and report the findings back to you.
+
+#### Flaky Tasks
+
+These are generally lower priority than recent persistent failures, but they may
+warrant investigation based on the original prompt. You may need to follow the
+instructions from `sk agent workflow task_drilldown`. This will be a context-
+heavy task, so you should have a sub-agent perform this task and report the
+findings back to you.

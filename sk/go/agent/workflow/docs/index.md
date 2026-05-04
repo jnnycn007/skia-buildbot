@@ -23,6 +23,15 @@ running `sk agent workflow <name>` or by finding it in the `docs/` directory:
 - Find the root cause of recent regressions.
 - Determine if a failing task is a hard regression or flaky infrastructure.
 
+### task_drilldown
+
+**File:** `docs/task_drilldown.md`
+**Trigger:** Use this workflow when asked to:
+
+- Provide detailed analysis of a single task.
+- Find actual build or test failure(s), error messages, etc.
+- Investigate flaky tasks.
+
 ---
 
 _Note: As more complex, agent-specific workflows are developed for this

@@ -8,6 +8,7 @@ go_library(
     deps = [
         "//go/skerr",
         "//mcp/common",
+        "//mcp/services/skia/task_details",
         "//mcp/services/skia/task_scheduler",
     ],
 )

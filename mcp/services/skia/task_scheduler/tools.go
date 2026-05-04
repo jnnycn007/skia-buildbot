@@ -19,6 +19,7 @@ const (
 	argTaskName      = "name"
 	argLimit         = "limit"
 	argIncludeStable = "include_stable"
+	argTaskId        = "task_id"
 
 	taskStatusPending = "PENDING"
 )
@@ -82,28 +83,6 @@ If not provided, the current time is used.`,
 			Handler: c.SearchTasksHandler,
 		},
 		{
-			Name:        "get_tasks_for_commits",
-			Description: "Retrieve a series of commits and all tasks associated with them.",
-			Arguments: []common.ToolArgument{
-				{
-					Name:        argRepo,
-					Description: `Git repository URL of the task, eg. "https://skia.googlesource.com/skia.git"`,
-					Required:    true,
-				},
-				{
-					Name:        argRevision,
-					Description: "Git commit hash or branch name at which to start.",
-					Required:    true,
-				},
-				{
-					Name:        argLimit,
-					Description: fmt.Sprintf("Maximum number of tasks to return. Default %d", db.SearchResultLimit),
-					Required:    true,
-				},
-			},
-			Handler: c.GetTasksForCommitsHandler,
-		},
-		{
 			Name:        "get_task_health_report",
 			Description: "Retrieve a summary of task health over a series of commits.",
 			Arguments: []common.ToolArgument{
@@ -129,6 +108,18 @@ If not provided, the current time is used.`,
 				},
 			},
 			Handler: c.GetTaskHealthReportHandler,
+		},
+		{
+			Name:        "get_task",
+			Description: "Retrieve the full details for a task.",
+			Arguments: []common.ToolArgument{
+				{
+					Name:        argTaskId,
+					Description: "ID of the task.",
+					Required:    true,
+				},
+			},
+			Handler: c.GetTaskHandler,
 		},
 	}
 }

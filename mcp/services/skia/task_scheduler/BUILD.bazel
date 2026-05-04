@@ -12,7 +12,6 @@ go_library(
         "//go/gitiles",
         "//go/httputils",
         "//go/skerr",
-        "//go/vcsinfo",
         "//mcp/common",
         "//task_scheduler/go/db",
         "//task_scheduler/go/db/firestore",
