@@ -67,6 +67,9 @@ type ClusterSummary struct {
 	// NotificationID is the ID of the notification sent for this regression.
 	// Will be the empty string if no notification has been sent.
 	NotificationID string `json:"notification_id,omitempty"`
+
+	// Metadata allows refiners to attach arbitrary key-value data to the cluster summary.
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // NewClusterSummary returns a new ClusterSummary.

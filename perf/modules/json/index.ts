@@ -88,6 +88,7 @@ export interface ClusterSummary {
 	num: number;
 	ts: string;
 	notification_id?: string;
+	metadata?: { [key: string]: any } | null;
 }
 
 export interface FavoritesSectionLinkConfig {

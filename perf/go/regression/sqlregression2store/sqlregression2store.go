@@ -196,6 +196,7 @@ var statementFormats = map[statementFormat]string{
 		WHERE
 			commit_number <= $1
 			AND (frame->'dataframe'->'traceset') ? $2
+			AND sub_name = $4
 		ORDER BY
 			commit_number DESC
 		LIMIT $3
@@ -208,6 +209,7 @@ var statementFormats = map[statementFormat]string{
 		WHERE
 			commit_number <= $1
 			AND trace_id = $2
+			AND sub_name = $4
 		ORDER BY
 			commit_number DESC
 		LIMIT $3
@@ -637,7 +639,7 @@ func (s *SQLRegression2Store) GetByRevision(ctx context.Context, rev string) ([]
 }
 
 // GetRegressionsBefore returns up to limit regressions for the given trace before or at the commit.
-func (s *SQLRegression2Store) GetRegressionsBefore(ctx context.Context, traceName string, commit types.CommitNumber, limit int) ([]*regression.Regression, error) {
+func (s *SQLRegression2Store) GetRegressionsBefore(ctx context.Context, traceName string, subName string, commit types.CommitNumber, limit int) ([]*regression.Regression, error) {
 	ctx, span := trace.StartSpan(ctx, "sqlregression2store.GetRegressionsBefore")
 	defer span.End()
 
@@ -646,13 +648,13 @@ func (s *SQLRegression2Store) GetRegressionsBefore(ctx context.Context, traceNam
 
 	if s.instanceConfig.Experiments.RegressionsTraceIdField {
 		traceId := types.TraceIDForSQLInBytesFromTraceName(traceName)
-		rows, err = s.db.Query(ctx, s.statements[readRegressionsBeforeByTraceId], commit, traceId[:], limit)
+		rows, err = s.db.Query(ctx, s.statements[readRegressionsBeforeByTraceId], commit, traceId[:], limit, subName)
 	} else {
-		rows, err = s.db.Query(ctx, s.statements[readRegressionsBefore], commit, traceName, limit)
+		rows, err = s.db.Query(ctx, s.statements[readRegressionsBefore], commit, traceName, limit, subName)
 	}
 
 	if err != nil {
-		return nil, skerr.Wrapf(err, "Failed to read regressions before %d for trace %s", commit, traceName)
+		return nil, skerr.Wrapf(err, "Failed to read regressions before %d for trace %s with subName %s", commit, traceName, subName)
 	}
 	defer rows.Close()
 

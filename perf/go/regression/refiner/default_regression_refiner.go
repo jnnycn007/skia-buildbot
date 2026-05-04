@@ -23,7 +23,9 @@ func (p *DefaultRegressionRefiner) Process(ctx context.Context, cfg *alerts.Aler
 
 		ret = append(ret, &regression.ConfirmedRegression{
 			Summary:             resp.Summary,
+			RightMostSummary:    resp.Summary,
 			Frame:               resp.Frame,
+			RightMostFrame:      resp.Frame,
 			Message:             resp.Message,
 			PrevCommitNumber:    resp.Frame.DataFrame.Header[midPoint-1].Offset,
 			CommitNumber:        commitNumber,

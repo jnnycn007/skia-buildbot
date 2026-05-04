@@ -53,7 +53,7 @@ func New(perfGit perfgit.Git, tracker progress.Tracker, shortcutStore shortcut.S
 // StartHandler starts a dryrun.
 func (d *Requests) StartHandler(w http.ResponseWriter, r *http.Request) {
 	// Do not use r.Context() since this kicks off a background process.
-	ctx := context.Background()
+	ctx := regression.WithDryRun(context.Background())
 	w.Header().Set("Content-Type", "application/json")
 
 	req := regression.NewRegressionDetectionRequest()

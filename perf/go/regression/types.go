@@ -67,7 +67,7 @@ type Store interface {
 	GetRegression(ctx context.Context, commitNumber types.CommitNumber, alertID string) (*Regression, error)
 
 	// GetRegressionsBefore returns up to limit regressions for the given trace before or at the commit.
-	GetRegressionsBefore(ctx context.Context, traceName string, commit types.CommitNumber, limit int) ([]*Regression, error)
+	GetRegressionsBefore(ctx context.Context, traceName string, subName string, commit types.CommitNumber, limit int) ([]*Regression, error)
 
 	// DeleteByCommit deletes a regression from the Regression table via the CommitNumber.
 	// Use with caution.
@@ -194,7 +194,9 @@ type RegressionDetectionResponse struct {
 // for saving or alerting. It includes the explicit commit boundary where it was found.
 type ConfirmedRegression struct {
 	Summary             *clustering2.ClusterSummaries `json:"summary"`
+	RightMostSummary    *clustering2.ClusterSummaries `json:"-"`
 	Frame               *frame.FrameResponse          `json:"frame"`
+	RightMostFrame      *frame.FrameResponse          `json:"-"`
 	Message             string                        `json:"-"`
 	PrevCommitNumber    types.CommitNumber            `json:"prev_commit_number"`
 	CommitNumber        types.CommitNumber            `json:"commit_number"`
@@ -212,4 +214,17 @@ type RegressionRefiner interface {
 	// and ConfirmedRegressionHandler to represent regressions that have been validated and approved
 	// for saving or alerting.
 	Process(ctx context.Context, cfg *alerts.Alert, responses []*RegressionDetectionResponse) ([]*ConfirmedRegression, error)
+}
+
+type dryRunKey struct{}
+
+// WithDryRun returns a new context with the dry run flag set to true.
+func WithDryRun(ctx context.Context) context.Context {
+	return context.WithValue(ctx, dryRunKey{}, true)
+}
+
+// IsDryRun returns true if the dry run flag is set to true in the context.
+func IsDryRun(ctx context.Context) bool {
+	v, _ := ctx.Value(dryRunKey{}).(bool)
+	return v
 }

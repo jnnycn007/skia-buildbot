@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 
+	"go.skia.org/infra/go/skerr"
 	"go.skia.org/infra/go/sklog"
 	"go.skia.org/infra/go/vec32"
 	"go.skia.org/infra/perf/go/alerts"
@@ -42,79 +43,178 @@ func NewImprovedAnomalyBoundsRefiner(anomalyStore anomalies.Store, store regress
 }
 
 // Process implements the regression.RegressionRefiner interface.
+// It provides additional filtering by looking at the previous regression (previous change point).
+// This allows us to get much more context without increasing the radius, enabling the application
+// to more effectively separate noise from real regressions.
 func (r *ImprovedAnomalyBoundsRefiner) Process(ctx context.Context, cfg *alerts.Alert, responses []*regression.RegressionDetectionResponse) ([]*regression.ConfirmedRegression, error) {
-	// 1. Run the base AnomalyBoundsRefiner logic.
+	// Run the base AnomalyBoundsRefiner logic.
 	confirmed, err := r.base.Process(ctx, cfg, responses)
 	if err != nil {
 		return nil, err
 	}
 
-	var refined []*regression.ConfirmedRegression
+	// The Const algorithm ignores the baseline, so the improved refiner logic
+	// (which relies on a historical baseline) is not applicable.
+	if cfg.Step == types.Const {
+		return confirmed, nil
+	}
 
-	// 2. Apply additional action on confirmed regressions.
+	var refined []*regression.ConfirmedRegression
+	latestRefined := map[string]*regression.ConfirmedRegression{}
+
 	for _, cr := range confirmed {
-		newCr := r.applyImprovedLogic(ctx, cr, cfg)
+		traceName := cr.Summary.Clusters[0].Keys[0]
+		prevRefined := latestRefined[traceName]
+
+		newCr, err := r.applyImprovedLogic(ctx, cr, cfg, prevRefined)
+		if err != nil {
+			return nil, err
+		}
 		if newCr != nil {
 			refined = append(refined, newCr)
+			latestRefined[traceName] = newCr
 		}
 	}
 
 	return refined, nil
 }
 
-func (r *ImprovedAnomalyBoundsRefiner) applyImprovedLogic(ctx context.Context, cr *regression.ConfirmedRegression, cfg *alerts.Alert) *regression.ConfirmedRegression {
-	if len(cr.Summary.Clusters) == 0 || len(cr.Summary.Clusters[0].Keys) == 0 {
-		sklog.Infof("[ImprovedAnomalyBoundsRefiner] Skipping improved logic for regression at %d because it has no clusters or keys", cr.DisplayCommitNumber)
-		return cr
-	}
+func (r *ImprovedAnomalyBoundsRefiner) applyImprovedLogic(ctx context.Context, cr *regression.ConfirmedRegression, cfg *alerts.Alert, latestRefined *regression.ConfirmedRegression) (*regression.ConfirmedRegression, error) {
 	traceName := cr.Summary.Clusters[0].Keys[0]
-	pickOffset := cr.DisplayCommitNumber // Use DisplayCommitNumber as pick point
+	pickOffset := cr.DisplayCommitNumber
 
-	// 1. Load last regression <= pickOffset from DB.
-	regressions, err := r.store.GetRegressionsBefore(ctx, traceName, pickOffset, 1)
+	// Find the previous regression to determine the boundary for loading historical data.
+	prevInfo, err := r.findPreviousRegression(ctx, traceName, cfg.SubscriptionName, pickOffset, latestRefined)
 	if err != nil {
-		sklog.Errorf("[ImprovedAnomalyBoundsRefiner] Failed to get regressions before %d: %s", pickOffset, err)
-		return cr // Return original if we can't check DB
+		return nil, err
 	}
-
-	var lastRegression *regression.Regression
-	if len(regressions) > 0 {
-		lastRegression = regressions[0]
-	}
-
-	if lastRegression == nil {
+	if prevInfo == nil {
 		sklog.Infof("[ImprovedAnomalyBoundsRefiner] No previous regression found for trace %s before %d. Keeping original regression.", traceName, pickOffset)
-		return cr
+		return cr, nil
 	}
 
 	// Check for overlap.
-	if lastRegression.CommitNumber >= cr.PrevCommitNumber && lastRegression.PrevCommitNumber <= cr.CommitNumber {
-		sklog.Infof("[ImprovedAnomalyBoundsRefiner] Filtering out regression at %d due to overlap with existing regression at %d", pickOffset, lastRegression.CommitNumber)
-		return nil // Filter out
+	if prevInfo.CommitNumber >= cr.PrevCommitNumber && prevInfo.PrevCommitNumber <= cr.CommitNumber {
+		sklog.Infof("[ImprovedAnomalyBoundsRefiner] Filtering out regression at %d due to overlap with existing %s regression at %d", pickOffset, prevInfo.Source, prevInfo.CommitNumber)
+		return nil, nil // Filter out
 	}
 
-	// 2. Load data points directly using TraceStore instead of DataFrameBuilder.
-	// "can we crqte method jsut by reading trace values limit 200 where rcommint number <= ... order by commit number somerthign like this"
-	// We use ReadTracesForCommitRange which is more direct than DataFrameBuilder.
-
-	startCommit := lastRegression.CommitNumber
-
-	// Read traces for the range [startCommit, PrevCommitNumber].
-	traceSet, commits, _, err := r.traceStore.ReadTracesForCommitRange(ctx, []string{traceName}, startCommit, cr.PrevCommitNumber)
+	// Extract data to beetween regressions.
+	leftData, leftCommits, rightData, rightCommits, err := r.extractData(ctx, cr, cfg, prevInfo)
 	if err != nil {
-		sklog.Errorf("[ImprovedAnomalyBoundsRefiner] Failed to read traces for range [%d, %d]: %s", startCommit, pickOffset, err)
-		return cr
+		return nil, err
+	}
+	if leftData == nil {
+		return cr, nil
+	}
+
+	// Re-verify the regression against the historical baseline (data between previous and current regression) to confirm it is statistically significant.
+	regressionVal, stepSize, interestingThreshold, isConfirmed := r.calculateStepAndConfirm(leftData, rightData, cfg.Step, cfg.Interesting)
+
+	// Filter out if not confirmed.
+	if !isConfirmed {
+		leftStart := leftCommits[0]
+		leftEnd := leftCommits[len(leftCommits)-1]
+		rightStart := rightCommits[0]
+		rightEnd := rightCommits[len(rightCommits)-1]
+		sklog.Infof("[ImprovedAnomalyBoundsRefiner] Filtering out regression for trace %s at offset %d. Failed strict check. RegressionVal: %f, Threshold: %f, Left(mean=%f, stddev=%f, n=%d, range=[%d, %d]), Right(mean=%f, stddev=%f, n=%d, range=[%d, %d]), Pick Range: [%d, %d]",
+			traceName, pickOffset, regressionVal, interestingThreshold, vec32.Mean(leftData), vec32.StdDev(leftData, vec32.Mean(leftData)), len(leftData), leftStart, leftEnd, vec32.Mean(rightData), vec32.StdDev(rightData, vec32.Mean(rightData)), len(rightData), rightStart, rightEnd, cr.PrevCommitNumber, cr.CommitNumber)
+		return nil, nil
+	}
+
+	// Populate metadata to simplify future analysis.
+	cr.Message = fmt.Sprintf("%s | Confirmed by ImprovedAnomalyBoundsRefiner with regression value: %f, step size: %f", cr.Message, regressionVal, stepSize)
+	sklog.Infof("[ImprovedAnomalyBoundsRefiner] Confirmed regression for trace %s at offset %d. RegressionVal: %f, StepSize: %f", traceName, pickOffset, regressionVal, stepSize)
+
+	if len(cr.Summary.Clusters) > 0 {
+		cl := cr.Summary.Clusters[0]
+		if cl.Metadata == nil {
+			cl.Metadata = map[string]interface{}{}
+		}
+		cl.Metadata["improved_refiner_left_part"] = leftData
+		cl.Metadata["improved_refiner_right_part"] = rightData
+		cl.Metadata["improved_refiner_algo"] = string(cfg.Step)
+		cl.Metadata["improved_refiner_threshold"] = interestingThreshold
+	}
+
+	return cr, nil
+}
+
+type previousRegressionInfo struct {
+	CommitNumber     types.CommitNumber
+	PrevCommitNumber types.CommitNumber
+	Source           string
+}
+
+// findPreviousRegression looks for the most recent regression on the same trace.
+// It checks the database first (unless it's a dry run), and then compares it
+// with the latest regression found in the current processing batch, returning the newer one.
+func (r *ImprovedAnomalyBoundsRefiner) findPreviousRegression(ctx context.Context, traceName string, subName string, pickOffset types.CommitNumber, latestRefined *regression.ConfirmedRegression) (*previousRegressionInfo, error) {
+	var regressions []*regression.Regression
+	var err error
+	if regression.IsDryRun(ctx) {
+		sklog.Infof("[ImprovedAnomalyBoundsRefiner] Dry run enabled. Skipping DB query for previous regressions.")
+	} else {
+		regressions, err = r.store.GetRegressionsBefore(ctx, traceName, subName, pickOffset, 1)
+		if err != nil {
+			return nil, skerr.Wrapf(err, "[ImprovedAnomalyBoundsRefiner] Failed to get regressions before %d", pickOffset)
+		}
+	}
+
+	var dbRegression *regression.Regression
+	if len(regressions) > 0 {
+		dbRegression = regressions[0]
+	}
+
+	var lastCommit types.CommitNumber
+	var lastPrevCommit types.CommitNumber
+	found := false
+	source := "DB"
+
+	if dbRegression != nil {
+		lastCommit = dbRegression.CommitNumber
+		lastPrevCommit = dbRegression.PrevCommitNumber
+		found = true
+	}
+
+	if latestRefined != nil {
+		if !found || latestRefined.CommitNumber > lastCommit {
+			lastCommit = latestRefined.CommitNumber
+			lastPrevCommit = latestRefined.PrevCommitNumber
+			found = true
+			source = "in-memory"
+			sklog.Infof("[ImprovedAnomalyBoundsRefiner] Using in-memory previous regression at %d instead of DB.", latestRefined.CommitNumber)
+		}
+	}
+
+	if !found {
+		return nil, nil
+	}
+
+	return &previousRegressionInfo{
+		CommitNumber:     lastCommit,
+		PrevCommitNumber: lastPrevCommit,
+		Source:           source,
+	}, nil
+}
+
+// getLeftData loads raw trace data from the store for the range between the previous
+// regression and the current one, filtering out missing data and limiting to the last 200 points.
+func (r *ImprovedAnomalyBoundsRefiner) getLeftData(ctx context.Context, traceName string, startCommit types.CommitNumber, endCommit types.CommitNumber, radius int) ([]float32, []types.CommitNumber, error) {
+	// 200 is considered a reasonable number of points to capture the typical noise
+	// and variance in the data for a reliable statistical check.
+	const maxLeftDataPoints = 200
+
+	traceSet, commits, _, err := r.traceStore.ReadTracesForCommitRange(ctx, []string{traceName}, startCommit, endCommit)
+	if err != nil {
+		return nil, nil, skerr.Wrapf(err, "[ImprovedAnomalyBoundsRefiner] Failed to read traces for range [%d, %d]", startCommit, endCommit)
 	}
 
 	traceData, ok := traceSet[traceName]
-	if !ok || len(traceData) < cfg.Radius {
-		sklog.Errorf("[ImprovedAnomalyBoundsRefiner] Not enough data found for trace %s in range [%d, %d]", traceName, startCommit, cr.PrevCommitNumber)
-		return cr
+	if !ok || len(traceData) < radius {
+		return nil, nil, nil // Return nil to signal caller to fallback to original regression
 	}
 
-	// 3. Extract left side data.
-	// We take the points from the loaded trace.
-	// We filter out missing data first, and then take the last 200 points.
 	var leftData []float32
 	var leftCommits []types.CommitNumber
 	for i, v := range traceData {
@@ -124,36 +224,38 @@ func (r *ImprovedAnomalyBoundsRefiner) applyImprovedLogic(ctx context.Context, c
 		}
 	}
 
-	// Limit to 200 points.
-	if len(leftData) > 200 {
-		leftData = leftData[len(leftData)-200:]
-		leftCommits = leftCommits[len(leftCommits)-200:]
+	if len(leftData) > maxLeftDataPoints {
+		leftData = leftData[len(leftData)-maxLeftDataPoints:]
+		leftCommits = leftCommits[len(leftCommits)-maxLeftDataPoints:]
 	}
 
-	if len(leftData) < 3 {
-		return cr
-	}
+	return leftData, leftCommits, nil
+}
 
-	// 4. Extract right side data.
-	tpIndex := cr.Summary.Clusters[0].StepFit.TurningPoint
-	rightData := cr.Summary.Clusters[0].Centroid[tpIndex:]
-
+// extractRightData extracts the right side data points from the centroid of the
+// right-most regression in the group.
+func extractRightData(cr *regression.ConfirmedRegression, step types.StepDetection) ([]float32, []types.CommitNumber) {
+	tpIndex := cr.RightMostSummary.Clusters[0].StepFit.TurningPoint
 	var cleanRightData []float32
 	var rightCommits []types.CommitNumber
-	for i := tpIndex; i < len(cr.Summary.Clusters[0].Centroid); i++ {
-		v := cr.Summary.Clusters[0].Centroid[i]
-		if v != vec32.MissingDataSentinel {
-			cleanRightData = append(cleanRightData, v)
-			rightCommits = append(rightCommits, cr.Frame.DataFrame.Header[i].Offset)
-		}
+	end := len(cr.RightMostSummary.Clusters[0].Centroid)
+	// OriginalStep uses one additional point at the end of the centroid,
+	// while other algorithms do not. We decrement end for other algorithms
+	// to match their expected data length.
+	if step != types.OriginalStep {
+		end--
 	}
-	rightData = cleanRightData
-
-	if len(rightData) < 3 {
-		return cr
+	for i := tpIndex; i < end; i++ {
+		v := cr.RightMostSummary.Clusters[0].Centroid[i]
+		cleanRightData = append(cleanRightData, v)
+		rightCommits = append(rightCommits, cr.RightMostFrame.DataFrame.Header[i].Offset)
 	}
+	return cleanRightData, rightCommits
+}
 
-	// 5. Run anomaly detection (math check).
+// calculateStepAndConfirm runs the selected step detection algorithm on the extracted
+// left and right data, and checks if the result exceeds the interestingness threshold.
+func (r *ImprovedAnomalyBoundsRefiner) calculateStepAndConfirm(leftData, rightData []float32, step types.StepDetection, alertInteresting float32) (float32, float32, float32, bool) {
 	y0 := vec32.Mean(leftData)
 	y1 := vec32.Mean(rightData)
 	s1 := vec32.StdDev(leftData, y0)
@@ -161,41 +263,57 @@ func (r *ImprovedAnomalyBoundsRefiner) applyImprovedLogic(ctx context.Context, c
 	n1 := len(leftData)
 	n2 := len(rightData)
 
+	// CohenDVeryLarge represents a "very large" effect size in Cohen's d.
+	// Selection: 1.2 is the standard threshold proposed by Sawilowsky (2009) for a "very large" effect.
+	// See https://en.wikipedia.org/wiki/Effect_size for context on effect size rules of thumb.
+	// Effect on result: Regressions must have an effect size of at least 1.2 to be considered "interesting"
+	// unless the alert configuration specifies a smaller threshold.
+	// Safety to change: Safe to change, but will affect sensitivity. Higher values reduce false positives
+	// but may miss real regressions. Lower values increase sensitivity but may introduce more noise.
+	const CohenDVeryLarge = 1.2
+
 	var regressionVal float32
 	var stepSize float32
+	var interesting float32
 
-	switch cfg.Step {
+	switch step {
 	case types.AbsoluteStep:
 		stepSize, regressionVal = stepfit.CalcAbsoluteStep(y0, y1)
+		interesting = alertInteresting
 	case types.PercentStep:
 		stepSize, regressionVal = stepfit.CalcPercentStep(y0, y1)
+		interesting = alertInteresting
 	case types.CohenStep:
 		stepSize, regressionVal = stepfit.CalcValidCohenStep(y0, y1, s1, s2, n1, n2, r.stdDevThreshold)
+		interesting = min(alertInteresting, float32(CohenDVeryLarge))
 	default:
 		stepSize, regressionVal = stepfit.CalcValidCohenStep(y0, y1, s1, s2, n1, n2, r.stdDevThreshold)
+		interesting = CohenDVeryLarge
 	}
 
-	interesting := cfg.Interesting
-	if interesting == 0 {
-		interesting = 2.0
+	isConfirmed := math.Abs(float64(regressionVal)) >= float64(interesting)
+
+	return regressionVal, stepSize, interesting, isConfirmed
+}
+
+// extractData extracts both the left and right side data points needed for the improved check.
+// The left data is loaded from the trace store between the previous regression and the current one.
+// The right data is extracted from the centroid of the right-most regression in the group.
+// Returns nil slices to signal the caller to fallback to the original regression if not enough data is found.
+func (r *ImprovedAnomalyBoundsRefiner) extractData(ctx context.Context, cr *regression.ConfirmedRegression, cfg *alerts.Alert, prevInfo *previousRegressionInfo) ([]float32, []types.CommitNumber, []float32, []types.CommitNumber, error) {
+	traceName := cr.Summary.Clusters[0].Keys[0]
+	leftData, leftCommits, err := r.getLeftData(ctx, traceName, prevInfo.CommitNumber, cr.PrevCommitNumber, cfg.Radius)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	if len(leftData) < 3 {
+		return nil, nil, nil, nil, nil // Return nil to signal caller to fallback to original regression
 	}
 
-	isConfirmed := false
-	if math.Abs(float64(regressionVal)) >= float64(interesting) {
-		isConfirmed = true
+	rightData, rightCommits := extractRightData(cr, cfg.Step)
+	if len(rightData) < 3 {
+		return nil, nil, nil, nil, nil // Return nil to signal caller to fallback to original regression
 	}
 
-	if !isConfirmed {
-		leftStart := leftCommits[0]
-		leftEnd := leftCommits[len(leftCommits)-1]
-		rightStart := rightCommits[0]
-		rightEnd := rightCommits[len(rightCommits)-1]
-		sklog.Infof("[ImprovedAnomalyBoundsRefiner] Filtering out regression for trace %s at offset %d. Failed strict check. RegressionVal: %f, Threshold: %f, Left(mean=%f, stddev=%f, n=%d, range=[%d, %d]), Right(mean=%f, stddev=%f, n=%d, range=[%d, %d]), Pick Range: [%d, %d]",
-			traceName, pickOffset, regressionVal, interesting, y0, s1, n1, leftStart, leftEnd, y1, s2, n2, rightStart, rightEnd, cr.PrevCommitNumber, cr.CommitNumber)
-		return nil
-	}
-
-	cr.Message = fmt.Sprintf("%s | Confirmed by ImprovedAnomalyBoundsRefiner with regression value: %f, step size: %f", cr.Message, regressionVal, stepSize)
-
-	return cr
+	return leftData, leftCommits, rightData, rightCommits, nil
 }
