@@ -12,6 +12,7 @@ import { makeKey } from '../paramtools';
 import './query-bar-sk';
 import { Suggestion } from './query-bar-sk';
 import './trace-chart-sk';
+import './plot-summary-v2-sk';
 import { telemetry } from '../telemetry/telemetry';
 import { CountMetric } from '../telemetry/types';
 
@@ -129,6 +130,8 @@ export class ExploreMultiV2Sk extends LitElement {
   @state() private _regressions: { [trace_id: string]: { [commit: number]: Regression } } = {};
 
   @state() private _tracePage = 0;
+
+  @state() private _showSummaryBar = true;
 
   @state() private _rangeSelection: {
     minCommit: number;
@@ -1715,8 +1718,20 @@ export class ExploreMultiV2Sk extends LitElement {
                 @reorder-split-keys=${this._handleReorderSplitKeys}
                 @remove-trace=${(e: CustomEvent<{ id: string }>) =>
                   this._handleRemoveTrace(e.detail.id)}
-                @close-chart=${() =>
-                  this._handleCloseChart(g.series.map((s) => s.id))}></trace-chart-sk>
+                @close-chart=${() => this._handleCloseChart(g.series.map((s) => s.id))}>
+                <plot-summary-v2-sk
+                  slot="summary"
+                  ?hidden=${!this._showSummaryBar}
+                  .series=${g.series}
+                  .domain=${this._dateMode ? 'date' : 'commit'}
+                  .viewportMinX=${this._viewportMinX}
+                  .viewportMaxX=${this._viewportMaxX}
+                  .evenXAxisSpacing=${this._evenXAxisSpacing}
+                  @summary-range-selected=${(e: CustomEvent<{ begin: number; end: number }>) => {
+                    console.log('Summary range selected (skeletal hook):', e.detail);
+                  }}>
+                </plot-summary-v2-sk>
+              </trace-chart-sk>
             `
           )}
         </div>

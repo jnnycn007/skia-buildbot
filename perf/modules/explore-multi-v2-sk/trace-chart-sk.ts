@@ -2174,6 +2174,9 @@ export class TraceChartSk extends LitElement {
           </div>
         `;
       })()}
+
+      <slot name="summary"></slot>
+
       ${this.activeSplitKeys.length > 0 || this._potentialSplitKeys.length > 0
         ? html`
             <div class="footer">

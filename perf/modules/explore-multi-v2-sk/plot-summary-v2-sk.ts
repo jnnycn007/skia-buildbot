@@ -1,0 +1,260 @@
+import { html, LitElement, css, PropertyValues } from 'lit';
+import { property } from 'lit/decorators.js';
+import { createRef, ref } from 'lit/directives/ref.js';
+import { define } from '../../../elements-sk/modules/define';
+import { HResizableBoxSk } from '../plot-summary-sk/h_resizable_box_sk';
+import { TraceSeries, TraceRow } from './trace-chart-sk';
+
+// Ensure HResizableBoxSk is registered
+if (!customElements.get('h-resizable-box-sk')) {
+  define('h-resizable-box-sk', HResizableBoxSk);
+}
+
+/**
+ * @module modules/explore-multi-v2-sk/plot-summary-v2-sk
+ * @description Canvas rendering and decimation pipeline.
+ */
+export class PlotSummaryV2Sk extends LitElement {
+  private canvasRef = createRef<HTMLCanvasElement>();
+
+  private boxRef = createRef<HResizableBoxSk>();
+
+  private resizeObserver: ResizeObserver | null = null;
+
+  @property({ type: Array })
+  series: TraceSeries[] = [];
+
+  @property({ type: String })
+  domain: 'commit' | 'date' = 'commit';
+
+  @property({ type: Number })
+  viewportMinX: number | null = null;
+
+  @property({ type: Number })
+  viewportMaxX: number | null = null;
+
+  @property({ type: Boolean })
+  evenXAxisSpacing = false;
+
+  static styles = css`
+    :host {
+      display: block;
+      margin-top: 12px;
+    }
+
+    .summary-container {
+      position: relative;
+      width: 100%;
+      height: 45px;
+      border: 1px solid var(--outline, rgba(255, 255, 255, 0.1));
+      border-radius: 6px;
+      background: var(--background, #0b0f19);
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    h-resizable-box-sk {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+    }
+  `;
+
+  connectedCallback() {
+    super.connectedCallback();
+    this.resizeObserver = new ResizeObserver(() => {
+      this.drawSummary();
+    });
+    this.resizeObserver.observe(this);
+  }
+
+  disconnectedCallback() {
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+    }
+    super.disconnectedCallback();
+  }
+
+  protected updated(changedProperties: PropertyValues) {
+    super.updated(changedProperties);
+    if (
+      changedProperties.has('series') ||
+      changedProperties.has('domain') ||
+      changedProperties.has('evenXAxisSpacing')
+    ) {
+      this.drawSummary();
+    }
+  }
+
+  private decimate(rows: TraceRow[]): TraceRow[] {
+    const maxPoints = 500;
+    if (rows.length <= maxPoints) {
+      return rows;
+    }
+    const bucketSize = Math.ceil((2 * rows.length) / maxPoints);
+    const decimated: TraceRow[] = [];
+
+    for (let i = 0; i < rows.length; i += bucketSize) {
+      const end = Math.min(i + bucketSize, rows.length);
+      let minIdx = i;
+      let maxIdx = i;
+
+      for (let j = i + 1; j < end; j++) {
+        if (rows[j].val < rows[minIdx].val) minIdx = j;
+        if (rows[j].val > rows[maxIdx].val) maxIdx = j;
+      }
+
+      if (minIdx === maxIdx) {
+        decimated.push(rows[minIdx]);
+      } else if (minIdx < maxIdx) {
+        decimated.push(rows[minIdx]);
+        decimated.push(rows[maxIdx]);
+      } else {
+        decimated.push(rows[maxIdx]);
+        decimated.push(rows[minIdx]);
+      }
+    }
+    return decimated;
+  }
+
+  public drawSummary() {
+    const canvas = this.canvasRef.value;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, rect.width, rect.height);
+
+    if (!this.series || this.series.length === 0) return;
+
+    const isDate = this.domain === 'date';
+    const getX = (r: TraceRow) => (isDate ? r.createdat : r.commit_number);
+
+    let sortedX: number[] = [];
+    const xToIndex = new Map<number, number>();
+    if (this.evenXAxisSpacing) {
+      const uniqueX = new Set<number>();
+      this.series.forEach((s) => {
+        s.rows.forEach((r) => {
+          uniqueX.add(getX(r));
+        });
+      });
+      sortedX = Array.from(uniqueX).sort((a, b) => a - b);
+      sortedX.forEach((v, i) => xToIndex.set(v, i));
+    }
+
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+
+    this.series.forEach((s) => {
+      s.rows.forEach((r) => {
+        const xVal = this.evenXAxisSpacing ? xToIndex.get(getX(r))! : getX(r);
+        if (xVal < minX) minX = xVal;
+        if (xVal > maxX) maxX = xVal;
+        if (r.val < minY) minY = r.val;
+        if (r.val > maxY) maxY = r.val;
+      });
+    });
+
+    if (minX === Infinity || minY === Infinity) return;
+
+    const yDelta = maxY - minY;
+    if (yDelta === 0) {
+      minY -= 1;
+      maxY += 1;
+    } else {
+      minY -= yDelta * 0.05;
+      maxY += yDelta * 0.05;
+    }
+
+    const paddingY = 4;
+    const drawableHeight = rect.height - 2 * paddingY;
+
+    const mapX = (xVal: number) => {
+      if (maxX === minX) return 0;
+      return ((xVal - minX) / (maxX - minX)) * rect.width;
+    };
+
+    const mapY = (yVal: number) => {
+      return rect.height - paddingY - ((yVal - minY) / (maxY - minY)) * drawableHeight;
+    };
+
+    ctx.lineWidth = 1.5;
+
+    this.series.forEach((s) => {
+      if (!s.rows || s.rows.length === 0) return;
+
+      const decimated = this.decimate(s.rows);
+      const color = s.color || '#1a73e8';
+      ctx.strokeStyle = color;
+      ctx.globalAlpha = 0.7;
+
+      ctx.beginPath();
+      decimated.forEach((r, idx) => {
+        const xVal = this.evenXAxisSpacing ? xToIndex.get(getX(r))! : getX(r);
+        const px = mapX(xVal);
+        const py = mapY(r.val);
+        if (idx === 0) {
+          ctx.moveTo(px, py);
+        } else {
+          ctx.lineTo(px, py);
+        }
+      });
+      ctx.stroke();
+    });
+
+    ctx.globalAlpha = 1.0;
+  }
+
+  protected render() {
+    return html`
+      <div class="summary-container">
+        <canvas ${ref(this.canvasRef)}></canvas>
+        <h-resizable-box-sk ${ref(this.boxRef)} @box-changed=${this.handleBoxChanged}>
+        </h-resizable-box-sk>
+      </div>
+    `;
+  }
+
+  private handleBoxChanged(e: any) {
+    // Skeletal mock event handler for drag/zoom selection
+    console.log('box selection dragging:', e.detail);
+    // Dispatches skeletal mock event
+    this.dispatchEvent(
+      new CustomEvent('summary-range-selected', {
+        detail: {
+          begin: 0,
+          end: 0,
+        },
+        bubbles: true,
+        composed: true,
+      })
+    );
+  }
+
+  /**
+   * Select programmatic positioning skeletal interface.
+   */
+  Select(begin: number, end: number) {
+    console.log('Programmatic skeletal Select called:', begin, end);
+  }
+}
+
+define('plot-summary-v2-sk', PlotSummaryV2Sk);
