@@ -315,7 +315,7 @@ func (d *firestoreDB) SearchJobs(ctx context.Context, params *db.JobSearchParams
 		if db.MatchJob(&job, params) {
 			results = append(results, &job)
 		}
-		if len(results) >= limit {
+		if limit > 0 && len(results) >= limit {
 			return db.ErrDoneSearching
 		}
 		return nil

@@ -298,7 +298,7 @@ func (d *firestoreDB) SearchTasks(ctx context.Context, params *db.TaskSearchPara
 		if db.MatchTask(&task, params) {
 			results = append(results, &task)
 		}
-		if len(results) >= limit {
+		if limit > 0 && len(results) >= limit {
 			return db.ErrDoneSearching
 		}
 		return nil
