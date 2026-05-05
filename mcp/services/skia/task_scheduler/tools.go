@@ -4,22 +4,24 @@ import (
 	"fmt"
 
 	"go.skia.org/infra/mcp/common"
+	"go.skia.org/infra/mcp/services/skia/format"
 	"go.skia.org/infra/task_scheduler/go/db"
 	"go.skia.org/infra/task_scheduler/go/types"
 )
 
 const (
-	argStartTime     = "start_time"
-	argEndTime       = "end_time"
-	argIssue         = "issue"
-	argPatchset      = "patchset"
-	argTaskStatus    = "status"
-	argRepo          = "repo"
-	argRevision      = "revision"
-	argTaskName      = "name"
-	argLimit         = "limit"
-	argIncludeStable = "include_stable"
-	argTaskId        = "task_id"
+	argStartTime         = "start_time"
+	argEndTime           = "end_time"
+	argIssue             = "issue"
+	argPatchset          = "patchset"
+	argTaskStatus        = "status"
+	argRepo              = "repo"
+	argRevision          = "revision"
+	argTaskName          = "name"
+	argLimit             = "limit"
+	argIncludeStable     = "include_stable"
+	argIncludeSuccessful = "include_successful"
+	argTaskId            = "task_id"
 
 	taskStatusPending = "PENDING"
 )
@@ -79,12 +81,13 @@ If not provided, the current time is used.`,
 					Name:        argLimit,
 					Description: fmt.Sprintf("[Optional] Maximum number of tasks to return. Default %d", db.SearchResultLimit),
 				},
+				format.FormatToolArgument(),
 			},
-			Handler: c.SearchTasksHandler,
+			Handler: format.FormatResponseWrapper(c.SearchTasksHandler),
 		},
 		{
 			Name:        "get_task_health_report",
-			Description: "Retrieve a summary of task health over a series of commits.",
+			Description: "Retrieve a summary of task results over a series of commits.",
 			Arguments: []common.ToolArgument{
 				{
 					Name:        argRepo,
@@ -102,12 +105,22 @@ If not provided, the current time is used.`,
 					Required:    true,
 				},
 				{
+					Name:        argTaskName,
+					Description: "[Optional] Name of the task. If not set, returns results for all tasks.",
+				},
+				{
 					Name:         argIncludeStable,
 					Description:  "If set, include results for tasks which are succeeding or failing consistently within the given window.",
 					ArgumentType: common.BooleanArgument,
 				},
+				{
+					Name:         argIncludeSuccessful,
+					Description:  "If true, include results for tasks which succeeded at their most recent run within the window. Default: true",
+					ArgumentType: common.BooleanArgument,
+				},
+				format.FormatToolArgument(),
 			},
-			Handler: c.GetTaskHealthReportHandler,
+			Handler: format.FormatResponseWrapper(c.GetTaskHealthReportHandler),
 		},
 		{
 			Name:        "get_task",
@@ -118,8 +131,9 @@ If not provided, the current time is used.`,
 					Description: "ID of the task.",
 					Required:    true,
 				},
+				format.FormatToolArgument(),
 			},
-			Handler: c.GetTaskHandler,
+			Handler: format.FormatResponseWrapper(c.GetTaskHandler),
 		},
 	}
 }

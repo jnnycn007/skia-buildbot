@@ -2,8 +2,10 @@ package task_scheduler
 
 import (
 	"context"
-	"encoding/json"
+	"fmt"
 	"net/http"
+	"sort"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/datastore"
@@ -11,6 +13,7 @@ import (
 	"go.skia.org/infra/go/gitiles"
 	"go.skia.org/infra/go/httputils"
 	"go.skia.org/infra/go/skerr"
+	"go.skia.org/infra/go/vcsinfo"
 	"go.skia.org/infra/task_scheduler/go/db"
 	"go.skia.org/infra/task_scheduler/go/db/firestore"
 	"go.skia.org/infra/task_scheduler/go/types"
@@ -42,14 +45,14 @@ func (c *TaskSchedulerClient) Close() error {
 	return skerr.Wrap(c.db.Close())
 }
 
-func (c *TaskSchedulerClient) SearchTasksHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func (c *TaskSchedulerClient) SearchTasksHandler(ctx context.Context, req mcp.CallToolRequest) (fmt.Stringer, error) {
 	startTime, err := parseTimeOrNil(req, argStartTime)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return nil, skerr.Wrap(err)
 	}
 	endTime, err := parseTimeOrNil(req, argEndTime)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return nil, skerr.Wrap(err)
 	}
 
 	// If issue and patchset aren't provided, assume the caller doesn't want try jobs included.
@@ -75,42 +78,29 @@ func (c *TaskSchedulerClient) SearchTasksHandler(ctx context.Context, req mcp.Ca
 		Limit:     &limit,
 	}
 	tasks, err := c.db.SearchTasks(ctx, searchParams)
+
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return nil, skerr.Wrap(err)
 	}
-	b, err := json.MarshalIndent(tasks, "", "  ")
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
-	}
-	return mcp.NewToolResultText(string(b)), nil
+	return TaskList(tasks), nil
 }
 
-type TaskHealthReport struct {
-	CommitGraph []string                       `json:"commit_graph"`
-	Tasks       map[string][]TaskResultSummary `json:"tasks"`
-}
-
-type TaskResultSummary struct {
-	ID        string           `json:"id"`
-	Revision  string           `json:"rev"`
-	Status    types.TaskStatus `json:"status"`
-	BlameSize int              `json:"blame_size"`
-}
-
-func (c *TaskSchedulerClient) GetTaskHealthReportHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func (c *TaskSchedulerClient) GetTaskHealthReportHandler(ctx context.Context, req mcp.CallToolRequest) (fmt.Stringer, error) {
 	repoUrl, err := req.RequireString(argRepo)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return nil, skerr.Wrap(err)
 	}
 	revision, err := req.RequireString(argRevision)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return nil, skerr.Wrap(err)
 	}
 	limit, err := req.RequireInt(argLimit)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return nil, skerr.Wrap(err)
 	}
+	taskName := req.GetString(argTaskName, "")
 	includeStable := req.GetBool(argIncludeStable, false)
+	includeSuccessful := req.GetBool(argIncludeSuccessful, true)
 
 	repo := gitiles.NewRepo(repoUrl, c.client)
 
@@ -119,74 +109,178 @@ func (c *TaskSchedulerClient) GetTaskHealthReportHandler(ctx context.Context, re
 		return nil, err
 	}
 
-	commitHashes := make([]string, 0, len(commits))
+	var resp TaskHealthReport
+	resp.Commits = make([]*vcsinfo.ShortCommit, 0, len(commits))
 	for _, c := range commits {
-		commitHashes = append(commitHashes, c.Hash)
+		resp.Commits = append(resp.Commits, c.ShortCommit)
 	}
 
-	taskHistory := make(map[string][]TaskResultSummary)
-	seenTasks := make(map[string]bool)
-
+	resp.Tasks = map[string]map[string]*types.Task{}
+	searchResultsLimit := 0
+	empty := ""
 	for _, commit := range commits {
-		tasks, err := c.db.SearchTasks(ctx, &db.TaskSearchParams{
-			Repo:              &repoUrl,
-			BlamelistContains: &commit.Hash,
-		})
+		params := &db.TaskSearchParams{
+			Repo:      &repoUrl,
+			Revision:  &commit.Hash,
+			Issue:     &empty, // Exclude try jobs.
+			Patchset:  &empty, // Exclude try jobs.
+			TimeStart: &commit.Timestamp,
+			Limit:     &searchResultsLimit,
+		}
+		if taskName != "" {
+			params.Name = &taskName
+		}
+		tasks, err := c.db.SearchTasks(ctx, params)
 		if err != nil {
 			return nil, err
 		}
 
 		for _, t := range tasks {
-			if seenTasks[t.Id] {
+			// Ignore in-progress tasks.
+			if !t.Done() {
 				continue
 			}
-			seenTasks[t.Id] = true
-
-			taskHistory[t.Name] = append(taskHistory[t.Name], TaskResultSummary{
-				ID:        t.Id,
-				Revision:  t.Revision,
-				Status:    t.Status,
-				BlameSize: len(t.Commits),
-			})
-		}
-	}
-
-	report := &TaskHealthReport{
-		CommitGraph: commitHashes,
-		Tasks:       make(map[string][]TaskResultSummary),
-	}
-
-	for name, history := range taskHistory {
-		if !includeStable {
-			if len(history) > 0 {
-				firstStatus := history[0].Status
-				stable := true
-				for _, res := range history {
-					if res.Status != firstStatus {
-						stable = false
-						break
-					}
-				}
-				if stable {
-					continue
-				}
+			history, ok := resp.Tasks[t.Name]
+			if !ok {
+				history = map[string]*types.Task{}
+				resp.Tasks[t.Name] = history
+			}
+			// TODO(borenet): Include retries?
+			if existing, ok := history[commit.Hash]; !ok || existing.Created.Before(t.Created) {
+				history[commit.Hash] = t
 			}
 		}
-		report.Tasks[name] = history
 	}
-	return encodeJSONResponse(report)
-}
 
-func (c *TaskSchedulerClient) GetTaskHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// Filter out stable and successful tasks.
+	if taskName == "" {
+		for taskName, tasksByCommit := range resp.Tasks {
+			stable := true
+			successful := false
+			var firstStatus types.TaskStatus = "(unset)"
+			for _, task := range tasksByCommit {
+				if firstStatus == "(unset)" {
+					if task.Status == types.TASK_STATUS_SUCCESS {
+						successful = true
+						break
+					}
+					firstStatus = task.Status
+				}
+				if task.Status != firstStatus {
+					stable = false
+					break
+				}
+			}
+			if !includeStable && stable {
+				delete(resp.Tasks, taskName)
+			} else if !includeSuccessful && successful {
+				delete(resp.Tasks, taskName)
+			}
+		}
+	}
+
+	return &resp, nil
+}
+func (c *TaskSchedulerClient) GetTaskHandler(ctx context.Context, req mcp.CallToolRequest) (fmt.Stringer, error) {
 	taskID, err := req.RequireString(argTaskId)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return nil, skerr.Wrap(err)
 	}
 	task, err := c.db.GetTaskById(ctx, taskID)
 	if err != nil {
 		return nil, skerr.Wrap(err)
 	}
-	return encodeJSONResponse(task)
+	return &TaskWrapper{task}, nil
+}
+
+type TaskList []*types.Task
+
+func (l TaskList) String() string {
+	var sb strings.Builder
+	_, _ = fmt.Fprintf(&sb, "| ID | Name | Status | Revision | Created |\n")
+	_, _ = fmt.Fprintf(&sb, "|----|------|--------|----------|---------|\n")
+	for _, t := range l {
+		_, _ = fmt.Fprintf(&sb, "| %s | %s | %s | %s | %s |\n", t.Id, t.Name, t.Status, t.Revision, t.Created.Format(time.RFC3339))
+	}
+	return sb.String()
+}
+
+type TaskWrapper struct {
+	*types.Task
+}
+
+func (w TaskWrapper) String() string {
+	var sb strings.Builder
+	_, _ = fmt.Fprintf(&sb, "# Task Details\n\n")
+	_, _ = fmt.Fprintf(&sb, "**ID:** %s\n", w.Id)
+	_, _ = fmt.Fprintf(&sb, "**Name:** %s\n", w.Name)
+	_, _ = fmt.Fprintf(&sb, "**Status:** %s\n", w.Status)
+	_, _ = fmt.Fprintf(&sb, "**Revision:** %s\n", w.Revision)
+	_, _ = fmt.Fprintf(&sb, "**Created:** %s\n", w.Created.Format(time.RFC3339))
+	_, _ = fmt.Fprintf(&sb, "**Started:** %s\n", w.Started.Format(time.RFC3339))
+	_, _ = fmt.Fprintf(&sb, "**Finished:** %s\n", w.Finished.Format(time.RFC3339))
+	_, _ = fmt.Fprintf(&sb, "**Swarming Task ID:** %s\n", w.SwarmingTaskId)
+	return sb.String()
+}
+
+type TaskHealthReport struct {
+	Commits []*vcsinfo.ShortCommit            `json:"commits"`
+	Tasks   map[string]map[string]*types.Task `json:"tasks"`
+}
+
+func (r *TaskHealthReport) String() string {
+	var sb strings.Builder
+	fmt.Fprint(&sb, Commits(r.Commits).String())
+
+	// Ensure that the results are in a predictable order.
+	taskNames := make([]string, 0, len(r.Tasks))
+	for taskName := range r.Tasks {
+		taskNames = append(taskNames, taskName)
+	}
+	sort.Strings(taskNames)
+
+	_, _ = fmt.Fprintf(&sb, "\n\n# Task Results\n\n")
+	for _, taskName := range taskNames {
+		_, _ = fmt.Fprintf(&sb, "## %s\n\n", taskName)
+		fmt.Fprint(&sb, TaskHistory(r.Tasks[taskName]).String(r.Commits))
+		fmt.Fprintln(&sb, "")
+	}
+	return sb.String()
+}
+
+type Commits []*vcsinfo.ShortCommit
+
+func (c Commits) String() string {
+	var sb strings.Builder
+	_, _ = fmt.Fprintf(&sb, "| Commit  | Subject |\n")
+	_, _ = fmt.Fprintf(&sb, "|---------|---------|\n")
+	for _, commit := range c {
+		_, _ = fmt.Fprintf(&sb, "| %s | %s |\n", commit.Hash[:7], commit.Subject)
+	}
+	return sb.String()
+}
+
+type TaskHistory map[string]*types.Task
+
+func (h TaskHistory) String(commits []*vcsinfo.ShortCommit) string {
+	var sb strings.Builder
+	_, _ = fmt.Fprintf(&sb, "| Commit  | Result  | Task ID |\n")
+	_, _ = fmt.Fprintf(&sb, "|---------|---------|---------|\n")
+	var currentTask *types.Task
+	for _, commit := range commits {
+		task, ok := h[commit.Hash]
+		if ok {
+			_, _ = fmt.Fprintf(&sb, "| %s | %s | %s |\n", commit.Hash[:7], task.Status, task.Id)
+			currentTask = task
+		} else if currentTask != nil {
+			// TODO(borenet): we could display something different to
+			// indicate that we're in the blamelist of the currentTask.
+			_, _ = fmt.Fprintf(&sb, "| %s | %s | %s |\n", commit.Hash[:7], strings.Repeat(" ", len(string(currentTask.Status))), strings.Repeat(" ", len(currentTask.Id)))
+		} else {
+			_, _ = fmt.Fprintf(&sb, "| %s |         |         |\n", commit.Hash[:7])
+		}
+	}
+	return sb.String()
 }
 
 func getStringOrNil(req mcp.CallToolRequest, arg string) *string {
@@ -209,12 +303,4 @@ func parseTimeOrNil(req mcp.CallToolRequest, arg string) (*time.Time, error) {
 		return nil, skerr.Wrap(err)
 	}
 	return &parsed, nil
-}
-
-func encodeJSONResponse(resp interface{}) (*mcp.CallToolResult, error) {
-	b, err := json.MarshalIndent(resp, "", "  ")
-	if err != nil {
-		return nil, skerr.Wrap(err)
-	}
-	return mcp.NewToolResultText(string(b)), nil
 }

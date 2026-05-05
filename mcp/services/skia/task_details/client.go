@@ -21,6 +21,7 @@ import (
 	"go.skia.org/infra/go/swarming"
 	td_db "go.skia.org/infra/task_driver/go/db"
 	td_bigtable "go.skia.org/infra/task_driver/go/db/bigtable"
+	"go.skia.org/infra/task_driver/go/display"
 	"go.skia.org/infra/task_driver/go/logs"
 	ts_db "go.skia.org/infra/task_scheduler/go/db"
 	"go.skia.org/infra/task_scheduler/go/db/firestore"
@@ -81,33 +82,26 @@ func NewClient(ctx context.Context, btProject, btInstance, firestoreInstance str
 	}, nil
 }
 
-type getTaskStepsResult struct {
-	TaskDriver *td_db.TaskDriverRun `json:"task_driver,omitempty"`
-
-	Recipe                  *annopb.Step     `json:"recipe,omitempty"`
-	RecipeStepStatusMapping map[int32]string `json:"recipe_step_status_mapping,omitempty"`
-
-	SwarmingTaskID    string `json:"swarming_task_id,omitempty"`
-	SwarmingTaskState string `json:"swarming_task_state,omitempty"`
-	SwarmingTaskLogs  string `json:"swarming_task_logs,omitempty"`
-}
-
-func (c *TaskDetailsClient) GetTaskStepsHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func (c *TaskDetailsClient) GetTaskStepsHandler(ctx context.Context, req mcp.CallToolRequest) (fmt.Stringer, error) {
 	taskID, err := req.RequireString(argTaskID)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return nil, skerr.Wrap(err)
 	}
 
 	// The task might be run as a Task Driver, a Recipe, or just a plain task.
 	// Try Task Driver first.
-	var res getTaskStepsResult
+	var res GetTaskStepsResult
 	td, err := c.td.GetTaskDriver(ctx, taskID)
 	if err != nil {
 		return nil, skerr.Wrap(err)
 	}
 	if td != nil {
-		res.TaskDriver = td
-		return encodeJSONResponse(res)
+		tdDisplay, err := display.TaskDriverForDisplay(td)
+		if err != nil {
+			return nil, skerr.Wrap(err)
+		}
+		res.TaskDriver = tdDisplay
+		return &res, nil
 	}
 
 	// Fall back to Recipe steps via LogDog.
@@ -118,10 +112,9 @@ func (c *TaskDetailsClient) GetTaskStepsHandler(ctx context.Context, req mcp.Cal
 	step, err := c.fetchLogDogSteps(ctx, task.SwarmingTaskId)
 	if err == nil {
 		res.Recipe = step
-		res.RecipeStepStatusMapping = annopb.Status_name
 		// Populate SwarmingTaskID in case it's needed for log retrieval.
 		res.SwarmingTaskID = task.SwarmingTaskId
-		return encodeJSONResponse(res)
+		return &res, nil
 	} else if !strings.Contains(err.Error(), "coordinator: no access") {
 		return nil, skerr.Wrap(err)
 	}
@@ -133,45 +126,45 @@ func (c *TaskDetailsClient) GetTaskStepsHandler(ctx context.Context, req mcp.Cal
 	}
 	res.SwarmingTaskState = swarmOutput.State
 	res.SwarmingTaskLogs = swarmOutput.Output
-	return encodeJSONResponse(res)
+	return &res, nil
 }
 
-func (c *TaskDetailsClient) GetRecipeStepLogsHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func (c *TaskDetailsClient) GetRecipeStepLogsHandler(ctx context.Context, req mcp.CallToolRequest) (fmt.Stringer, error) {
 	swarmingTaskID, err := req.RequireString(argSwarmingTaskID)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return nil, skerr.Wrap(err)
 	}
 	logPath, err := req.RequireString(argLogPath)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return nil, skerr.Wrap(err)
 	}
 	startIndex, err := req.RequireInt(argStartIndex)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return nil, skerr.Wrap(err)
 	}
 	limit, err := req.RequireInt(argLimit)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return nil, skerr.Wrap(err)
 	}
 	lines, err := c.fetchLogDogStepLogs(ctx, swarmingTaskID, logPath, startIndex, limit)
 	if err != nil {
 		return nil, skerr.Wrap(err)
 	}
-	return encodeJSONResponse(lines)
+	return LogLines(lines), nil
 }
 
-func (c *TaskDetailsClient) GetTaskDriverLogsHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func (c *TaskDetailsClient) GetTaskDriverLogsHandler(ctx context.Context, req mcp.CallToolRequest) (fmt.Stringer, error) {
 	taskID, err := req.RequireString(argTaskID)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return nil, skerr.Wrap(err)
 	}
 	stepID, err := req.RequireString(argStepID)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return nil, skerr.Wrap(err)
 	}
 	logID, err := req.RequireString(argLogID)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return nil, skerr.Wrap(err)
 	}
 	cursor := req.GetString(argCursor, "")
 	limit := req.GetInt(argLimit, 0)
@@ -181,10 +174,7 @@ func (c *TaskDetailsClient) GetTaskDriverLogsHandler(ctx context.Context, req mc
 		return nil, skerr.Wrap(err)
 	}
 
-	response := struct {
-		Logs   []string `json:"log_lines"`
-		Cursor string   `json:"cursor"`
-	}{
+	response := TaskDriverLogsResponse{
 		Cursor: cursor,
 	}
 	for _, entry := range logs {
@@ -202,21 +192,11 @@ func (c *TaskDetailsClient) GetTaskDriverLogsHandler(ctx context.Context, req mc
 		}
 	}
 
-	return encodeJSONResponse(response)
-}
-
-// fixupTaskID ensures that the given Swarming task ID is a *run* ID as opposed
-// to a *request* ID. The request ID ends with a zero, while the first for a
-// given request ends in a one.
-func fixupTaskID(taskID string) string {
-	if len(taskID) > 0 && taskID[len(taskID)-1] == '0' {
-		return taskID[:len(taskID)-1] + "1"
-	}
-	return taskID
+	return &response, nil
 }
 
 func (c *TaskDetailsClient) fetchLogDogSteps(ctx context.Context, taskID string) (*annopb.Step, error) {
-	path := fmt.Sprintf(logdogPathTmplRun, fixupTaskID(taskID))
+	path := fmt.Sprintf(logdogPathTmplRun, fixupSwarmingTaskID(taskID))
 	stream := c.logdog.Stream(logdogProject, types.StreamPath(path))
 	var state coordinator.LogStream
 	le, err := stream.Tail(ctx, coordinator.WithState(&state), coordinator.Complete())
@@ -242,7 +222,7 @@ func (c *TaskDetailsClient) fetchLogDogSteps(ctx context.Context, taskID string)
 }
 
 func (c *TaskDetailsClient) fetchLogDogStepLogs(ctx context.Context, taskID, logPath string, index, count int) ([]string, error) {
-	path := fmt.Sprintf(logdogPathTmplStepLogs, fixupTaskID(taskID), logPath)
+	path := fmt.Sprintf(logdogPathTmplStepLogs, fixupSwarmingTaskID(taskID), logPath)
 	f := c.logdog.Stream(logdogProject, types.StreamPath(path)).Fetcher(ctx, &fetcher.Options{
 		Index: types.MessageIndex(index),
 		Count: int64(count),
@@ -267,10 +247,75 @@ func (c *TaskDetailsClient) fetchLogDogStepLogs(ctx context.Context, taskID, log
 	return logLines, nil
 }
 
-func encodeJSONResponse(resp interface{}) (*mcp.CallToolResult, error) {
-	b, err := json.MarshalIndent(resp, "", "  ")
-	if err != nil {
-		return nil, skerr.Wrap(err)
+// fixupSwarmingTaskID ensures that the given Swarming task ID is a *run* ID as
+// opposed to a *request* ID. The request ID ends with a zero, while the first
+// for a given request ends in a one.
+func fixupSwarmingTaskID(taskID string) string {
+	if len(taskID) > 0 && taskID[len(taskID)-1] == '0' {
+		return taskID[:len(taskID)-1] + "1"
 	}
-	return mcp.NewToolResultText(string(b)), nil
+	return taskID
+}
+
+type GetTaskStepsResult struct {
+	TaskDriver *display.TaskDriverRunDisplay `json:"task_driver,omitempty"`
+
+	Recipe *annopb.Step `json:"recipe,omitempty"`
+
+	SwarmingTaskID    string `json:"swarming_task_id,omitempty"`
+	SwarmingTaskState string `json:"swarming_task_state,omitempty"`
+	SwarmingTaskLogs  string `json:"swarming_task_logs,omitempty"`
+}
+
+func (r GetTaskStepsResult) String() string {
+	var sb strings.Builder
+	if r.TaskDriver != nil {
+		_, _ = fmt.Fprintf(&sb, "# Task Driver\n\n")
+		printTaskDriverStep(&sb, r.TaskDriver.StepDisplay, 0)
+	} else if r.Recipe != nil {
+		_, _ = fmt.Fprintf(&sb, "# Recipe\n\n")
+		_, _ = fmt.Fprintf(&sb, "**Swarming Task ID:** %s\n", r.SwarmingTaskID)
+		_, _ = fmt.Fprintf(&sb, "**Steps:**\n")
+		printRecipeStep(&sb, r.Recipe, 0)
+	} else {
+		_, _ = fmt.Fprintf(&sb, "# Swarming Task\n\n")
+		_, _ = fmt.Fprintf(&sb, "**ID:**    %s\n", r.SwarmingTaskID)
+		_, _ = fmt.Fprintf(&sb, "**State:** %s\n", r.SwarmingTaskState)
+		_, _ = fmt.Fprintf(&sb, "**Logs:**\n")
+		_, _ = fmt.Fprintf(&sb, "```\n%s\n```\n", r.SwarmingTaskLogs)
+	}
+	return sb.String()
+}
+
+func printTaskDriverStep(w io.Writer, step *display.StepDisplay, depth int) {
+	_, _ = fmt.Fprintf(w, "%s- %s (%s)\n", strings.Repeat("  ", depth), step.Name, step.Result)
+	for _, subStep := range step.Steps {
+		printTaskDriverStep(w, subStep, depth+1)
+	}
+}
+
+func printRecipeStep(w io.Writer, step *annopb.Step, depth int) {
+	_, _ = fmt.Fprintf(w, "%s- %s (%s)\n", strings.Repeat("  ", depth), step.Name, step.Status)
+	for _, subStep := range step.Substep {
+		printRecipeStep(w, subStep.GetStep(), depth+1)
+	}
+}
+
+type LogLines []string
+
+func (l LogLines) String() string {
+	return strings.Join(l, "\n")
+}
+
+type TaskDriverLogsResponse struct {
+	Logs   []string `json:"log_lines"`
+	Cursor string   `json:"cursor"`
+}
+
+func (r TaskDriverLogsResponse) String() string {
+	str := ""
+	if r.Cursor != "" {
+		str = fmt.Sprintf("# Cursor:\n\n%s\n\n", r.Cursor)
+	}
+	return str + fmt.Sprintf("# Logs:\n\n%s", strings.Join(r.Logs, "\n"))
 }

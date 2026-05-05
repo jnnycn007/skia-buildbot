@@ -1,4 +1,5 @@
 load("@rules_go//go:def.bzl", "go_library")
+load("//bazel/go:go_test.bzl", "go_test")
 
 go_library(
     name = "task_details",
@@ -14,8 +15,10 @@ go_library(
         "//go/skerr",
         "//go/swarming",
         "//mcp/common",
+        "//mcp/services/skia/format",
         "//task_driver/go/db",
         "//task_driver/go/db/bigtable",
+        "//task_driver/go/display",
         "//task_driver/go/logs",
         "//task_scheduler/go/db",
         "//task_scheduler/go/db/firestore",
@@ -29,5 +32,17 @@ go_library(
         "@org_chromium_go_luci//luciexe/legacy/annotee/proto",
         "@org_golang_google_protobuf//proto",
         "@org_golang_x_oauth2//google",
+    ],
+)
+
+go_test(
+    name = "task_details_test",
+    srcs = ["client_test.go"],
+    embed = [":task_details"],
+    deps = [
+        "//task_driver/go/display",
+        "//task_driver/go/td",
+        "@com_github_stretchr_testify//assert",
+        "@org_chromium_go_luci//luciexe/legacy/annotee/proto",
     ],
 )

@@ -1,6 +1,9 @@
 package task_details
 
-import "go.skia.org/infra/mcp/common"
+import (
+	"go.skia.org/infra/mcp/common"
+	"go.skia.org/infra/mcp/services/skia/format"
+)
 
 const (
 	argTaskID         = "task_id"
@@ -24,8 +27,9 @@ func GetTools(c *TaskDetailsClient) []common.Tool {
 					Description: "ID of the task.",
 					Required:    true,
 				},
+				format.FormatToolArgument(),
 			},
-			Handler: c.GetTaskStepsHandler,
+			Handler: format.FormatResponseWrapper(c.GetTaskStepsHandler),
 		},
 		{
 			Name:        "get_task_driver_step_logs",
@@ -46,8 +50,9 @@ func GetTools(c *TaskDetailsClient) []common.Tool {
 					Description: "ID of the log.",
 					Required:    true,
 				},
+				format.FormatToolArgument(),
 			},
-			Handler: c.GetTaskDriverLogsHandler,
+			Handler: format.FormatResponseWrapper(c.GetTaskDriverLogsHandler),
 		},
 		{
 			Name:        "get_recipe_step_logs",
@@ -76,8 +81,9 @@ func GetTools(c *TaskDetailsClient) []common.Tool {
 					Name:        argCursor,
 					Description: "Starting point for the next page of results, when paginating.",
 				},
+				format.FormatToolArgument(),
 			},
-			Handler: c.GetRecipeStepLogsHandler,
+			Handler: format.FormatResponseWrapper(c.GetRecipeStepLogsHandler),
 		},
 	}
 }
