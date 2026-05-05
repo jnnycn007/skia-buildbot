@@ -144,12 +144,12 @@ describe('report-page-sk', () => {
       // The cid response has one commit slice.
       // Must match with the first commitSlice in `perf/modules/common/test-util.ts`
       expect(await commitLinks.length).to.equal(2);
-      expect(await (await commitLinks.item(0)).innerText).to.equal('0d7087e');
+      expect(await (await commitLinks.item(0)).innerText).to.equal('0d7087e5b');
       const link1: string = (await (await commitLinks.item(0)).getAttribute('href'))!;
       expect(link1).to.equal(
         `https://skia.googlesource.com/skia/+show/0d7087e5b99087f5945f04dbda7b7a7a4b12e344`
       );
-      expect(await (await commitLinks.item(1)).innerText).to.equal('2894e71');
+      expect(await (await commitLinks.item(1)).innerText).to.equal('2894e7194');
       const link2: string = (await (await commitLinks.item(1)).getAttribute('href'))!;
       expect(link2).to.equal(
         `https://skia.googlesource.com/skia/+show/2894e7194406ad8014d3e85b39379ca0e4607ead`

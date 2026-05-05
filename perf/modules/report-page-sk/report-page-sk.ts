@@ -20,6 +20,7 @@ import { lookupCids } from '../cid/cid';
 import { upgradeProperty } from '../../../elements-sk/modules/upgradeProperty';
 import '../../../elements-sk/modules/icons/camera-roll-icon-sk';
 import { CountMetric, SummaryMetric, telemetry } from '../telemetry/telemetry';
+import { TrimHash } from '../common/commit';
 
 const weekInSeconds = 7 * 24 * 60 * 60;
 
@@ -414,7 +415,7 @@ export class ReportPageSk extends ElementSk {
                 .slice(0, 10)
                 .map((commit) => {
                   return html` <li>
-                    <a href="${commit.url}" target="_blank">${commit.hash.substring(0, 7)}</a>
+                    <a href="${commit.url}" target="_blank">${TrimHash(commit.hash)}</a>
                     <span id="commit-message">${commit.message}</span>
                     ${this.addIconForRollCommit(commit)}
                   </li>`;

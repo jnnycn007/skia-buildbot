@@ -122,3 +122,9 @@ ts_library(
     srcs = ["test-picker.ts"],
     visibility = ["//visibility:public"],
 )
+
+ts_library(
+    name = "commit_ts_lib",
+    srcs = ["commit.ts"],
+    visibility = ["//visibility:public"],
+)

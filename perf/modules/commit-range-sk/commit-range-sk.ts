@@ -12,6 +12,7 @@ import { lookupCids } from '../cid/cid';
 import { MISSING_DATA_SENTINEL } from '../const/const';
 import { ColumnHeader, CommitNumber } from '../json';
 import '../window/window';
+import { TrimHash } from '../common/commit';
 
 // Converts CommitNumbers to Git hashes.
 type commitNumberToHashes = (commitNumbers: CommitNumber[]) => Promise<string[]>;
@@ -247,7 +248,7 @@ export class CommitRangeSk extends LitElement {
         }
         // If GitHub, show short hash instead of commit number.
         if (url.includes('github')) {
-          this._text = this.hashes![1].substring(0, 7);
+          this._text = TrimHash(this.hashes![1]);
         }
       }
     }
@@ -257,7 +258,7 @@ export class CommitRangeSk extends LitElement {
   private async _handleHashRange(): Promise<void> {
     const oldText = this._text;
     this._text = 'loading...';
-    const hash1 = this.hashes![1].substring(0, 7);
+    const hash1 = TrimHash(this.hashes![1]);
     const numberOfCommitsInRangeText = `(${
       this._commitIds![1] - this._commitIds![0]
     } commits in this range)`;
@@ -274,7 +275,7 @@ export class CommitRangeSk extends LitElement {
       this._text = oldText;
       return;
     }
-    const hashAfter0 = hashAfter0UntrimmedList[0].substring(0, 7);
+    const hashAfter0 = TrimHash(hashAfter0UntrimmedList[0]);
     this._text = `${hashAfter0} - ${hash1} ${numberOfCommitsInRangeText}`;
   }
 

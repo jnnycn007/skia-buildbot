@@ -22,6 +22,7 @@ sk_element(
         "//perf/modules/const:const_ts_lib",
         "//perf/modules/json:index_ts_lib",
         "//perf/modules/window:window_ts_lib",
+        "//perf/modules/common:commit_ts_lib",
     ],
     ts_srcs = [
         "commit-range-sk.ts",

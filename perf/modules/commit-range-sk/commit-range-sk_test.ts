@@ -163,7 +163,7 @@ describe('commit-range-sk', () => {
     );
     assert.equal(
       element.querySelector<HTMLAnchorElement>('a')!.text,
-      '1515151 - 2222222 (2 commits in this range)'
+      '151515151 - 222222222 (2 commits in this range)'
     );
   });
 

@@ -38,6 +38,7 @@ sk_element(
         "//perf/modules/paramtools:index_ts_lib",
         "//perf/modules/window:window_ts_lib",
         "//perf/modules/common:test-picker_ts_lib",
+        "//perf/modules/common:commit_ts_lib",
     ],
     ts_srcs = [
         "chart-tooltip-sk.ts",

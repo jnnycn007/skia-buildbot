@@ -38,6 +38,7 @@ import { jsonOrThrow } from '../../../infra-sk/modules/jsonOrThrow';
 import { errorMessage } from '../errorMessage';
 
 import '@material/web/icon/icon.js';
+import { TrimHash } from '../common/commit';
 
 export interface CommitLinks {
   traceid: string;
@@ -273,11 +274,8 @@ export class PointLinksSk extends LitElement {
               currentCommitUrl !== ''
             ) {
               const prevCommitUrl = prevLinks[key];
-              const currentCommitId = this.getCommitIdFromCommitUrl(currentCommitUrl).substring(
-                0,
-                8
-              );
-              const prevCommitId = this.getCommitIdFromCommitUrl(prevCommitUrl).substring(0, 8);
+              const currentCommitId = TrimHash(this.getCommitIdFromCommitUrl(currentCommitUrl));
+              const prevCommitId = TrimHash(this.getCommitIdFromCommitUrl(prevCommitUrl));
               // Workaround to ensure no duplication with links.
               const displayKey = `${key.split(' Git')[0]}`;
               // The links should be different depending on whether the

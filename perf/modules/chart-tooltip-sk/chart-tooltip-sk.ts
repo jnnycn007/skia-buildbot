@@ -36,6 +36,7 @@ import { defaultColors } from '../common/plot-builder';
 import '../json-source-sk/json-source-sk';
 import { JSONSourceSk } from '../json-source-sk/json-source-sk';
 import { DEFAULT_OPTION_LABEL } from '../common/test-picker';
+import { TrimHash } from '../common/commit';
 
 @customElement('chart-tooltip-sk')
 export class ChartTooltipSk extends LitElement {
@@ -263,9 +264,7 @@ export class ChartTooltipSk extends LitElement {
       <li>
         <span id="tooltip-key">Commit</span>
         <span id="tooltip-text">
-          <a href="${this.commit_info?.url}" target="_blank"
-            >${this.commit_info?.hash.substring(0, 8)}</a
-          >
+          <a href="${this.commit_info?.url}" target="_blank">${TrimHash(this.commit_info?.hash)}</a>
         </span>
       </li>
     </ul>`;

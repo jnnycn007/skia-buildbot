@@ -12,6 +12,7 @@ import { fromObject } from '../../../infra-sk/modules/query';
 import { Commit, CommitNumber } from '../json';
 
 import '@material/web/button/outlined-button.js';
+import { TrimHash } from '../common/commit';
 
 // The range of time (in seconds) to display around a specific commit in the Explore view.
 // +/- 4 days provides a reasonable window to see context.
@@ -41,7 +42,7 @@ export class CommitDetailSk extends LitElement {
     return html`
       <div class="linkish">
         <pre>
-${this.cid.hash.slice(0, 8)} - ${this.cid.author} - ${diffDate(this.cid.ts * 1000)} - ${this.cid
+${TrimHash(this.cid.hash)} - ${this.cid.author} - ${diffDate(this.cid.ts * 1000)} - ${this.cid
             .message}</pre
         >
         <div class="tip">

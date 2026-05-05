@@ -44,7 +44,7 @@ describe('commit-detail-sk', () => {
     // Mock Date.now is '2020-03-22T00:00:00.000Z' in demo.ts,
     // so diffDate(1674823200 * 1000) will be '149w'
     expect(preText).to.include(
-      'abcdef12 - test-author@google.com - 149w - Test commit message for Puppeteer tests'
+      'abcdef123 - test-author@google.com - 149w - Test commit message for Puppeteer tests'
     );
   });
 

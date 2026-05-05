@@ -13,6 +13,7 @@ sk_element(
         "//infra-sk/modules:human_ts_lib",
         "//infra-sk/modules:query_ts_lib",
         "//perf/modules/json:index_ts_lib",
+        "//perf/modules/common:commit_ts_lib",
     ],
     ts_srcs = [
         "commit-detail-sk.ts",

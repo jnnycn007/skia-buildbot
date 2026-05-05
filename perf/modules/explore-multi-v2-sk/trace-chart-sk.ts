@@ -9,6 +9,7 @@ import {
 } from './chart-logic';
 import { smoothPoints } from './smoothing';
 import { Regression } from '../json';
+import { TrimHash } from '../common/commit';
 
 export interface TraceRow {
   commit_number: number;
@@ -865,7 +866,7 @@ export class TraceChartSk extends LitElement {
       this._subrepoRolls.forEach((roll) => {
         const px = mapX(roll.dataX);
         if (px >= padding.left && px <= width - padding.right) {
-          const label = `${roll.oldVer.substring(0, 7)}..${roll.newVer.substring(0, 7)}`;
+          const label = `${TrimHash(roll.oldVer)}..${TrimHash(roll.newVer)}`;
           ctx.fillText(label, px, padding.top + 5);
         }
       });
@@ -2139,7 +2140,7 @@ export class TraceChartSk extends LitElement {
                           target="_blank"
                           style="color: #1a73e8;">
                           ${this._hoveredPoint.row.hash
-                            ? this._hoveredPoint.row.hash.substring(0, 7)
+                            ? TrimHash(this._hoveredPoint.row.hash)
                             : 'Link'}
                         </a>
                       </div>
