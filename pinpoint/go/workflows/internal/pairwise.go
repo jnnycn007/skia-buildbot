@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	swarming_pb "go.chromium.org/luci/swarming/proto/api_v2"
+
 	"go.skia.org/infra/go/skerr"
 	"go.skia.org/infra/go/sklog"
 	"go.skia.org/infra/pinpoint/go/common"
@@ -26,8 +27,8 @@ const (
 )
 
 func PairwiseWorkflow(ctx workflow.Context, p *workflows.PairwiseParams) (
-	pe *pinpoint_proto.PairwiseExecution, finalError error) {
-
+	pe *pinpoint_proto.PairwiseExecution, finalError error,
+) {
 	if p.Request.StartBuild == nil && p.Request.StartCommit == nil {
 		return nil, skerr.Fmt("Base build and commit are empty.")
 	}
@@ -48,6 +49,15 @@ func PairwiseWorkflow(ctx workflow.Context, p *workflows.PairwiseParams) (
 	ctx = workflow.WithChildOptions(ctx, childWorkflowOptions)
 	ctx = workflow.WithActivityOptions(ctx, regularActivityOptions)
 
+	dbActivityOptions := regularActivityOptions
+	// For local development/testing (when Project is empty or "local"), set database retries to 1 (fail-fast)
+	if p.Request.Project == "" || p.Request.Project == "local" {
+		dbActivityOptions.RetryPolicy = &temporal.RetryPolicy{
+			MaximumAttempts: 1,
+		}
+	}
+	dbCtx := workflow.WithActivityOptions(ctx, dbActivityOptions)
+
 	jobID := uuid.New().String()
 
 	// dbJobID is the ID used for database operations. It is the stable Temporal
@@ -57,7 +67,7 @@ func PairwiseWorkflow(ctx workflow.Context, p *workflows.PairwiseParams) (
 	dbJobID := workflowID
 
 	wkStartTime := time.Now().UnixNano()
-	if err := workflow.ExecuteActivity(ctx, AddInitialJob, p.Request, dbJobID).Get(ctx, nil); err != nil {
+	if err := workflow.ExecuteActivity(dbCtx, AddInitialJob, p.Request, dbJobID).Get(dbCtx, nil); err != nil {
 		// TODO(b/439651386) Convert subsequent uses of sklog to full errors once Job Store activities are
 		// more stable and fully integrated
 		sklog.Errorf("failed to add initial job info to Spanner: %s", err)
@@ -108,36 +118,36 @@ func PairwiseWorkflow(ctx workflow.Context, p *workflows.PairwiseParams) (
 		// This ensures that even if the workflow context is canceled,
 		// these final activities can still be scheduled and run.
 		disconnectedCtx, _ := workflow.NewDisconnectedContext(ctx)
+		disconnectedDbCtx := workflow.WithActivityOptions(disconnectedCtx, dbActivityOptions)
 
 		// Final writebacks to Spanner before end of Pairwise workflow
 		if finalError != nil {
 			if temporal.IsCanceledError(finalError) {
-				if err := workflow.ExecuteActivity(disconnectedCtx, UpdateJobStatus, dbJobID, canceled, duration).Get(disconnectedCtx, nil); err != nil {
+				if err := workflow.ExecuteActivity(disconnectedDbCtx, UpdateJobStatus, dbJobID, canceled, duration).Get(disconnectedDbCtx, nil); err != nil {
 					sklog.Errorf("couldn't update status for canceled pairwise job with this ID: %s", dbJobID)
 				}
 			} else {
 				// Pairwise job failed for other reasons.
-				if err := workflow.ExecuteActivity(disconnectedCtx, SetErrors, dbJobID, finalError.Error()).Get(disconnectedCtx, nil); err != nil {
+				if err := workflow.ExecuteActivity(disconnectedDbCtx, SetErrors, dbJobID, finalError.Error()).Get(disconnectedDbCtx, nil); err != nil {
 					sklog.Errorf("couldn't add error for pairwise job with this ID: %s", dbJobID)
 				}
-				if err := workflow.ExecuteActivity(disconnectedCtx, UpdateJobStatus, dbJobID, failed, duration).Get(disconnectedCtx, nil); err != nil {
+				if err := workflow.ExecuteActivity(disconnectedDbCtx, UpdateJobStatus, dbJobID, failed, duration).Get(disconnectedDbCtx, nil); err != nil {
 					sklog.Errorf("couldn't update status for pairwise job with this ID: %s", dbJobID)
 				}
 			}
 		} else {
-			if err := workflow.ExecuteActivity(disconnectedCtx, UpdateJobStatus, dbJobID, completed, duration).Get(disconnectedCtx, nil); err != nil {
+			if err := workflow.ExecuteActivity(disconnectedDbCtx, UpdateJobStatus, dbJobID, completed, duration).Get(disconnectedDbCtx, nil); err != nil {
 				sklog.Errorf("couldn't update status for pairwise job with this ID: %s", dbJobID)
 			}
-			// Write back to database the results of the comparision through the job store object
-			if err := workflow.ExecuteActivity(disconnectedCtx, AddResults, dbJobID, protoResults).Get(disconnectedCtx, nil); err != nil {
+			// Write back to database the results of the comparison through the job store object
+			if err := workflow.ExecuteActivity(disconnectedDbCtx, AddResults, dbJobID, protoResults).Get(disconnectedDbCtx, nil); err != nil {
 				sklog.Errorf("couldn't add results for pairwise job with this ID: %s", dbJobID)
 			}
 		}
-
 	}()
 
 	// Update status to running
-	if err := workflow.ExecuteActivity(ctx, UpdateJobStatus, jobID, running, int64(0)).Get(ctx, nil); err != nil {
+	if err := workflow.ExecuteActivity(dbCtx, UpdateJobStatus, jobID, running, int64(0)).Get(dbCtx, nil); err != nil {
 		sklog.Errorf("couldn't update status for running pairwise job with this ID: %s", jobID)
 	}
 
@@ -156,7 +166,7 @@ func PairwiseWorkflow(ctx workflow.Context, p *workflows.PairwiseParams) (
 			Build: pr.Right.Build,
 			Runs:  pr.Right.Runs,
 		}
-		if err := workflow.ExecuteActivity(ctx, AddCommitRuns, dbJobID, leftData, rightData).Get(ctx, nil); err != nil {
+		if err := workflow.ExecuteActivity(dbCtx, AddCommitRuns, dbJobID, leftData, rightData).Get(dbCtx, nil); err != nil {
 			sklog.Errorf("couldn't add commit runs for pairwise job with this ID: %s", dbJobID)
 		}
 	}

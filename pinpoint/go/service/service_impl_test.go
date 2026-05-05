@@ -8,9 +8,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"go.skia.org/infra/pinpoint/go/workflows"
-	pb "go.skia.org/infra/pinpoint/proto/v1"
-	tpr_client_mock "go.skia.org/infra/temporal/go/client/mocks"
 	"go.temporal.io/api/enums/v1"
 	workflowpb "go.temporal.io/api/workflow/v1"
 	"go.temporal.io/api/workflowservice/v1"
@@ -18,6 +15,10 @@ import (
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"go.skia.org/infra/pinpoint/go/workflows"
+	pb "go.skia.org/infra/pinpoint/proto/v1"
+	tpr_client_mock "go.skia.org/infra/temporal/go/client/mocks"
 )
 
 func newTemporalMock(t *testing.T) (*tpr_client_mock.TemporalProvider, *temporal_mocks.Client) {
@@ -241,7 +242,6 @@ func TestQueryBisection_ExistingJob_ShouldReturnDetails(t *testing.T) {
 	expect(&pb.QueryBisectRequest{
 		JobId: "TBD ID",
 	}, nil, "should return job status")
-
 }
 
 func TestQueryBisection_NonExistingJob_ShouldError(t *testing.T) {
@@ -299,9 +299,9 @@ func TestCancelJob_JobCancelled_ReturnSucceed(t *testing.T) {
 	svc := New(tpm, rate.NewLimiter(rate.Every(time.Hour), 1))
 
 	resp, err := svc.CancelJob(ctx, &pb.CancelJobRequest{JobId: "job-id", Reason: "cancel reason"})
-	assert.Nil(t, err)
-	assert.Equal(t, resp.JobId, "job-id")
-	assert.Equal(t, resp.State, "Cancelled")
+	assert.NoError(t, err)
+	assert.Equal(t, "job-id", resp.JobId)
+	assert.Equal(t, "Cancelled", resp.State)
 }
 
 func TestQueryPairwise_InvalidRequest_ReturnsInternalError(t *testing.T) {
@@ -350,7 +350,7 @@ func TestQueryPairwise_DescribeWorkflow_ReturnsInternalError(t *testing.T) {
 	st, ok := status.FromError(err)
 	assert.True(t, ok)
 	assert.Equal(t, codes.Internal, st.Code())
-	assert.Contains(t, st.Message(), "Pairwise workflow execution returned unknown status")
+	assert.Contains(t, st.Message(), "Unable to describe workflow execution")
 }
 
 func TestQueryPairwise_StatusCompleted_ReturnsCompleted(t *testing.T) {

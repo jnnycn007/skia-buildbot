@@ -13,18 +13,19 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	enumspb "go.temporal.io/api/enums/v1"
+
 	"go.skia.org/infra/go/skerr"
 	"go.skia.org/infra/go/sklog"
 	"go.skia.org/infra/pinpoint/go/workflows"
 	pb "go.skia.org/infra/pinpoint/proto/v1"
 	tpr_client "go.skia.org/infra/temporal/go/client"
-	enumspb "go.temporal.io/api/enums/v1"
 )
 
 type server struct {
 	pb.UnimplementedPinpointServer
 
-	// Local rate limiter to only limit the traffic for migration temporarilly.
+	// Local rate limiter to only limit the traffic for migration temporarily.
 	limiter *rate.Limiter
 
 	temporal tpr_client.TemporalProvider
@@ -262,6 +263,9 @@ func (s *server) QueryPairwise(ctx context.Context, req *pb.QueryPairwiseRequest
 	defer cleanUp()
 
 	resp, err := c.DescribeWorkflowExecution(ctx, req.JobId, "")
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Unable to describe workflow execution (%v).", err)
+	}
 
 	workflowStatus := resp.GetWorkflowExecutionInfo().GetStatus()
 
