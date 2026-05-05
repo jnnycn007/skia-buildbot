@@ -345,7 +345,7 @@ func (f *Frontend) getPageContext() (template.JS, error) {
 		Interesting:                 float32(f.flags.Interesting),
 		StepUpOnly:                  f.flags.StepUpOnly,
 		CommitRangeURL:              f.flags.CommitRangeURL,
-		Demo:                        false,
+		Demo:                        config.Config.Demo,
 		DisplayGroupBy:              f.flags.DisplayGroupBy,
 		HideListOfCommitsOnExplore:  f.flags.HideListOfCommitsOnExplore,
 		Notifications:               config.Config.NotifyConfig.Notifications,

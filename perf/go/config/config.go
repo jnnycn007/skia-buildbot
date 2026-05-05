@@ -1167,6 +1167,9 @@ type InstanceConfig struct {
 
 	// DefaultToManualPlotMode if true will include manual_plot_mode=true in Multigraph link references.
 	DefaultToManualPlotMode bool `json:"default_to_manual_plot_mode,omitempty"`
+
+	// Demo if true signifies an instance running in development demo mode.
+	Demo bool `json:"demo,omitempty"`
 }
 
 // Config is the currently running config.

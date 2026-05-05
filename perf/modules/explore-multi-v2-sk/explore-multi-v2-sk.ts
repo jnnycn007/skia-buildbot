@@ -705,18 +705,20 @@ export class ExploreMultiV2Sk extends LitElement {
     const visibleIds = this._showAllTraces
       ? this._matchingTraceIds.slice(0, 500)
       : this._matchingTraceIds.slice(startIdx, endIdx);
-    console.log('[_fetchData] visibleIds:', visibleIds);
     if (visibleIds.length === 0) {
-      console.log('Skipping fetch: no visible trace IDs matched yet');
       return;
     }
 
     const loadedIds = new Set(this._seriesData.map((s) => s.id));
-    console.log('[_fetchData] loadedIds:', Array.from(loadedIds));
 
     this._loading = true;
     try {
-      const now = Math.floor(Date.now() / 1000);
+      let now = Math.floor(Date.now() / 1000);
+      if ((window as any).perf?.demo) {
+        // The demo dataset resides on March 22, 2020. Lock now anchor to April 1, 2020
+        // so the standard 150-day lookback window correctly encompasses the historical files.
+        now = Math.floor(new Date('2020-04-01T00:00:00Z').getTime() / 1000);
+      }
       const quantizedNow = Math.floor(now / 3600) * 3600;
       const duration = 150 * 24 * 3600 * Math.pow(2, retryCount);
       const quantizedBegin = quantizedNow - duration;
@@ -838,7 +840,7 @@ export class ExploreMultiV2Sk extends LitElement {
       if (response && response.dataframe) {
         const newSeries = this._translateDataFrame(response.dataframe);
 
-        if (newSeries.length === 0 && retryCount < 3) {
+        if (newSeries.length === 0 && retryCount < 6) {
           console.log(
             'Out of bounds empty traceset detected. Widening duration bounds retry:',
             retryCount + 1

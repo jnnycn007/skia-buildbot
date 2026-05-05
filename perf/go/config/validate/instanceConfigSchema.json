@@ -492,6 +492,9 @@
         },
         "default_to_manual_plot_mode": {
           "type": "boolean"
+        },
+        "demo": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
