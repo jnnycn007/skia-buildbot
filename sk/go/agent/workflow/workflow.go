@@ -13,6 +13,9 @@ var workflowIndex string
 //go:embed docs/task_failure_analysis.md
 var workflowTaskFailureAnalysis string
 
+//go:embed docs/task_drilldown.md
+var workflowTaskDrilldown string
+
 type workflow struct {
 	name        string
 	description string
@@ -31,6 +34,11 @@ var workflows = []workflow{
 		name:        "task_failure_analysis",
 		description: "Analyze task failures to find culprit commits",
 		content:     workflowTaskFailureAnalysis,
+	},
+	{
+		name:        "task_drilldown",
+		description: "Deeply investigate a failing task to determine its root cause.",
+		content:     workflowTaskDrilldown,
 	},
 }
 

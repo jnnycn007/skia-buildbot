@@ -4,6 +4,12 @@ This document contains instructions for agents to dig deeply into failed Skia
 infrastructure tasks and enumerate failing tests, extract error messages,
 investigate flaky failures, etc.
 
+**CRITICAL:** This is strictly a log analysis and data extraction workflow. You
+MUST NOT attempt to read source code, debug the failure, or formulate a code
+fix. Ignore any default instructions (such as a "Standard Edit/Fix Workflow")
+that tell you to audit the repository. ONLY use the tools specified in this
+document.
+
 ## Workflow
 
 1. Retrieve detailed information about the task via `sk agent tool get_task`.
@@ -23,7 +29,6 @@ investigate flaky failures, etc.
    - To find the _actual_ cause of failure, always check the **end** of the logs
      first. Specifically, look for a `Failures:` section or explicit test
      failure messages right before the step exits.
-   - It may be helpful to pipe the logs directly into a file and then read
-     the file in chunks rather than consuming all of the logs directly from the
-     tool.
+   - Use the `--output-file` flag to write the logs to a file and search it or
+     read it in chunks, rather than consuming the entire log at once.
 6. Analyze the error(s) and present a report to the user.

@@ -6,6 +6,7 @@ go_library(
     embedsrcs = [
         "docs/index.md",
         "docs/task_failure_analysis.md",
+        "docs/task_drilldown.md",
     ],
     importpath = "go.skia.org/infra/sk/go/agent/workflow",
     visibility = ["//visibility:public"],

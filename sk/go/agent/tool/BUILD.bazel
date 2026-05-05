@@ -12,6 +12,7 @@ go_library(
         "//go/auth",
         "//go/httputils",
         "//go/skerr",
+        "//go/util",
         "@com_github_mark3labs_mcp_go//client",
         "@com_github_mark3labs_mcp_go//client/transport",
         "@com_github_mark3labs_mcp_go//mcp",

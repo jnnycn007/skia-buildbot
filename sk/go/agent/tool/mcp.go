@@ -3,6 +3,7 @@ package tool
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -13,6 +14,7 @@ import (
 	"go.skia.org/infra/go/auth"
 	"go.skia.org/infra/go/httputils"
 	"go.skia.org/infra/go/skerr"
+	"go.skia.org/infra/go/util"
 	"golang.org/x/oauth2/google"
 )
 
@@ -39,7 +41,7 @@ func createCommandsForMCPTools(ctx context.Context) ([]*cli.Command, error) {
 			Name:        toolName,
 			Usage:       tool.Description,
 			Description: tool.Description,
-			Flags:       getFlagsFromSchema(tool.InputSchema),
+			Flags:       append(getFlagsFromSchema(tool.InputSchema), defaultFlags...),
 			Action: func(c *cli.Context) error {
 				return callMCPTool(c, toolName)
 			},
@@ -48,6 +50,13 @@ func createCommandsForMCPTools(ctx context.Context) ([]*cli.Command, error) {
 	}
 
 	return commands, nil
+}
+
+var defaultFlags = []cli.Flag{
+	&cli.StringFlag{
+		Name:  "output-file",
+		Usage: "Write output to this file instead of stdout.",
+	},
 }
 
 func getFlagsFromSchema(schema mcp.ToolInputSchema) []cli.Flag {
@@ -102,9 +111,17 @@ func callMCPTool(ctx *cli.Context, toolName string) error {
 		return skerr.Wrap(err)
 	}
 
+	// Don't pass flags we added to the MCP tool.
+	isDefaultFlag := map[string]bool{}
+	for _, defaultFlag := range defaultFlags {
+		for _, defaultFlagName := range defaultFlag.Names() {
+			isDefaultFlag[defaultFlagName] = true
+		}
+	}
+
 	args := make(map[string]interface{})
 	for _, flagName := range ctx.FlagNames() {
-		if ctx.IsSet(flagName) {
+		if ctx.IsSet(flagName) && !isDefaultFlag[flagName] {
 			args[flagName] = ctx.Value(flagName)
 		}
 	}
@@ -125,6 +142,11 @@ func callMCPTool(ctx *cli.Context, toolName string) error {
 	}
 	if res.IsError {
 		return fmt.Errorf("tool reported an error: %s", textContent.String())
+	} else if outputFile := ctx.String("output-file"); outputFile != "" {
+		return util.WithWriteFile(outputFile, func(w io.Writer) error {
+			_, err := fmt.Fprintln(w, textContent.String())
+			return skerr.Wrap(err)
+		})
 	} else {
 		fmt.Println(textContent.String())
 	}

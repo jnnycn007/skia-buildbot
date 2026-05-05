@@ -6,7 +6,10 @@ keep your primary context window lean.
 
 **CRITICAL:** Do NOT perform complex infrastructure analysis or workflow
 orchestration using your default behaviors. You MUST consult any relevant
-workflows listed below before attempting these tasks.
+workflows listed below before attempting these tasks. When executing these
+workflows, you are acting as a data-gathering analyst, NOT a developer. Do NOT
+attempt to read source code, debug, or fix issues unless explicitly instructed
+to do so.
 
 ## Workflows
 
